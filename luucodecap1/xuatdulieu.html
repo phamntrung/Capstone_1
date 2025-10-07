@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartExpense — Xuất dữ liệu</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
+    --border:#e5e7eb; --blue:#2563eb; --green:#16a34a; --red:#ef4444;
+    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
+  }
+
+  /* Sidebar */
+  .sidebar{background:#fff;border-right:1px solid var(--border);padding:18px 14px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .brand .logo{width:40px;height:40px;border-radius:10px;overflow:hidden;background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)}
+  .brand .logo img{width:100%;height:100%;object-fit:cover}
+  .brand b{font-size:18px}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#111827;font-weight:700;text-decoration:none}
+  .nav a.active{background:var(--blue);color:#fff}
+
+  /* Main */
+  .main{padding:22px 24px 40px}
+  .wrap{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:18px;max-width:1200px}
+  h1{margin:0 0 10px;font-size:24px;font-weight:800}
+  .grid{display:grid;grid-template-columns:1fr .8fr;gap:16px}
+  .section{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff}
+  .section h3{margin:0 0 10px;font-size:18px;font-weight:800}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  label{font-weight:700}
+  .input, select, .chip{height:38px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;padding:0 12px;outline:none}
+  .chip{display:inline-flex;align-items:center;font-weight:800;cursor:pointer}
+  .chip.active{background:#0f172a;color:#fff;border-color:#0f172a}
+  .btn{height:40px;border-radius:10px;padding:0 14px;font-weight:800;cursor:pointer}
+  .btn-primary{background:var(--blue);color:#fff;border:0}
+  .btn-ghost{background:#fff;border:1px solid var(--border)}
+  .btn-danger{background:#fff;border:1px solid #fecaca;color:#b91c1c}
+  .muted{color:#94a3b8}
+  .table{width:100%;border-collapse:collapse}
+  .table th,.table td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;font-size:14px}
+  .hint{color:#94a3b8;font-size:13px;margin-top:8px}
+
+  /* Chatbox */
+  .pig-float{
+    position:fixed;right:26px;bottom:26px;width:76px;height:76px;border-radius:18px;
+    background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow);
+    z-index:30;border:0;cursor:pointer
+  }
+  .pig-float img{width:64px;height:64px}
+  .chatbox{
+    position:fixed;right:26px;bottom:112px;width:340px;background:#fff;border:1px solid var(--border);
+    border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:none;z-index:40;grid-template-rows:56px 1fr 60px;
+  }
+  .chatbox.open{display:grid}
+  .chat-head{background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:800}
+  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
+  .chat-body{background:#f4fbff;overflow:auto;padding:10px;max-height:380px}
+  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
+  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:14px}
+  .msg.user{justify-content:flex-end}
+  .msg.user .bubble{background:#2563eb;border:none;color:#fff}
+  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
+  .chat-input{background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
+  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;outline:none}
+  #sendBtn{width:38px;height:38px;border-radius:999px;border:0;background:#2563eb;color:#fff;display:grid;place-items:center;cursor:pointer}
+
+  @media (max-width:1100px){
+    body{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:20}
+    .wrap{max-width:none}
+    .grid{grid-template-columns:1fr}
+    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
+    .pig-float{right:16px}
+  }
+</style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt=""></div>
+      <b>SmartExpense</b>
+    </div>
+    <nav class="nav">
+      <a href="trangchu.html">🏠 Tổng quan</a>
+      <a href="danhsachchitieu.html">🧾 Danh sách chi tiêu</a>
+      <a href="lichsuchitieu.html">🕘 Lịch sử chi tiêu</a>
+      <a href="#">📅 Lên lịch chi tiêu</a>
+      <a href="loaichitieu.html">🏷️ Loại chi tiêu</a>
+      <a href="baocao.html">📊 Báo cáo</a>
+      <a href="hoso.html">👤 Hồ sơ</a>
+      <a href="caidat.html" class="active">⚙️ Cài đặt</a>
+      <a href="login.html">↪️ Đăng xuất</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="wrap">
+      <h1>Xuất dữ liệu</h1>
+      <div class="grid">
+        <!-- LEFT: form -->
+        <section class="section">
+          <h3>Cấu hình</h3>
+
+          <div class="row">
+            <label>Loại dữ liệu</label>
+            <span class="chip active" data-ds="expenses">Chi tiêu</span>
+            <span class="chip" data-ds="categories">Loại chi tiêu</span>
+            <span class="chip" data-ds="devices">Thiết bị</span>
+          </div>
+
+          <div class="row" id="dateRow">
+            <label>Khoảng thời gian</label>
+            <input id="from" type="date" class="input">
+            <span class="muted">→</span>
+            <input id="to" type="date" class="input">
+            <span class="chip" data-range="7d">7 ngày</span>
+            <span class="chip" data-range="30d">30 ngày</span>
+            <span class="chip" data-range="ytd">Năm nay</span>
+          </div>
+
+          <div class="row" id="fieldsRow">
+            <label>Trường dữ liệu</label>
+            <label><input type="checkbox" class="fld" value="date" checked> Ngày</label>
+            <label><input type="checkbox" class="fld" value="category" checked> Loại</label>
+            <label><input type="checkbox" class="fld" value="amount" checked> Số tiền</label>
+            <label><input type="checkbox" class="fld" value="note"> Ghi chú</label>
+            <label><input type="checkbox" class="fld" value="method"> Phương thức</label>
+          </div>
+
+          <div class="row">
+            <label>Định dạng</label>
+            <select id="format" class="input">
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+            </select>
+            <label><input id="header" type="checkbox" checked> Kèm dòng tiêu đề</label>
+            <label><input id="onlySelected" type="checkbox"> Chỉ xuất các trường đã chọn</label>
+          </div>
+
+          <div class="row">
+            <button class="btn btn-ghost" id="previewBtn">Xem trước</button>
+            <button class="btn btn-primary" id="exportBtn">Xuất dữ liệu</button>
+            <span class="muted" id="stat"></span>
+          </div>
+
+          <div class="hint">Mẹo: Nếu dùng Excel/Google Sheets, hãy chọn CSV. Nếu muốn nhập vào hệ thống khác, dùng JSON.</div>
+        </section>
+
+        <!-- RIGHT: preview -->
+        <section class="section">
+          <h3>Xem trước (tối đa 15 dòng)</h3>
+          <div id="previewWrap" class="muted">Chưa có dữ liệu xem trước.</div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Chatbox -->
+  <div id="chatbox" class="chatbox" aria-hidden="true">
+    <div class="chat-head">
+      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+      <div>Trợ lý thông minh</div>
+    </div>
+    <div id="chatBody" class="chat-body"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Viết tin nhắn…">
+      <button id="sendBtn" title="Gửi">➤</button>
+    </div>
+  </div>
+  <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý">
+    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+  </button>
+
+<script>
+/* =================== Demo datasets =================== */
+const CATS = ['Ăn uống','Di chuyển','Giải trí','Mua sắm','Hóa đơn','Khác'];
+const METHODS = ['Tiền mặt','Thẻ','Ví điện tử'];
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+function fmtDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+
+const today = new Date();
+const EXPENSES = Array.from({length:80}).map((_,i)=>{
+  const d = addDays(today, -Math.floor(Math.random()*120));
+  return {
+    id:i+1,
+    date: fmtDate(d),
+    category: CATS[Math.floor(Math.random()*CATS.length)],
+    amount: (Math.floor(Math.random()*900)+50)*1000,
+    note: Math.random()>.7 ? '—' : '',
+    method: METHODS[Math.floor(Math.random()*METHODS.length)]
+  };
+});
+
+const CATEGORIES = CATS.map((c,i)=>({ id:i+1, name:c, monthly_budget: [2000000,3000000,1500000,2500000,1800000,1000000][i] }));
+
+const DEVICES = [
+  {id:1, name:'iPhone 15', platform:'iOS',    browser:'Safari',  city:'Hà Nội',      ip:'113.23.40.17', last:'Hôm nay, 09:10', trusted:false, blocked:false},
+  {id:2, name:'MacBook Pro', platform:'macOS', browser:'Chrome',  city:'HCM',         ip:'27.3.145.80',   last:'Hôm nay, 08:02', trusted:true,  blocked:false},
+  {id:3, name:'Windows PC',  platform:'Windows',browser:'Edge',   city:'Đà Nẵng',     ip:'14.162.6.201',  last:'Hôm qua, 22:03', trusted:false, blocked:false},
+  {id:4, name:'Android Tab', platform:'Android',browser:'Chrome', city:'Singapore',   ip:'103.10.12.2',   last:'2 ngày trước',   trusted:false, blocked:true}
+];
+
+/* =================== UI state =================== */
+let dataset = 'expenses';
+const chips = [...document.querySelectorAll('.chip[data-ds]')];
+chips.forEach(ch => ch.onclick = () => {
+  chips.forEach(x=>x.classList.remove('active')); ch.classList.add('active');
+  dataset = ch.dataset.ds;
+  document.getElementById('dateRow').style.display = dataset==='expenses' ? 'flex' : 'none';
+  document.getElementById('fieldsRow').style.display = dataset==='expenses' ? 'flex' : 'none';
+  document.getElementById('previewWrap').innerHTML = '<span class="muted">Chưa có dữ liệu xem trước.</span>';
+  document.getElementById('stat').textContent = '';
+});
+
+/* ranges */
+const from = document.getElementById('from');
+const to   = document.getElementById('to');
+function setRange(type){
+  const now=new Date(); let a,b;
+  if(type==='7d'){ b=now; a=addDays(now,-6); }
+  if(type==='30d'){ b=now; a=addDays(now,-29); }
+  if(type==='ytd'){ a=new Date(now.getFullYear(),0,1); b=now; }
+  from.value=fmtDate(a); to.value=fmtDate(b);
+}
+document.querySelectorAll('.chip[data-range]').forEach(x=> x.onclick = ()=> setRange(x.dataset.range));
+setRange('30d');
+
+/* fields */
+function selectedFields(){
+  return [...document.querySelectorAll('.fld')].filter(x=>x.checked).map(x=>x.value);
+}
+
+/* filtering */
+function filterExpenses(){
+  const a = from.value ? new Date(from.value) : null;
+  const b = to.value ? new Date(to.value) : null;
+  return EXPENSES.filter(r=>{
+    const d = new Date(r.date);
+    return (!a || d>=a) && (!b || d<=b);
+  });
+}
+
+/* helpers */
+function download(filename, mime, content){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCSV(rows, includeHeader=true){
+  if(!rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  const escape = v => (''+v).includes(',') ? `"${(''+v).replace(/"/g,'""')}"` : v;
+  const head = includeHeader ? cols.join(',')+'\n' : '';
+  return head + rows.map(r => cols.map(c=>escape(r[c] ?? '')).join(',')).join('\n');
+}
+
+/* preview */
+const previewWrap = document.getElementById('previewWrap');
+function renderPreview(rows){
+  if(!rows.length){ previewWrap.innerHTML = '<span class="muted">Không có dữ liệu.</span>'; return; }
+  const cols = Object.keys(rows[0]);
+  const top = rows.slice(0,15);
+  const thead = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
+  const tbody = top.map(r=>'<tr>'+cols.map(c=>`<td>${r[c]}</td>`).join('')+'</tr>').join('');
+  previewWrap.innerHTML = `<div style="overflow:auto"><table class="table">${thead}${tbody}</table></div>`;
+}
+
+/* main actions */
+const stat = document.getElementById('stat');
+document.getElementById('previewBtn').onclick = ()=>{
+  let rows=[];
+  if(dataset==='expenses'){
+    const fields = selectedFields();
+    const onlySel = document.getElementById('onlySelected').checked;
+    rows = filterExpenses().map(r=>{
+      if(!onlySel) return r;
+      const o={}; fields.forEach(f=>o[f]=r[f]); return o;
+    });
+    const total = rows.reduce((s,r)=> s+(+r.amount||0), 0);
+    stat.textContent = `${rows.length} dòng • Tổng ${total.toLocaleString('vi-VN')} đ`;
+  }else if(dataset==='categories'){
+    rows = CATEGORIES;
+    stat.textContent = `${rows.length} dòng`;
+  }else if(dataset==='devices'){
+    rows = DEVICES;
+    stat.textContent = `${rows.length} thiết bị`;
+  }
+  renderPreview(rows);
+};
+
+document.getElementById('exportBtn').onclick = ()=>{
+  const fmt = document.getElementById('format').value;
+  const includeHeader = document.getElementById('header').checked;
+  let rows=[];
+  if(dataset==='expenses'){
+    const fields = selectedFields();
+    const onlySel = document.getElementById('onlySelected').checked;
+    rows = filterExpenses().map(r=>{
+      if(!onlySel) return r;
+      const o={}; fields.forEach(f=>o[f]=r[f]); return o;
+    });
+  }else if(dataset==='categories'){ rows = CATEGORIES; }
+  else if(dataset==='devices'){ rows = DEVICES; }
+
+  if(!rows.length){ alert('Không có dữ liệu để xuất.'); return; }
+
+  const stamp = fmtDate(new Date()).replace(/-/g,'');
+  if(fmt==='csv'){
+    const csv = toCSV(rows, includeHeader);
+    download(`export-${dataset}-${stamp}.csv`,'text/csv;charset=utf-8',csv);
+  }else{
+    const json = JSON.stringify(rows,null,2);
+    download(`export-${dataset}-${stamp}.json`,'application/json',json);
+  }
+};
+
+/* =================== Chatbox =================== */
+const chatToggle=document.getElementById('chatToggle');
+const chatbox=document.getElementById('chatbox');
+const chatBody=document.getElementById('chatBody');
+const chatInput=document.getElementById('chatInput');
+const sendBtn=document.getElementById('sendBtn');
+let greeted=false;
+
+function addMsg(text, who='bot'){
+  const wrap=document.createElement('div'); wrap.className='msg '+who;
+  const av=document.createElement('div'); av.className='avatar-s'; av.textContent=(who==='bot'?'🐷':'👤');
+  const b=document.createElement('div'); b.className='bubble'; b.textContent=text;
+  if(who==='bot'){wrap.append(av,b);} else {wrap.append(b,av);}
+  chatBody.appendChild(wrap); chatBody.scrollTop=chatBody.scrollHeight;
+}
+function openChat(){ chatbox.classList.add('open'); chatbox.setAttribute('aria-hidden','false'); if(!greeted){ addMsg('Xin chào! Mình có thể giúp bạn lọc thời gian, chọn định dạng CSV/JSON và xuất dữ liệu.'); greeted=true; } setTimeout(()=>chatInput.focus(),100); }
+function closeChat(){ chatbox.classList.remove('open'); chatbox.setAttribute('aria-hidden','true'); }
+chatToggle.onclick=()=> chatbox.classList.contains('open') ? closeChat() : openChat();
+
+function handleSend(){
+  const t=chatInput.value.trim(); if(!t) return;
+  addMsg(t,'user'); chatInput.value='';
+  const k=t.toLowerCase();
+  if(k.includes('csv')) addMsg('Chọn định dạng CSV và bấm “Xuất dữ liệu”. CSV mở tốt trong Excel/Google Sheets.');
+  else if(k.includes('json')) addMsg('JSON phù hợp để nhập vào hệ thống khác hoặc API.');
+  else if(k.includes('lọc') || k.includes('thời gian')) addMsg('Dùng khung ngày từ – đến hoặc các nút 7 ngày / 30 ngày / Năm nay.');
+  else addMsg('Bạn muốn xuất loại dữ liệu nào: Chi tiêu, Loại chi tiêu hay Thiết bị?');
+}
+sendBtn.onclick=handleSend;
+chatInput.onkeydown=e=>{ if(e.key==='Enter') handleSend(); };
+</script>
+</body>
+</html>

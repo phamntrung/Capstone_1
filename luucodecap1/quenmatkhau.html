@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quên mật khẩu — Smart Expense</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#eaf3f9;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#d1d5db;
+      --blue:#2563eb;
+      --blue-pressed:#1f49cf;
+      --radius:12px;
+      --shadow:0 10px 24px rgba(37,99,235,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      display:flex; align-items:center; justify-content:center;
+      padding:clamp(12px, 3vw, 28px);
+    }
+
+    .wrap{
+      width:min(560px, 96vw);
+      text-align:center;
+      background:transparent;
+    }
+
+    /* ===== Typography responsive ===== */
+    .logo img{ width:clamp(72px, 12vw, 110px); height:auto; display:block; margin:0 auto clamp(8px, 1.5vw, 12px); }
+
+    .brand{
+      margin:0 0 clamp(4px, .8vw, 8px);
+      font-weight:700;
+      font-size:clamp(18px, 2.6vw, 22px);
+      letter-spacing:.2px;
+    }
+
+    h1{
+      margin:0 0 clamp(8px, 1.6vw, 12px);
+      font-weight:800;
+      line-height:1.1;
+      font-size:clamp(26px, 5.4vw, 36px);
+    }
+
+    .lead{
+      color:var(--muted);
+      margin:0 auto clamp(16px, 2.4vw, 24px);
+      width:min(52ch, 92%);
+      line-height:1.5;
+      font-size:clamp(14px, 2.8vw, 16px);
+    }
+
+    form{ width:min(520px, 92%); margin:0 auto clamp(12px, 2.2vw, 20px); }
+    .input{
+      width:100%;
+      height:clamp(42px, 7vw, 48px);
+      border:1px solid var(--border);
+      border-radius:clamp(8px, 2vw, 12px);
+      background:#fff;
+      padding:0 clamp(12px, 2.4vw, 16px);
+      font-size:clamp(14px, 3.2vw, 16px);
+      outline:none;
+      transition:border-color .2s, box-shadow .2s;
+      margin-bottom:clamp(10px, 2vw, 14px);
+    }
+    .input::placeholder{color:#9aa3af}
+    .input:focus{ border-color:#93c5fd; box-shadow:0 0 0 4px rgba(37,99,235,.14); }
+
+    .btn{
+      width:100%;
+      height:clamp(42px, 7vw, 48px);
+      border:0;
+      border-radius:clamp(8px, 2vw, 12px);
+      background:var(--blue);
+      color:#fff;
+      font-weight:700;
+      font-size:clamp(14px, 3.2vw, 16px);
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:background .15s, transform .04s, box-shadow .15s;
+    }
+    .btn:hover{ background:var(--blue-pressed); }
+    .btn:active{ transform:translateY(1px); }
+
+    .back{
+      display:inline-flex; align-items:center; gap:.6em;
+      margin:clamp(10px, 2vw, 16px) 0 6px;
+      color:var(--blue);
+      text-decoration:none;
+      font-weight:700;
+      font-size:clamp(15px, 3.4vw, 18px);
+    }
+    .back:hover{text-decoration:underline}
+
+    .help{
+      color:#334155;
+      line-height:1.45;
+      font-size:clamp(13px, 3vw, 15px);
+    }
+
+    /* Tối ưu rất nhỏ cho màn hình siêu rộng */
+    @media (min-width:1200px){
+      .wrap{ width:560px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="logo">
+      <!-- thay ảnh của bạn -->
+      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="Smart Expense">
+    </div>
+
+    <div class="brand">Smart Expense</div>
+    <h1>Quên mật khẩu</h1>
+
+    <p class="lead">
+      Nhập email đã đăng ký và chúng tôi sẽ gửi cho bạn hướng dẫn để đặt lại mật khẩu.
+    </p>
+
+    <form id="resetForm" novalidate>
+      <input class="input" id="email" type="email" placeholder="Email" autocomplete="email" required />
+      <button class="btn" id="submitBtn" type="submit">Gửi yêu cầu</button>
+    </form>
+
+    <a class="back" href="login.html"><span aria-hidden="true">←</span> Quay lại đăng nhập</a>
+
+    <p class="help">
+      Bạn chưa nhận được email?<br>
+      Hãy kiểm tra thư mục <b>Spam</b> hoặc thử lại.
+    </p>
+  </main>
+
+  <script>
+    // (tuỳ chọn) mock gửi yêu cầu + kiểm tra email
+    const form = document.getElementById('resetForm');
+    const email = document.getElementById('email');
+    const btn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', e=>{
+      e.preventDefault();
+      const v = email.value.trim();
+      if(!v){ alert('Vui lòng nhập email đã đăng ký.'); email.focus(); return; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ alert('Email không hợp lệ.'); email.focus(); return; }
+
+      btn.disabled = true; const t = btn.textContent; btn.textContent = 'Đang gửi...';
+      setTimeout(()=>{ btn.disabled=false; btn.textContent=t; form.reset(); alert('Đã gửi liên kết đặt lại mật khẩu tới: '+v); }, 900);
+    });
+  </script>
+</body>
+</html>

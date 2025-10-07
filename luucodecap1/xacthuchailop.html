@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartExpense — Xác thực hai lớp</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
+    --border:#e5e7eb; --blue:#2563eb; --blue-700:#1e49d6; --green:#22c55e; --red:#ef4444;
+    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06); --h:44px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
+  }
+
+  /* Sidebar */
+  .sidebar{background:#fff;border-right:1px solid var(--border);padding:18px 14px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .brand .logo{width:40px;height:40px;border-radius:10px;overflow:hidden;background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)}
+  .brand .logo img{width:100%;height:100%;object-fit:cover}
+  .brand b{font-size:18px}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#111827;font-weight:700;text-decoration:none}
+  .nav a.active{background:var(--blue);color:#fff}
+
+  /* Main */
+  .main{padding:22px 24px 40px}
+  .wrap{max-width:980px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .title{font-size:24px;font-weight:800;margin:0 0 6px}
+  .desc{color:#6b7280;margin:0 0 18px}
+  .row{display:grid;gap:8px;margin-bottom:14px}
+  label{font-weight:700}
+  .muted{color:#94a3b8}
+
+  .tabs{display:flex;gap:10px;margin:6px 0 14px}
+  .tab{height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-weight:800;cursor:pointer}
+  .tab.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  .grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px}
+  .section-title{font-weight:800;margin:0 0 8px}
+  .two-col{display:grid;grid-template-columns:200px 1fr;gap:14px}
+
+  .box{border:1px dashed #cbd5e1;border-radius:12px;padding:14px;background:#f8fafc}
+  .qr{width:180px;height:180px;border-radius:12px;background:
+      linear-gradient(135deg,#e2e8f0,#f8fafc);
+      display:grid;place-items:center;border:1px solid #e5e7eb}
+  .qr svg{width:120px;height:120px}
+  .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+
+  .input{position:relative;height:var(--h);display:flex;align-items:center;border:1px solid var(--border);border-radius:12px;background:#fff}
+  .input input{flex:1;height:100%;border:0;outline:none;background:#fff;padding:0 12px;font-size:16px;border-radius:12px}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+  .btn{height:44px;border-radius:12px;padding:0 16px;font-weight:800;cursor:pointer}
+  .btn-primary{background:var(--blue);color:#fff;border:0}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+  .btn-primary:hover{background:var(--blue-700)}
+  .btn-ghost{background:#fff;border:1px solid var(--border)}
+  .btn-soft{background:#f1f5f9;border:1px solid #e2e8f0}
+
+  .ok{color:var(--green);font-weight:700}
+  .err{color:var(--red);font-weight:700}
+
+  .codes{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:8px}
+  .code{background:#0f172a;color:#e5e7eb;padding:8px 10px;border-radius:10px;font-weight:800;letter-spacing:.5px}
+
+  .toast{position:fixed;right:24px;bottom:24px;background:#fff;border:1px solid var(--border);
+    box-shadow:var(--shadow);padding:12px 14px;border-radius:12px;display:none;z-index:50}
+
+  /* Chatbox (đồng bộ) */
+  .pig-float{
+    position:fixed;right:26px;bottom:26px;width:76px;height:76px;border-radius:18px;
+    background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow);
+    z-index:30;border:0;cursor:pointer
+  }
+  .pig-float img{width:64px;height:64px}
+  .chatbox{
+    position:fixed;right:26px;bottom:112px;width:340px;background:#fff;border:1px solid var(--border);
+    border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:none;z-index:40;grid-template-rows:56px 1fr 60px;
+  }
+  .chatbox.open{display:grid}
+  .chat-head{background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:800}
+  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
+  .chat-title{line-height:1.2}
+  .chat-body{background:#f4fbff;overflow:auto;padding:10px;max-height:380px}
+  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
+  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:14px}
+  .msg.user{justify-content:flex-end}
+  .msg.user .bubble{background:#2563eb;border:none;color:#fff}
+  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
+  .chat-input{background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
+  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;outline:none}
+  #sendBtn{width:38px;height:38px;border-radius:999px;border:0;background:#2563eb;color:#fff;display:grid;place-items:center;cursor:pointer}
+
+  @media (max-width:1060px){
+    body{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:10}
+    .wrap{max-width:none}
+    .grid{grid-template-columns:1fr}
+    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
+    .pig-float{right:16px}
+  }
+</style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt=""></div>
+      <b>SmartExpense</b>
+    </div>
+    <nav class="nav">
+      <a href="trangchu.html">🏠 Tổng quan</a>
+      <a href="danhsachchitieu.html">🧾 Danh sách chi tiêu</a>
+      <a href="lichsuchitieu.html">🕘 Lịch sử chi tiêu</a>
+      <a href="#">📅 Lên lịch chi tiêu</a>
+      <a href="loaichitieu.html">🏷️ Loại chi tiêu</a>
+      <a href="baocao.html">📊 Báo cáo</a>
+      <a href="hoso.html">👤 Hồ sơ</a>
+      <a href="caidat.html" class="active">⚙️ Cài đặt</a>
+      <a href="login.html">↪️ Đăng xuất</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="wrap">
+      <div class="card">
+        <h1 class="title">Xác thực hai lớp (2FA)</h1>
+        <p class="desc">Tăng cường bảo mật bằng mã một lần. Bạn có thể dùng ứng dụng Authenticator (Google/Microsoft…) hoặc nhận mã qua SMS.</p>
+
+        <div class="tabs">
+          <button class="tab active" id="tabApp">Authenticator app</button>
+          <button class="tab" id="tabSMS">SMS</button>
+        </div>
+
+        <div class="grid">
+          <!-- LEFT: Setup -->
+          <section id="appPanel">
+            <h3 class="section-title">Thiết lập với ứng dụng Authenticator</h3>
+            <div class="two-col">
+              <div>
+                <div class="box">
+                  <div class="qr" id="qrBox">
+                    <!-- QR placeholder -->
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                      <rect x="0" y="0" width="120" height="120" rx="8" fill="#111827"/>
+                      <rect x="12" y="12" width="24" height="24" fill="#fff"/>
+                      <rect x="84" y="12" width="24" height="24" fill="#fff"/>
+                      <rect x="12" y="84" width="24" height="24" fill="#fff"/>
+                      <rect x="48" y="48" width="24" height="24" fill="#fff"/>
+                    </svg>
+                  </div>
+                  <div style="margin-top:10px">
+                    <div class="muted">Hoặc nhập khóa thủ công:</div>
+                    <div class="mono" id="secret" style="font-weight:800;margin:4px 0"></div>
+                    <button class="btn btn-soft" id="copySecret">Sao chép khóa</button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="row">
+                  <label>Nhập mã 6 số từ ứng dụng</label>
+                  <div class="input">
+                    <input id="otpApp" inputmode="numeric" maxlength="6" placeholder="••••••">
+                  </div>
+                  <div id="msgApp" class="muted"></div>
+                </div>
+                <div class="actions">
+                  <button class="btn btn-ghost" id="resetApp">Tạo khóa mới</button>
+                  <button class="btn btn-primary" id="enableApp" disabled>Kích hoạt 2FA</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- LEFT: SMS -->
+          <section id="smsPanel" style="display:none">
+            <h3 class="section-title">Thiết lập qua SMS</h3>
+            <div class="row">
+              <label>Số điện thoại</label>
+              <div class="input"><input id="phone" placeholder="+84xxxxxxxxx"></div>
+            </div>
+            <div class="row">
+              <button class="btn btn-soft" id="sendSMS">Gửi mã</button>
+            </div>
+            <div class="row">
+              <label>Nhập mã 6 số</label>
+              <div class="input"><input id="otpSMS" inputmode="numeric" maxlength="6" placeholder="••••••"></div>
+              <div id="msgSMS" class="muted"></div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" id="enableSMS" disabled>Kích hoạt 2FA</button>
+            </div>
+          </section>
+
+          <!-- RIGHT: Status / Recovery -->
+          <aside>
+            <h3 class="section-title">Trạng thái</h3>
+            <div id="status"><span class="muted">Chưa bật 2FA</span></div>
+
+            <h3 class="section-title" style="margin-top:16px">Mã khôi phục</h3>
+            <p class="muted" id="rcvHint">Sinh sau khi kích hoạt. Lưu ở nơi an toàn; mỗi mã dùng được một lần.</p>
+            <div class="codes" id="codes" style="display:none"></div>
+            <div class="actions" id="codesActions" style="display:none">
+              <button class="btn btn-soft" id="copyCodes">Sao chép</button>
+              <button class="btn btn-ghost" id="downloadTxt">Tải .txt</button>
+            </div>
+
+            <div class="actions" style="margin-top:16px">
+              <button class="btn btn-ghost" id="disable" style="display:none">Tắt 2FA</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast">✅ Đã kích hoạt xác thực hai lớp!</div>
+
+  <!-- Chatbox -->
+  <div id="chatbox" class="chatbox" aria-hidden="true">
+    <div class="chat-head">
+      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+      <div><div class="chat-title">Trợ lý thông minh</div><div class="muted" style="color:#e6f6ff">Hỗ trợ bật 2FA</div></div>
+    </div>
+    <div id="chatBody" class="chat-body"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Viết tin nhắn…">
+      <button id="sendBtn" title="Gửi">➤</button>
+    </div>
+  </div>
+  <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý">
+    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+  </button>
+
+<script>
+  /* ---------- Tabs ---------- */
+  const tabApp = document.getElementById('tabApp');
+  const tabSMS = document.getElementById('tabSMS');
+  const appPanel = document.getElementById('appPanel');
+  const smsPanel = document.getElementById('smsPanel');
+  tabApp.onclick = ()=>{ tabApp.classList.add('active'); tabSMS.classList.remove('active'); appPanel.style.display=''; smsPanel.style.display='none'; };
+  tabSMS.onclick = ()=>{ tabSMS.classList.add('active'); tabApp.classList.remove('active'); smsPanel.style.display=''; appPanel.style.display='none'; };
+
+  /* ---------- Helpers ---------- */
+  function rand(n){ return Math.floor(Math.random()*n); }
+  function randomBase32(len=16){
+    const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let s=""; for(let i=0;i<len;i++) s+=alphabet[rand(alphabet.length)];
+    // nhóm 4-4-4-4 cho dễ đọc
+    return s.match(/.{1,4}/g).join(' ');
+  }
+  function showToast(msg){
+    const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
+    setTimeout(()=>t.style.display='none', 1500);
+  }
+  function makeRecovery(count=8){
+    const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const out=[]; for(let i=0;i<count;i++){
+      let s=""; for(let j=0;j<8;j++) s+=A[rand(A.length)];
+      out.push(s.slice(0,4)+'-'+s.slice(4));
+    }
+    return out;
+  }
+
+  /* ---------- App flow ---------- */
+  const secretEl = document.getElementById('secret');
+  const otpApp = document.getElementById('otpApp');
+  const msgApp = document.getElementById('msgApp');
+  const enableApp = document.getElementById('enableApp');
+  const copySecret = document.getElementById('copySecret');
+  const resetApp = document.getElementById('resetApp');
+
+  function resetSecret(){
+    secretEl.textContent = randomBase32();
+    otpApp.value=''; enableApp.disabled=true; msgApp.textContent='';
+  }
+  resetSecret();
+
+  otpApp.addEventListener('input', ()=>{
+    const ok = /^\d{6}$/.test(otpApp.value);
+    enableApp.disabled = !ok;
+    msgApp.textContent = ok ? 'Mã hợp lệ, sẵn sàng kích hoạt.' : 'Nhập đúng 6 chữ số.';
+    msgApp.className = ok ? 'ok' : 'muted';
+  });
+
+  copySecret.onclick = ()=>{ navigator.clipboard.writeText(secretEl.textContent.replace(/\s/g,'')); showToast('Đã sao chép khóa.'); };
+  resetApp.onclick = resetSecret;
+
+  /* ---------- SMS flow ---------- */
+  const phone = document.getElementById('phone');
+  const sendSMS = document.getElementById('sendSMS');
+  const otpSMS = document.getElementById('otpSMS');
+  const msgSMS = document.getElementById('msgSMS');
+  const enableSMS = document.getElementById('enableSMS');
+
+  sendSMS.onclick = ()=>{
+    if(!phone.value.trim()){ alert('Nhập số điện thoại trước.'); return; }
+    showToast('Đã gửi mã (demo).');
+  };
+  otpSMS.addEventListener('input', ()=>{
+    const ok = /^\d{6}$/.test(otpSMS.value);
+    enableSMS.disabled = !ok;
+    msgSMS.textContent = ok ? 'Mã hợp lệ, sẵn sàng kích hoạt.' : 'Nhập đúng 6 chữ số.';
+    msgSMS.className = ok ? 'ok' : 'muted';
+  });
+
+  /* ---------- Status & Recovery ---------- */
+  let enabled = false;
+  const status = document.getElementById('status');
+  const codesBox = document.getElementById('codes');
+  const codesActions = document.getElementById('codesActions');
+  const rcvHint = document.getElementById('rcvHint');
+  const disableBtn = document.getElementById('disable');
+  const copyCodes = document.getElementById('copyCodes');
+  const downloadTxt = document.getElementById('downloadTxt');
+
+  function setEnabled(v){
+    enabled = v;
+    if(v){
+      status.innerHTML = '<span class="ok">Đang bật 2FA</span>';
+      disableBtn.style.display = '';
+      const codes = makeRecovery();
+      codesBox.innerHTML = codes.map(c=>`<div class="code mono">${c}</div>`).join('');
+      codesBox.style.display='grid'; codesActions.style.display='flex';
+      rcvHint.textContent = 'Các mã khôi phục bên dưới — lưu trữ an toàn.';
+      copyCodes.onclick = ()=>{navigator.clipboard.writeText(codes.join('\n')); showToast('Đã sao chép mã khôi phục.');};
+      downloadTxt.onclick = ()=>{
+        const blob = new Blob([codes.join('\n')], {type:'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='recovery-codes.txt'; a.click();
+        URL.revokeObjectURL(url);
+      };
+    }else{
+      status.innerHTML = '<span class="muted">Chưa bật 2FA</span>';
+      disableBtn.style.display = 'none';
+      codesBox.style.display='none'; codesActions.style.display='none';
+      rcvHint.textContent = 'Sinh sau khi kích hoạt. Lưu ở nơi an toàn; mỗi mã dùng một lần.';
+    }
+  }
+  setEnabled(false);
+
+  enableApp.onclick = ()=>{ setEnabled(true); showToast('Đã kích hoạt xác thực hai lớp!'); };
+  enableSMS.onclick = ()=>{ setEnabled(true); showToast('Đã kích hoạt xác thực hai lớp!'); };
+  disableBtn.onclick = ()=>{
+    if(confirm('Tắt xác thực hai lớp?')){ setEnabled(false); showToast('Đã tắt 2FA.'); }
+  };
+
+  /* ---------- Chatbox ---------- */
+  const chatToggle=document.getElementById('chatToggle');
+  const chatbox=document.getElementById('chatbox');
+  const chatBody=document.getElementById('chatBody');
+  const chatInput=document.getElementById('chatInput');
+  const sendBtn=document.getElementById('sendBtn');
+  let greeted=false;
+
+  function addMsg(text, who='bot'){
+    const wrap=document.createElement('div'); wrap.className='msg '+who;
+    const av=document.createElement('div'); av.className='avatar-s'; av.textContent=(who==='bot'?'🐷':'👤');
+    const b=document.createElement('div'); b.className='bubble'; b.textContent=text;
+    if(who==='bot'){wrap.append(av,b);} else {wrap.append(b,av);}
+    chatBody.appendChild(wrap); chatBody.scrollTop=chatBody.scrollHeight;
+  }
+  function openChat(){
+    chatbox.classList.add('open'); chatbox.setAttribute('aria-hidden','false');
+    if(!greeted){ addMsg('Mình có thể giúp bạn bật 2FA qua App hoặc SMS. Hãy hỏi mình nếu cần!'); greeted=true; }
+    setTimeout(()=>chatInput.focus(),100);
+  }
+  function closeChat(){ chatbox.classList.remove('open'); chatbox.setAttribute('aria-hidden','true'); }
+  chatToggle.addEventListener('click', ()=> chatbox.classList.contains('open') ? closeChat() : openChat());
+
+  function handleSend(){
+    const t=chatInput.value.trim(); if(!t) return;
+    addMsg(t,'user'); chatInput.value='';
+    const k=t.toLowerCase();
+    if(k.includes('app')||k.includes('qr')) addMsg('Mở Google/Microsoft Authenticator, thêm tài khoản bằng quét QR hoặc nhập khóa thủ công.');
+    else if(k.includes('sms')) addMsg('Nhập số điện thoại rồi bấm “Gửi mã”, sau đó nhập 6 số để kích hoạt.');
+    else if(k.includes('mã khôi phục')||k.includes('backup')) addMsg('Sau khi bật 2FA, hệ thống sẽ sinh 8 mã khôi phục — mỗi mã dùng 1 lần. Hãy sao lưu hoặc tải về .txt.');
+    else addMsg('Bạn muốn bật bằng App hay SMS? Mình sẽ hướng dẫn chi tiết.');
+  }
+  sendBtn.addEventListener('click', handleSend);
+  chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') handleSend(); });
+</script>
+</body>
+</html>

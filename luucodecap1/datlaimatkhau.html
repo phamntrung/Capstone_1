@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đặt lại mật khẩu — Smart Expense</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaf3f9; --text:#0f172a; --muted:#475569;
+    --border:#e5e7eb; --white:#fff;
+    --blue:#2563eb; --blue-pressed:#1f4fd1;
+    --ok:#16a34a; --bad:#ef4444; --mid:#f59e0b;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    display:flex; align-items:flex-start; justify-content:center;
+  }
+  .wrap{
+    width:min(560px, 92vw);
+    text-align:center;
+    margin:64px 0 80px;
+  }
+  .logo{margin:0 auto 10px}
+  .logo img{width:120px; height:auto; display:block; margin:auto}
+  .brand{font-weight:800; font-size:clamp(24px, 3.4vw, 34px); margin:0 0 6px}
+  h1{font-weight:800; font-size:clamp(28px, 4.8vw, 38px); margin:4px 0 18px}
+
+  form{width:min(520px, 92%); margin:0 auto}
+  .input{
+    width:100%; height:52px; background:var(--white);
+    border:1px solid var(--border); border-radius:12px;
+    padding:0 16px; font-size:16px; outline:none;
+    transition:border-color .2s, box-shadow .2s;
+    margin-bottom:12px;
+  }
+  .input::placeholder{color:#9aa3af}
+  .input:focus{border-color:#93c5fd; box-shadow:0 0 0 4px rgba(37,99,235,.14)}
+  .meter-wrap{
+    width:100%; height:10px; border-radius:999px;
+    background:#e5e7eb; overflow:hidden; margin:8px 0 6px;
+  }
+  .meter{
+    height:100%; width:0%; background:var(--bad);
+    transition:width .2s ease, background .2s ease;
+  }
+  .weak-label{
+    text-align:left; font-size:14px; color:#6b7280; margin-bottom:6px;
+  }
+
+  .rules{ display:grid; grid-template-columns:auto 1fr; gap:10px 12px;
+    text-align:left; width:min(520px,92%); margin:4px auto 18px; font-size:16px; color:#111827}
+  .tick{ color:var(--ok); font-weight:800; }
+
+  .btn{
+    width:min(520px,92%); height:52px; border:0; border-radius:12px;
+    background:var(--blue); color:#fff; font-weight:700; font-size:16px;
+    cursor:pointer; box-shadow:0 10px 22px rgba(37,99,235,.24);
+    transition:background .15s, transform .04s, opacity .2s;
+  }
+  .btn:hover{background:var(--blue-pressed)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.6; cursor:not-allowed}
+
+  .back{
+    display:inline-block; margin:18px 0 0; color:#2563eb;
+    font-weight:700; font-size:clamp(18px, 3.2vw, 28px); text-decoration:none;
+  }
+  .back:hover{text-decoration:underline}
+
+  @media (max-width:420px){
+    .logo img{width:96px}
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="Smart Expense" alt="Smart Expense"></div>
+    <div class="brand">Smart Expense</div>
+    <h1>Đặt lại mật khẩu</h1>
+
+    <form id="form" novalidate>
+      <input class="input" id="pw" type="password" placeholder="Mật khẩu  mới" autocomplete="new-password" required>
+      <input class="input" id="pw2" type="password" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" required>
+
+      <div class="meter-wrap"><div id="meter" class="meter"></div></div>
+      <div id="weakLabel" class="weak-label">Weak</div>
+
+      <div class="rules" aria-live="polite">
+        <div class="tick" id="r1">✓</div><div>Tối thiểu 8 ký tự</div>
+        <div class="tick" id="r2">✓</div><div>Ít nhất 1 chữ thường</div>
+        <div class="tick" id="r3">✓</div><div>Ít nhất 1 chữ in hoa</div>
+        <div class="tick" id="r4">✓</div><div>Ít nhất 1 số hoặc ký hiệu</div>
+      </div>
+
+      <button class="btn" id="submitBtn" type="submit" disabled>Đặt lại mật khẩu</button>
+    </form>
+
+    <a class="back" href="login.html">Quay lại đăng nhập</a>
+  </main>
+
+<script>
+  // Các tiêu chí
+  const rules = {
+    len: v => v.length >= 8,
+    lower: v => /[a-z]/.test(v),
+    upper: v => /[A-Z]/.test(v),
+    digitSymbol: v => /[\d\W_]/.test(v),
+  };
+
+  // DOM
+  const pw = document.getElementById('pw');
+  const pw2 = document.getElementById('pw2');
+  const meter = document.getElementById('meter');
+  const weakLabel = document.getElementById('weakLabel');
+  const submitBtn = document.getElementById('submitBtn');
+  const r1 = document.getElementById('r1');
+  const r2 = document.getElementById('r2');
+  const r3 = document.getElementById('r3');
+  const r4 = document.getElementById('r4');
+
+  function updateUI() {
+    const v = pw.value || "";
+    const ok = [
+      rules.len(v),
+      rules.lower(v),
+      rules.upper(v),
+      rules.digitSymbol(v)
+    ];
+    // Tô màu tick (xanh khi đạt, xám khi chưa)
+    [r1,r2,r3,r4].forEach((el, i)=>{
+      el.style.color = ok[i] ? 'var(--ok)' : '#9ca3af';
+      el.textContent = ok[i] ? '✓' : '✓'; // giữ biểu tượng giống ảnh
+    });
+
+    // Điểm strength
+    const score = ok.filter(Boolean).length; // 0..4
+    const pct = [0, 25, 50, 75, 100][score];
+    meter.style.width = pct + '%';
+    meter.style.background = score <= 1 ? 'var(--bad)'
+                           : score === 2 ? 'var(--mid)'
+                           : '#22c55e';
+
+    // Nhãn Weak/Medium/Strong (giống ảnh để chữ tiếng Anh)
+    weakLabel.textContent = score <= 1 ? 'Weak'
+                          : score === 2 ? 'Medium'
+                          : 'Strong';
+
+    // Cho phép submit khi cả 4 điều kiện đạt và trùng khớp
+    const canSubmit = score === 4 && pw2.value && pw.value === pw2.value;
+    submitBtn.disabled = !canSubmit;
+  }
+
+  pw.addEventListener('input', updateUI);
+  pw2.addEventListener('input', updateUI);
+
+  document.getElementById('form').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    if(submitBtn.disabled) return;
+    alert('Đặt lại mật khẩu thành công!');
+    e.target.reset();
+    updateUI();
+  });
+
+  // Khởi tạo
+  updateUI();
+</script>
+</body>
+</html>

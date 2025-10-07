@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartExpense — Báo cáo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
+    --border:#e5e7eb; --blue:#2563eb; --blue-600:#1f4fd1;
+    --green:#22c55e; --green-700:#15803d; --green-200:#bbf7d0;
+    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06);
+  }
+  /* Dark theme variables */
+  html.dark{
+    --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2;
+    --border:#1f2a44; --blue:#3b82f6;
+    --green:#22c55e; --green-700:#16a34a; --green-200:#14532d;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
+  }
+
+  /* ===== Sidebar (dark-mode friendly) ===== */
+  .sidebar{
+    background:var(--card);
+    border-right:1px solid var(--border);
+    padding:18px 14px;
+    color:var(--text);
+  }
+  .brand{
+    display:flex;align-items:center;gap:12px;margin-bottom:12px;
+    padding-bottom:6px;border-bottom:1px solid var(--border);
+    position:relative;z-index:1;
+  }
+  .brand .logo{
+    width:44px;height:44px;border-radius:10px;overflow:hidden;
+    background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)
+  }
+  .brand .logo img{width:100%;height:100%;object-fit:cover;display:block}
+  .brand b{
+    font-size:18px;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .nav{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .nav a{
+    display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
+    color:var(--text);font-weight:700;text-decoration:none
+  }
+  .nav a .i{width:18px;text-align:center}
+  .nav a:hover{background:rgba(37,99,235,.12)}
+  .nav a.active{background:var(--blue);color:#fff}
+
+  /* ===== Main ===== */
+  .main{padding:22px 24px 40px}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .top h1{margin:0;font-size:22px;font-weight:800}
+  .top .sp{flex:1}
+  .btn{height:38px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:800;padding:0 14px;cursor:pointer}
+
+  .grid{display:grid;grid-template-columns:1.25fr .9fr;gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
+
+  .daily .row{display:grid;grid-template-columns:20px 1fr 200px 80px;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px dashed #eef2f7}
+  html.dark .daily .row{border-bottom:1px dashed #1f2a44}
+  .daily .row:last-child{border-bottom:0}
+  .arrow{color:#94a3b8}
+  .date{color:var(--text)}
+  .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+  html.dark .bar{background:#1f2a44}
+  .bar>i{display:block;height:100%;background:#cbd5e1}
+  .bar>i.green{background:var(--green)}
+  .amount{text-align:right;color:var(--text);font-weight:700}
+
+  .chart{display:flex;flex-direction:column;gap:12px}
+  .chart .panel{
+    background:#0b1220;border-radius:12px;padding:10px;height:180px;
+    display:grid;place-items:center;border:1px solid #162033;
+  }
+  .chart svg{width:100%;height:100%}
+
+  .month .row{display:grid;grid-template-columns:80px 1fr 110px;align-items:center;gap:10px;padding:10px 6px}
+  .mbar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+  html.dark .mbar{background:#1f2a44}
+  .mbar>i{display:block;height:100%;background:var(--green)}
+  .mamount{text-align:right;font-weight:700;color:var(--text)}
+
+  /* ===== Chatbox ===== */
+  .pig-float{
+    position:fixed;right:26px;bottom:26px;width:76px;height:76px;border-radius:18px;
+    background:#ffe8e0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.12);
+    z-index:30;border:0;cursor:pointer
+  }
+  .pig-float img{width:64px;height:64px}
+
+  .chatbox{
+    position:fixed;right:26px;bottom:112px;width:340px;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow);overflow:hidden;display:none;z-index:40;
+    grid-template-rows:56px 1fr 60px;
+  }
+  .chatbox.open{display:grid}
+  .chat-head{
+    background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;
+    padding:10px 12px;font-weight:800;
+  }
+  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
+  .chat-title{line-height:1.2}
+  .chat-sub{font-weight:600;opacity:.95}
+  .chat-body{background:#f4fbff;overflow:auto;padding:10px;scroll-behavior:smooth;max-height:380px}
+  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
+  .msg.user{justify-content:flex-end}
+  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:14px;line-height:1.35}
+  html.dark .bubble{background:var(--card);color:var(--text)}
+  .msg.bot .bubble{border-radius:14px 14px 14px 4px}
+  .msg.user .bubble{border-radius:14px 14px 4px 14px;background:var(--blue);border:none;color:#fff}
+  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
+  .typing{display:inline-block;min-width:34px}
+  .typing span{display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;margin:0 2px;animation:b 1s infinite ease-in-out}
+  .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+  @keyframes b{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+  .chat-input{background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
+  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;background:#fff;outline:none}
+  html.dark #chatInput{background:transparent;color:var(--text)}
+
+  /* ===== FAB ===== */
+  .fab{position:fixed;right:26px;bottom:112px;width:46px;height:46px;border-radius:999px;background:#f43f5e;color:#fff;display:grid;place-items:center;font-size:22px;box-shadow:0 6px 14px rgba(244,63,94,.35);cursor:pointer;z-index:20}
+
+  @media (max-width:1100px){
+    body{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:20}
+    .grid{grid-template-columns:1fr}
+    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
+    .pig-float{right:16px;bottom:20px}
+    .fab{right:16px;bottom:96px}
+  }
+</style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt=""></div>
+      <b>SmartExpense</b>
+    </div>
+    <nav class="nav">
+      <a href="trangchu.html"><span class="i">🏠</span> <span data-i18n="nav.overview">Tổng quan</span></a>
+      <a href="danhsachchitieu.html"><span class="i">🧾</span> <span data-i18n="nav.list">Danh sách chi tiêu</span></a>
+      <a href="lichsuchitieu.html"><span class="i">🕘</span> <span data-i18n="nav.history">Lịch sử chi tiêu</span></a>
+      <a href="#"><span class="i">📅</span> <span data-i18n="nav.schedule">Lên lịch chi tiêu</span></a>
+      <a href="loaichitieu.html"><span class="i">🏷️</span> <span data-i18n="nav.types">Loại chi tiêu</span></a>
+      <a href="baocao.html" class="active"><span class="i">📊</span> <span data-i18n="nav.report">Báo cáo</span></a>
+      <a href="hoso.html"><span class="i">👤</span> <span data-i18n="nav.profile">Hồ sơ</span></a>
+      <a href="caidat.html"><span class="i">⚙️</span> <span data-i18n="nav.settings">Cài đặt</span></a>
+      <a href="login.html"><span class="i">↪️</span> <span data-i18n="nav.logout">Đăng xuất</span></a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <h1 data-i18n="report.title">Báo cáo</h1>
+      <div class="sp"></div>
+      <button class="btn" id="btnDetail" data-i18n="report.viewDetail">Xem chi tiết báo cáo</button>
+    </div>
+
+    <section class="grid">
+      <!-- Left: Daily -->
+      <div class="card daily">
+        <b data-i18n="daily.title">Chi tiêu theo ngày</b>
+        <div id="daily"></div>
+        <button class="btn" style="margin-top:10px" data-i18n="btn.more">Xem thêm</button>
+      </div>
+
+      <!-- Right: Chart + Monthly -->
+      <div style="display:grid;gap:16px">
+        <div class="card chart">
+          <div class="panel">
+            <svg viewBox="0 0 600 260" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#22c55e" stop-opacity="0.9"/>
+                  <stop offset="100%" stop-color="#22c55e" stop-opacity="0.05"/>
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="600" height="260" fill="#0b1220"/>
+              <g stroke="#24324a" stroke-width="1">
+                <line x1="40" y1="220" x2="580" y2="220"/>
+                <line x1="40" y1="30"  x2="40"  y2="220"/>
+              </g>
+              <path d="M40,210 L120,200 L180,190 L240,175 L300,170 L360,160 L420,150 L480,110 L540,60 L580,40 L580,220 L40,220 Z"
+                    fill="url(#g)" stroke="#22c55e" stroke-width="3"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card month">
+          <b data-i18n="monthly.title">Chi tiêu theo tháng</b>
+          <div id="month"></div>
+          <button class="btn" style="margin-top:10px;width:110px" data-i18n="btn.more">Xem thêm</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Chatbox -->
+  <div id="chatbox" class="chatbox" aria-hidden="true">
+    <div class="chat-head">
+      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+      <div>
+        <div class="chat-title" data-i18n="chat.title">Trợ lý thông minh</div>
+        <div class="chat-sub" data-i18n="chat.sub">Xin chào! 👋 Rất vui khi được hỗ trợ bạn</div>
+      </div>
+    </div>
+    <div id="chatBody" class="chat-body"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Viết tin nhắn…" data-i18n="ph.chat">
+      <button id="sendBtn" data-i18n="send.title" data-i18n-attr="title,aria-label" title="Gửi" aria-label="Gửi">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <button id="chatToggle" class="pig-float" data-i18n="chat.open" data-i18n-attr="aria-label" aria-label="Mở trợ lý">
+    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+  </button>
+
+  <div class="fab" title="Lên đầu trang" data-i18n="fab.top" data-i18n-attr="title">↑</div>
+
+<script>
+  /* ===== Apply saved theme from Settings ===== */
+  (function initTheme(){
+    const saved = localStorage.getItem('theme');
+    document.documentElement.classList.toggle('dark', saved === 'dark');
+  })();
+
+  /* ===== I18N dictionary ===== */
+  const I18N = {
+    vi: {
+      "nav.overview":"Tổng quan","nav.list":"Danh sách chi tiêu","nav.history":"Lịch sử chi tiêu",
+      "nav.schedule":"Lên lịch chi tiêu","nav.types":"Loại chi tiêu","nav.report":"Báo cáo",
+      "nav.profile":"Hồ sơ","nav.settings":"Cài đặt","nav.logout":"Đăng xuất",
+
+      "report.title":"Báo cáo","report.viewDetail":"Xem chi tiết báo cáo",
+      "daily.title":"Chi tiêu theo ngày","monthly.title":"Chi tiêu theo tháng",
+      "btn.more":"Xem thêm","fab.top":"Lên đầu trang",
+
+      "chat.title":"Trợ lý thông minh","chat.sub":"Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
+      "chat.greet":"Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.",
+      "chat.open":"Mở trợ lý","ph.chat":"Viết tin nhắn…","send.title":"Gửi",
+
+      "msg.create.wait":"Đang tạo câu trả lời dựa theo yêu cầu…",
+      "msg.create.done":"Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Hãy kiểm tra ở mục Danh sách chi tiêu.",
+      "msg.next":"Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?"
+    },
+    en: {
+      "nav.overview":"Overview","nav.list":"Expense list","nav.history":"History",
+      "nav.schedule":"Budget planner","nav.types":"Categories","nav.report":"Reports",
+      "nav.profile":"Profile","nav.settings":"Settings","nav.logout":"Log out",
+
+      "report.title":"Reports","report.viewDetail":"View detailed report",
+      "daily.title":"Daily spending","monthly.title":"Monthly spending",
+      "btn.more":"See more","fab.top":"Back to top",
+
+      "chat.title":"Smart assistant","chat.sub":"Hello! 👋 Happy to help",
+      "chat.greet":"I'm the SmartExpense assistant. I can create expenses, show reports, or share tips.",
+      "chat.open":"Open assistant","ph.chat":"Type a message…","send.title":"Send",
+
+      "msg.create.wait":"Generating a response based on your request…",
+      "msg.create.done":"I've created next month's recurring expense. Please check the Expense list.",
+      "msg.next":"Got it. What would you like me to do next?"
+    }
+  };
+
+  function t(key){
+    const lang = localStorage.getItem('lang') || 'vi';
+    return (I18N[lang] && I18N[lang][key]) || key;
+  }
+
+  function translatePage(){
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      const attrs = el.getAttribute('data-i18n-attr');
+      if (attrs) {
+        attrs.split(',').forEach(a => el.setAttribute(a.trim(), val));
+      } else if (el.tagName === 'INPUT') {
+        el.placeholder = val;
+      } else {
+        el.textContent = val;
+      }
+    });
+  }
+
+  /* ===== Mock data ===== */
+  const DAILY = [
+    { label:'2025-09-24 Thứ Tư', amount:2015000 },
+    { label:'2025-09-23 Thứ Ba', amount:0 },
+    { label:'2025-09-22 Thứ Hai', amount:0 },
+    { label:'2025-09-21 Chủ Nhật', amount:0 },
+    { label:'2025-09-20 Thứ Bảy', amount:0 },
+    { label:'2025-09-19 Thứ Sáu', amount:0 },
+    { label:'2025-09-18 Thứ Năm', amount:0 },
+    { label:'2025-09-17 Thứ Tư', amount:0 },
+    { label:'2025-09-16 Thứ Ba', amount:0 },
+    { label:'2025-09-15 Thứ Hai', amount:0 },
+  ];
+  const MONTHLY = [
+    { m:'09/2025', amount:2015000 },
+    { m:'08/2025', amount:0 },
+    { m:'07/2025', amount:0 },
+    { m:'06/2025', amount:0 },
+    { m:'05/2025', amount:0 },
+    { m:'04/2025', amount:0 },
+  ];
+
+  // chọn locale theo ngôn ngữ
+  function currentLocale(){
+    const lang = localStorage.getItem('lang') || 'vi';
+    return lang === 'en' ? 'en-US' : 'vi-VN';
+  }
+  const fmt = n => (n||0).toLocaleString(currentLocale()) + 'đ';
+
+  // Render daily list
+  (function renderDaily(){
+    const wrap = document.getElementById('daily');
+    const max = Math.max(...DAILY.map(d=>d.amount), 1);
+    DAILY.forEach(d=>{
+      const w = Math.round((d.amount / max) * 100);
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <div class="arrow">›</div>
+        <div class="date">${d.label}</div>
+        <div class="bar"><i class="${d.amount>0?'green':''}" style="width:${w}%"></i></div>
+        <div class="amount">${fmt(d.amount)}</div>
+      `;
+      wrap.appendChild(row);
+    });
+  })();
+
+  // Render monthly list
+  (function renderMonth(){
+    const wrap = document.getElementById('month');
+    const max = Math.max(...MONTHLY.map(m=>m.amount), 1);
+    MONTHLY.forEach(m=>{
+      const w = Math.round((m.amount / max) * 100);
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <div>${m.m}</div>
+        <div class="mbar"><i style="width:${w}%;"></i></div>
+        <div class="mamount">${fmt(m.amount)}</div>
+      `;
+      wrap.appendChild(row);
+    });
+  })();
+
+  // FAB scroll to top
+  document.querySelector('.fab').onclick = ()=> window.scrollTo({top:0,behavior:'smooth'});
+
+  // Detail button (demo)
+  document.getElementById('btnDetail').onclick = ()=> alert(t('report.viewDetail'));
+
+  // ===== Chatbox =====
+  const chatToggle = document.getElementById('chatToggle');
+  const chatbox = document.getElementById('chatbox');
+  const chatBody = document.getElementById('chatBody');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn  = document.getElementById('sendBtn');
+
+  let greeted = false;
+  function openChat() {
+    chatbox.classList.add('open');
+    chatbox.setAttribute('aria-hidden','false');
+    if (!greeted) {
+      botSay(t('chat.greet'));
+      greeted = true;
+    }
+    setTimeout(()=> chatInput && chatInput.focus(), 100);
+  }
+  function closeChat() {
+    chatbox.classList.remove('open');
+    chatbox.setAttribute('aria-hidden','true');
+  }
+  chatToggle.addEventListener('click', ()=> chatbox.classList.contains('open') ? closeChat() : openChat());
+
+  function scrollBottom(){ chatBody.scrollTop = chatBody.scrollHeight; }
+  function addMsg(text, who='bot'){
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${who}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar-s';
+    avatar.textContent = who==='bot' ? '🐷' : '👤';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerText = text;
+    if (who==='bot'){ wrap.append(avatar, bubble); } else { wrap.append(bubble, avatar); }
+    chatBody.appendChild(wrap);
+    scrollBottom();
+  }
+  function addTyping(){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg bot';
+    wrap.dataset.typing = '1';
+    wrap.innerHTML = `<div class="avatar-s">🐷</div>
+      <div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+    chatBody.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+  function botSay(text, delay=0){
+    const tnode = addTyping();
+    setTimeout(()=>{ tnode.remove(); addMsg(text,'bot'); }, Math.max(300, delay));
+  }
+
+  function handleSend(){
+    const txt = chatInput.value.trim();
+    if (!txt) return;
+    addMsg(txt,'user');
+    chatInput.value = '';
+
+    const lang = localStorage.getItem('lang') || 'vi';
+    const q = txt.toLowerCase();
+
+    const createIntent = (lang==='en')
+      ? (q.includes('create') && q.includes('month'))
+      : (q.includes('tạo') && (q.includes('tháng') || q.includes('thang')));
+
+    if (createIntent) {
+      botSay(t('msg.create.wait'), 900);
+      setTimeout(()=> botSay(t('msg.create.done'), 1200), 1100);
+    } else {
+      botSay(t('msg.next'));
+    }
+  }
+  sendBtn.addEventListener('click', handleSend);
+  chatInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') handleSend(); });
+
+  // ===== Init language & translate =====
+  (function initI18N(){
+    const savedLang = localStorage.getItem('lang') || 'vi';
+    // set lang attribute on <html> for a11y
+    document.documentElement.setAttribute('lang', savedLang);
+    translatePage();
+  })();
+</script>
+  <script>
+  document.addEventListener('click', function(e){
+    var link = e.target && e.target.closest && e.target.closest('a[href="login.html"]');
+    if(!link) return;
+    e.preventDefault();
+    try {
+      localStorage.removeItem('smartexpense_user');
+      localStorage.removeItem('smartexpense_token');
+    } catch(_){}
+    window.location.href = 'login.html';
+  });
+  </script>
+</body>
+</html>
