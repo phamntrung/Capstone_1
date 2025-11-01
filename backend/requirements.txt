@@ -4,4 +4,10 @@ PyJWT==2.9.0
 python-dotenv==1.0.1
 google-auth==2.34.0
 requests==2.32.3
-
+joblib==1.4.2
+scikit-learn==1.5.2
+pandas==2.2.3
+PyMySQL==1.1.0
+SQLAlchemy>=2.0.36
+Flask-SQLAlchemy>=3.1.1
+Flask-Migrate>=4.0.5

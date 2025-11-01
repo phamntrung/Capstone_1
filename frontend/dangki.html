@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartExpense - Đăng ký</title>
+  <style>
+    :root{
+      --bg:#eef7ff;       
+      --card:#ffffff;
+      --text:#0f172a;      
+      --muted:#64748b;
+      --primary:#0b63ff;   
+      --primary-hover:#084bcc;
+      --border:#e5e7eb;
+      --input-bg:#f5f6f8;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+      background:var(--bg);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:560px;
+      padding:40px 16px 56px;
+      text-align:center;
+    }
+
+    .logo{
+      width:110px;height:110px; object-fit:contain; margin:0 auto 8px;
+      display:block;
+    }
+
+    h1{
+      margin:0 0 28px;
+      font-size:34px;
+      line-height:1.2;
+      color:var(--text);
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    form{
+      width:100%;
+      max-width:520px;
+      margin:0 auto;
+    }
+
+    .field{
+      margin-bottom:16px;
+    }
+    .input{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid var(--border);
+      background:var(--input-bg);
+      border-radius:10px;
+      font-size:16px;
+      outline:none;
+      transition:box-shadow .15s, border-color .15s;
+    }
+    .input:focus{
+      border-color:#bcd7ff;
+      box-shadow:0 0 0 3px rgba(11,99,255,.15);
+      background:#fff;
+    }
+
+    .google-btn{
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 14px;
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:10px;
+      font-size:15px;
+      justify-content:flex-start;
+      cursor:pointer;
+      transition:background .15s, box-shadow .15s;
+      margin:6px 0 18px;
+    }
+    .google-btn:hover{
+      background:#fafafa;
+      box-shadow:0 2px 6px rgba(0,0,0,.05);
+    }
+    .google-icon{
+      width:22px;height:22px; flex:0 0 22px;
+    }
+
+    .submit{
+      display:inline-block;
+      padding:10px 18px;
+      border:none;
+      border-radius:10px;
+      background:var(--primary);
+      color:#fff;
+      font-weight:600;
+      font-size:15px;
+      cursor:pointer;
+      transition:background .15s, transform .02s;
+      min-width:110px;
+    }
+    .submit:hover{ background:var(--primary-hover); }
+    .submit:active{ transform:translateY(1px); }
+
+    .note{
+      color:var(--muted);
+      font-size:14px;
+      margin-top:10px;
+    }
+
+    .back-login{
+      margin-top:18px;
+      font-size:14px;
+    }
+    .back-login a{ color:var(--primary); text-decoration:none; }
+    .back-login a:hover{ text-decoration:underline; }
+
+    /* Google OAuth Error Warning */
+    .oauth-warning{
+      background:#fff3cd;border:1px solid #ffc107;border-radius:8px;
+      padding:12px;margin:12px 0;font-size:13px;text-align:left;
+      display:none;
+    }
+    .oauth-warning.show{display:block}
+    .oauth-warning strong{color:#856404;display:block;margin-bottom:8px}
+    .oauth-warning code{background:#fff;padding:2px 6px;border-radius:3px;font-size:12px;word-break:break-all;display:block;margin:4px 0}
+    .oauth-warning a{color:#0b63ff;text-decoration:none;font-weight:700}
+    .oauth-warning a:hover{text-decoration:underline}
+
+    @media (max-width:480px){
+      h1{ font-size:28px; }
+      .wrap{ padding-top:32px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <img class="logo" src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="logo heo">
+    <h1>Smart Expense</h1>
+
+    <form id="signupForm" novalidate>
+      <div class="field">
+        <input class="input" type="text" id="name" placeholder="Tên" required>
+      </div>
+      <div class="field">
+        <input class="input" type="email" id="email" placeholder="Email" required>
+      </div>
+      <div class="field">
+        <input class="input" type="password" id="password" placeholder="Mật khẩu" minlength="6" required>
+      </div>
+      <div class="field">
+        <input class="input" type="password" id="confirm" placeholder="Nhập lại mật khẩu" minlength="6" required>
+      </div>
+
+      <div style="margin:6px 0 10px; font-size:12px; color:#6b7280;">hoặc</div>
+      
+      <!-- Google OAuth Error Warning -->
+      <div id="oauthWarning" class="oauth-warning">
+        <strong>⚠️ Google đăng nhập không khả dụng</strong>
+        <div id="oauthWarningContent"></div>
+        <div style="margin-top:8px;">
+          <a href="../check-origin.html" target="_blank">🔍 Kiểm tra Origin và hướng dẫn sửa lỗi</a>
+        </div>
+      </div>
+
+      <div id="g_id_onload"
+           data-client_id="60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com"
+           data-context="signup"
+           data-ux_mode="popup"
+           data-callback="onGoogleCredential"
+           data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signup_with" data-size="large" data-logo_alignment="left"></div>
+
+      <button class="submit" type="submit">Đăng ký</button>
+      <div class="back-login">Đã có tài khoản? <a href="login.html">Đăng nhập</a></div>
+      <div class="note" id="msg"></div>
+    </form>
+  </main>
+
+    <!-- Google OAuth -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Utilities -->
+    <script src="../chucnang/js/utils.js"></script>
+    
+    <!-- Register JavaScript -->
+    <script src="../chucnang/js/register.js"></script>
+
+<script>
+// Detect Google OAuth errors and show helpful message
+(function() {
+  const origin = window.location.origin;
+  const protocol = window.location.protocol;
+  const host = window.location.host;
+  const port = window.location.port;
+  
+  // Check if using file:// protocol (won't work with Google OAuth)
+  if (protocol === 'file:') {
+    const warningDiv = document.getElementById('oauthWarning');
+    const warningContent = document.getElementById('oauthWarningContent');
+    warningContent.innerHTML = `
+      <div style="margin-bottom:8px;">Bạn đang mở file trực tiếp từ ổ đĩa (<code>file://</code>). Google OAuth không hoạt động với protocol này.</div>
+      <div><strong>Giải pháp:</strong> Chạy qua HTTP server:</div>
+      <ul style="margin:8px 0; padding-left:20px;">
+        <li>Mở terminal trong thư mục <code>frontend</code></li>
+        <li>Chạy: <code>python -m http.server 8080</code> (hoặc <code>python3 -m http.server 8080</code>)</li>
+        <li>Truy cập: <code>http://localhost:8080/dangki.html</code></li>
+      </ul>
+    `;
+    warningDiv.classList.add('show');
+    return;
+  }
+  
+  // Monitor for Google SDK load errors
+  let googleSDKLoaded = false;
+  const checkGoogleSDK = setInterval(function() {
+    if (typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
+      googleSDKLoaded = true;
+      clearInterval(checkGoogleSDK);
+    }
+  }, 500);
+  
+  // After 3 seconds, if Google SDK hasn't loaded, show warning
+  setTimeout(function() {
+    clearInterval(checkGoogleSDK);
+    if (!googleSDKLoaded) {
+      const warningDiv = document.getElementById('oauthWarning');
+      const warningContent = document.getElementById('oauthWarningContent');
+      const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
+      
+      warningContent.innerHTML = `
+        <div style="margin-bottom:8px;">Origin hiện tại chưa được phép trong Google Console:</div>
+        <code>${currentOrigin}</code>
+        <div style="margin-top:8px;"><strong>Giải pháp:</strong></div>
+        <ol style="margin:8px 0; padding-left:20px;">
+          <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Console → Credentials</a></li>
+          <li>Tìm Client ID: <code>60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com</code></li>
+          <li>Click vào Client ID → Thêm vào "Authorized JavaScript origins":</li>
+          <li><code>${currentOrigin}</code></li>
+          <li>Lưu và đợi 5-10 phút để Google cập nhật</li>
+          <li>Refresh trang (Ctrl + Shift + R)</li>
+        </ol>
+      `;
+      warningDiv.classList.add('show');
+    }
+  }, 3000);
+  
+  // Listen for Google SDK errors
+  window.addEventListener('error', function(e) {
+    if (e.message && e.message.includes('client') && e.message.includes('403')) {
+      const warningDiv = document.getElementById('oauthWarning');
+      const warningContent = document.getElementById('oauthWarningContent');
+      const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
+      
+      warningContent.innerHTML = `
+        <div style="margin-bottom:8px;">Lỗi 403: Origin không được phép</div>
+        <code>${currentOrigin}</code>
+        <div style="margin-top:8px;">Vui lòng thêm origin này vào Google Console và đợi vài phút.</div>
+      `;
+      warningDiv.classList.add('show');
+    }
+  }, true);
+})();
+</script>
+</body>
+</html>

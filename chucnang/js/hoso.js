@@ -1,10 +1,941 @@
-// hoso.js - Logic cho trang Hồ sơ
-// Mục tiêu: đồng bộ thông tin người dùng Google vào hồ sơ, tách khỏi HTML
+/**
+ * hoso.js - Logic cho trang Hồ sơ
+ * Quản lý tất cả các chức năng của trang hồ sơ: theme, i18n, profile loading/saving, chatbox, etc.
+ */
 
-(function initProfilePage(){
-  document.addEventListener('DOMContentLoaded', function(){
+// Note: saveProfile stub function is defined in hoso.html (line ~231)
+// This ensures window.saveProfile exists even before this script loads
+
+(function initProfilePage() {
+  'use strict';
+
+  try {
+    console.log('🔵 [hoso.js] Script file loaded, starting IIFE...');
+    console.log('🔵 [hoso.js] Document readyState:', document.readyState);
+    console.log('🔵 [hoso.js] Window onload fired:', typeof window.onload);
+    console.log('🔵 [hoso.js] Inside initProfilePage IIFE');
+    console.log('🔵 [hoso.js] Current window.saveProfile:', typeof window.saveProfile);
+    console.log('🔵 [hoso.js] Current window._saveProfileStub:', typeof window._saveProfileStub);
+
+  // ===== Theme Initialization =====
+  function initTheme() {
+    const saved = localStorage.getItem('theme'); // 'light' | 'dark'
+    document.documentElement.classList.toggle('dark', saved === 'dark');
+  }
+
+  // ===== i18n Translation =====
+  const I18N = {
+    vi: {
+      "page.title": "SmartExpense — Hồ sơ",
+      "nav.overview": "Trang chủ", "nav.list": "Danh sách chi tiêu", "nav.history": "Lịch sử chi tiêu",
+      "nav.schedule": "Lên lịch chi tiêu", "nav.types": "Loại chi tiêu", "nav.report": "Báo cáo",
+      "nav.profile": "Hồ sơ", "nav.settings": "Cài đặt", "nav.logout": "Đăng xuất",
+      "profile.oauth": "Đăng nhập qua Google",
+      "invoices.title": "Hóa đơn", "invoices.date": "Ngày", "invoices.desc": "Mô tả", "invoices.credit": "Credit",
+      "form.fullName": "Họ & Tên", "form.gender": "Giới tính", "form.currency": "Đơn vị tiền tệ",
+      "form.monthlyBalance": "Nhập số dư (tháng)", "form.phone": "Số điện thoại",
+      "gender.female": "Nữ", "gender.male": "Nam", "gender.other": "Khác",
+      "toggles.exclude": "Bật loại trừ chi tiêu", "toggles.autoCategory": "Bật tự động chọn loại chi tiêu",
+      "toggles.dailyReport": "Báo cáo email hằng ngày",
+      "btn.save": "Lưu", "alert.saved": "Đã lưu hồ sơ thành công.",
+      "chat.title": "Trợ lý thông minh", "chat.sub": "Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
+      "chat.open": "Mở trợ lý", "ph.chat": "Viết tin nhắn…", "send.title": "Gửi",
+      "chat.greet": "Mình có thể giúp cập nhật hồ sơ, đổi ngôn ngữ/giao diện và trả lời câu hỏi của bạn.",
+      "chat.ok": "Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?"
+    },
+    en: {
+      "page.title": "SmartExpense — Profile",
+      "nav.overview": "Home", "nav.list": "Expense list", "nav.history": "History",
+      "nav.schedule": "Budget planner", "nav.types": "Categories", "nav.report": "Reports",
+      "nav.profile": "Profile", "nav.settings": "Settings", "nav.logout": "Log out",
+      "profile.oauth": "Sign in with Google",
+      "invoices.title": "Invoices", "invoices.date": "Date", "invoices.desc": "Description", "invoices.credit": "Credit",
+      "form.fullName": "Full name", "form.gender": "Gender", "form.currency": "Currency",
+      "form.monthlyBalance": "Monthly balance", "form.phone": "Phone number",
+      "gender.female": "Female", "gender.male": "Male", "gender.other": "Other",
+      "toggles.exclude": "Enable expense exclusion", "toggles.autoCategory": "Enable auto category",
+      "toggles.dailyReport": "Daily email report",
+      "btn.save": "Save", "alert.saved": "Profile saved successfully.",
+      "chat.title": "Smart assistant", "chat.sub": "Hi! 👋 Glad to help",
+      "chat.open": "Open assistant", "ph.chat": "Type a message…", "send.title": "Send",
+      "chat.greet": "I can help update your profile, switch language/theme, and answer questions.",
+      "chat.ok": "Got it. What would you like me to do next?"
+    }
+  };
+
+  function t(key) {
+    const lang = localStorage.getItem('lang') || 'vi';
+    return (I18N[lang] && I18N[lang][key]) || key;
+  }
+
+  function translatePage() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      const attr = el.getAttribute('data-i18n-attr');
+      if (attr) {
+        attr.split(',').forEach(a => el.setAttribute(a.trim(), val));
+      } else if (el.tagName === 'INPUT') {
+        el.placeholder = val;
+      } else {
+        el.textContent = val;
+      }
+    });
+    document.title = t('page.title');
+    document.documentElement.setAttribute('lang', localStorage.getItem('lang') || 'vi');
+
+    // Translate select options with data-i18n too
+    document.querySelectorAll('option[data-i18n]').forEach(op => {
+      op.textContent = t(op.getAttribute('data-i18n'));
+    });
+  }
+
+  // ===== Profile Functions =====
+  function getCurrentUser() {
     try {
-      // 1) Nếu đã đăng nhập (qua Google hoặc thường), đồng bộ vào giao diện
+      const userData = localStorage.getItem('smartexpense_user');
+      if (userData) {
+        return JSON.parse(userData);
+      }
+    } catch (e) {
+      console.error('Error getting current user:', e);
+    }
+    return null;
+  }
+
+  async function loadProfile() {
+    try {
+      // Try to load from API first (backend database)
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        try {
+          const token = localStorage.getItem('smartexpense_token');
+          if (token) {
+            const profileResult = await window.apiRequest('/api/me');
+            if (profileResult && profileResult.ok && profileResult.data) {
+              const profile = profileResult.data;
+              populateFormFromProfile(profile);
+              
+              // Update localStorage user data
+              const currentUser = getCurrentUser();
+              if (currentUser) {
+                const updatedUser = {
+                  ...currentUser,
+                  name: profile.name,
+                  email: profile.email,
+                  gender: profile.gender,
+                  currency: profile.currency,
+                  phone: profile.phone,
+                  balance: profile.balance,
+                  monthly_budget: profile.balance
+                };
+                localStorage.setItem('smartexpense_user', JSON.stringify(updatedUser));
+                loadSettingsFromUser(currentUser);
+              }
+
+              updateAvatarInitial(profile.name || profile.email || 'Q');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error loading profile from API:', error);
+        }
+      }
+
+      // Fallback to localStorage
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        populateFormFromUser(currentUser);
+        loadSettingsFromUser(currentUser);
+        updateAvatarInitial(currentUser.name || currentUser.email || 'Q');
+        return;
+      }
+
+      // Fallback to legacy localStorage
+      const raw = localStorage.getItem('profile');
+      if (raw) {
+        const p = JSON.parse(raw);
+        populateFormFromProfile(p);
+        loadSettingsFromProfile(p);
+        updateAvatarInitial(p.name || p.email || 'Q');
+      }
+    } catch (e) {
+      console.error('Error loading profile:', e);
+    }
+  }
+
+  function populateFormFromProfile(profile) {
+    const fullNameInput = document.getElementById('fullNameInput');
+    const fullNameValue = document.getElementById('fullNameValue');
+    const emailValue = document.getElementById('emailValue');
+    const genderSelect = document.getElementById('genderSelect');
+    const currencySelect = document.getElementById('currencySelect');
+    const monthlyBudgetInput = document.getElementById('monthlyBudgetInput');
+    const phoneInput = document.getElementById('phoneInput');
+
+    if (profile.name) {
+      if (fullNameInput) fullNameInput.value = profile.name;
+      if (fullNameValue) fullNameValue.textContent = profile.name;
+    }
+    if (profile.email && emailValue) {
+      emailValue.textContent = profile.email;
+    }
+    if (profile.gender && genderSelect) {
+      genderSelect.value = profile.gender;
+    }
+    if (profile.currency && currencySelect) {
+      currencySelect.value = profile.currency;
+    }
+    if (profile.balance !== undefined && profile.balance !== null && monthlyBudgetInput) {
+      monthlyBudgetInput.value = profile.balance;
+    } else if (profile.monthly_budget !== undefined && monthlyBudgetInput) {
+      monthlyBudgetInput.value = profile.monthly_budget;
+    }
+    if (profile.phone && phoneInput) {
+      phoneInput.value = profile.phone;
+    }
+  }
+
+  function loadSettingsFromUser(user) {
+    if (!user.settings) return;
+    const excludeToggle = document.getElementById('excludeToggle');
+    const autoCategoryToggle = document.getElementById('autoCategoryToggle');
+    const dailyReportToggle = document.getElementById('dailyReportToggle');
+
+    if (excludeToggle) excludeToggle.checked = !!user.settings.exclude_expense;
+    if (autoCategoryToggle) autoCategoryToggle.checked = user.settings.auto_category !== false;
+    if (dailyReportToggle) dailyReportToggle.checked = !!user.settings.daily_report;
+  }
+
+  function loadSettingsFromProfile(profile) {
+    const excludeToggle = document.getElementById('excludeToggle');
+    const autoCategoryToggle = document.getElementById('autoCategoryToggle');
+    const dailyReportToggle = document.getElementById('dailyReportToggle');
+
+    if (excludeToggle) excludeToggle.checked = !!profile.exclude_expense;
+    if (autoCategoryToggle) autoCategoryToggle.checked = profile.auto_category !== false;
+    if (dailyReportToggle) dailyReportToggle.checked = !!profile.daily_report;
+  }
+
+  function updateAvatarInitial(nameOrEmail) {
+    try {
+      const initial = (nameOrEmail || 'Q').trim().charAt(0).toUpperCase();
+      const circle = document.querySelector('.avatar-big .circle');
+      if (circle) {
+        circle.textContent = initial || 'Q';
+      }
+    } catch (e) {
+      console.warn('Failed to update avatar:', e);
+    }
+  }
+
+  // ===== Save Profile Function =====
+  async function saveProfile() {
+    const saveBtn = document.getElementById('saveBtn');
+    if (!saveBtn) {
+      console.error('❌ Save button not found!');
+      showToastMessage('Không tìm thấy nút Lưu!', 'error');
+      return;
+    }
+
+    // Disable button and show loading
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Đang lưu...';
+
+    try {
+      // Get all form elements
+      const fullNameInput = document.getElementById('fullNameInput');
+      const genderSelect = document.getElementById('genderSelect');
+      const currencySelect = document.getElementById('currencySelect');
+      const monthlyBudgetInput = document.getElementById('monthlyBudgetInput');
+      const phoneInput = document.getElementById('phoneInput');
+      const emailValue = document.getElementById('emailValue');
+      const excludeToggle = document.getElementById('excludeToggle');
+      const autoCategoryToggle = document.getElementById('autoCategoryToggle');
+      const dailyReportToggle = document.getElementById('dailyReportToggle');
+
+      // Validate required fields exist
+      const missingFields = [];
+      if (!fullNameInput) missingFields.push('Họ tên');
+      if (!genderSelect) missingFields.push('Giới tính');
+      if (!currencySelect) missingFields.push('Tiền tệ');
+      if (!monthlyBudgetInput) missingFields.push('Ngân sách tháng');
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Không tìm thấy các trường: ${missingFields.join(', ')}`);
+      }
+
+      // Collect profile data
+      const profile = {
+        name: fullNameInput.value.trim(),
+        gender: genderSelect.value,
+        currency: currencySelect.value,
+        balance: Number(monthlyBudgetInput.value) || 0,
+        phone: phoneInput ? phoneInput.value.trim() : ''
+      };
+
+      // Validate required data
+      if (!profile.name) {
+        throw new Error('Vui lòng nhập Họ tên');
+      }
+
+      // Save to backend API
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        console.log('📤 Sending profile data to backend:', profile);
+        console.log('📤 Balance value being sent:', profile.balance, typeof profile.balance);
+        
+        try {
+          const profileResult = await window.apiRequest('/api/profile', {
+            method: 'PUT',
+            body: JSON.stringify(profile)
+          });
+
+          console.log('📥 Full response from backend:', profileResult);
+          console.log('📥 Response ok:', profileResult?.ok);
+          console.log('📥 Response status:', profileResult?.status);
+          console.log('📥 Response data:', profileResult?.data);
+
+          if (!profileResult) {
+            throw new Error('Không nhận được phản hồi từ server. Vui lòng kiểm tra backend có đang chạy không.');
+          }
+
+          if (!profileResult.ok) {
+            const errorMsg = profileResult.data?.message || profileResult.data?.error || `Lỗi HTTP ${profileResult.status}`;
+            console.error('❌ API error:', errorMsg, profileResult);
+            throw new Error(errorMsg);
+          }
+
+          if (!profileResult.data) {
+            throw new Error('Lỗi khi lưu hồ sơ: Không có dữ liệu trả về từ server');
+          }
+
+          const responseData = profileResult.data;
+          console.log('📥 Parsed response data:', responseData);
+          
+          // Kiểm tra nếu có lỗi từ backend
+          if (responseData && responseData.success === false) {
+            const errorMsg = responseData.message || 'Lỗi khi lưu hồ sơ';
+            console.error('❌ Backend returned error:', errorMsg);
+            throw new Error(errorMsg);
+          }
+          
+          // Kiểm tra response có success = true
+          if (!responseData || (responseData.success !== true && responseData.success !== undefined)) {
+            console.warn('⚠️ Response không có success=true, nhưng vẫn tiếp tục xử lý');
+          }
+          
+          // Lấy user object từ response - đảm bảo có dữ liệu
+          const savedUser = responseData.user || responseData;
+          if (!savedUser) {
+            throw new Error('Không nhận được dữ liệu user từ server');
+          }
+          
+          console.log('✅ Profile saved to backend successfully');
+          console.log('✅ Saved user data:', savedUser);
+          console.log('✅ Saved balance:', savedUser.balance);
+          
+          // Kiểm tra nếu balance không có trong savedUser, dùng giá trị từ form
+          if (savedUser.balance === undefined || savedUser.balance === null) {
+            console.warn('⚠️ Balance không có trong response, sử dụng giá trị từ form');
+            savedUser.balance = profile.balance;
+          }
+
+        // Update UI
+        const fullNameValue = document.getElementById('fullNameValue');
+        if (profile.name && fullNameValue) {
+          fullNameValue.textContent = profile.name;
+        }
+
+        // Update localStorage - đảm bảo cập nhật balance đúng
+        updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle, dailyReportToggle);
+
+        // Update balance on dashboard/home page
+        const finalBalance = savedUser.balance !== undefined && savedUser.balance !== null ? savedUser.balance : profile.balance;
+        console.log('💰 Final balance to update:', finalBalance);
+        
+        // Force update dashboard balance
+        updateDashboardBalance(finalBalance);
+        
+        // Show success toast với thông tin chi tiết
+        const formatCurrencyFunc = typeof formatCurrency === 'function' ? formatCurrency : (typeof window !== 'undefined' && typeof window.formatCurrency === 'function') ? window.formatCurrency : (amount) => amount.toLocaleString('vi-VN') + ' đ';
+        showToastMessage(`Đã lưu vào hồ sơ thành công! Số dư: ${formatCurrencyFunc(finalBalance)}`, 'success');
+        
+        console.log('✅ Profile save completed successfully');
+        } catch (apiError) {
+          console.error('❌ Error calling API:', apiError);
+          throw apiError; // Re-throw để catch block bên ngoài xử lý
+        }
+      } else {
+        // Fallback: save to localStorage only
+        const emailText = emailValue ? emailValue.textContent.trim() : '';
+        const legacyProfile = {
+          name: profile.name,
+          email: emailText,
+          gender: profile.gender,
+          currency: profile.currency,
+          monthly_budget: profile.balance,
+          phone: profile.phone,
+          exclude_expense: excludeToggle ? excludeToggle.checked : false,
+          auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true,
+          daily_report: dailyReportToggle ? dailyReportToggle.checked : false
+        };
+        localStorage.setItem('profile', JSON.stringify(legacyProfile));
+        localStorage.setItem('monthly_budget', String(profile.balance));
+
+        const fullNameValue = document.getElementById('fullNameValue');
+        if (profile.name && fullNameValue) {
+          fullNameValue.textContent = profile.name;
+        }
+
+        // Update balance on dashboard/home page
+        updateDashboardBalance(profile.balance);
+
+        showToastMessage('Đã lưu thành công!', 'success');
+      }
+    } catch (error) {
+      console.error('Error in save profile:', error);
+      showToastMessage('Lưu thất bại: ' + (error.message || 'Vui lòng thử lại'), 'error');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
+  }
+
+  // Override stub with real function IMMEDIATELY after definition (for inline onclick handler)
+  // This ensures it's available even if script hasn't finished loading
+  console.log('🔵 About to export saveProfile function...');
+  console.log('🔵 window.saveProfile before:', typeof window.saveProfile);
+  console.log('🔵 window._saveProfileStub:', typeof window._saveProfileStub);
+  const wasStub = window.saveProfile === window._saveProfileStub;
+  console.log('🔵 wasStub:', wasStub);
+  window.saveProfile = saveProfile; // Replace stub with real function
+  console.log('🔵 window.saveProfile after:', typeof window.saveProfile);
+  console.log('🔵 window.saveProfile === window._saveProfileStub:', window.saveProfile === window._saveProfileStub);
+  if (wasStub) {
+    console.log('✅ saveProfile (real function) replaced stub successfully');
+  } else {
+    console.log('✅ saveProfile (real function) exported to window object');
+  }
+
+  function updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle, dailyReportToggle) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      console.warn('⚠️ No current user found, cannot update localStorage');
+      return;
+    }
+
+    // Ưu tiên balance từ savedUser (từ database), nếu không có thì dùng từ form
+    const finalBalance = savedUser.balance !== undefined && savedUser.balance !== null 
+      ? savedUser.balance 
+      : (profile.balance !== undefined && profile.balance !== null ? profile.balance : 0);
+    
+    console.log('💾 Updating localStorage with balance:', finalBalance);
+
+    const updatedUser = {
+      ...currentUser,
+      name: savedUser.name || profile.name,
+      gender: savedUser.gender !== undefined ? savedUser.gender : profile.gender,
+      currency: savedUser.currency !== undefined ? savedUser.currency : profile.currency,
+      phone: savedUser.phone !== undefined ? savedUser.phone : profile.phone,
+      balance: finalBalance,
+      monthly_budget: finalBalance
+    };
+
+    // Save settings
+    const settings = {
+      exclude_expense: excludeToggle ? excludeToggle.checked : false,
+      auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true,
+      daily_report: dailyReportToggle ? dailyReportToggle.checked : false
+    };
+
+    const updatedUserWithSettings = {
+      ...updatedUser,
+      settings: settings
+    };
+
+    localStorage.setItem('smartexpense_user', JSON.stringify(updatedUserWithSettings));
+    localStorage.setItem('monthly_budget', String(updatedUser.balance));
+
+    // Legacy profile format for compatibility
+    const legacyProfile = {
+      name: updatedUser.name,
+      email: emailValue ? emailValue.textContent.trim() : currentUser.email || '',
+      gender: updatedUser.gender,
+      currency: updatedUser.currency,
+      phone: updatedUser.phone,
+      monthly_budget: updatedUser.balance,
+      ...settings
+    };
+    localStorage.setItem('profile', JSON.stringify(legacyProfile));
+
+    // Save to DataManager for persistence
+    if (window.dataManager) {
+      const updatedUserForDataManager = {
+        ...updatedUserWithSettings,
+        email: emailValue ? emailValue.textContent.trim() : currentUser.email || ''
+      };
+      const userId = currentUser.id || currentUser.email || 'default';
+      window.dataManager.updateUser(userId, updatedUserForDataManager);
+    }
+  }
+
+  function updateDashboardBalance(balance) {
+    console.log('🔄 Updating dashboard balance:', balance);
+    
+    // Dispatch custom event for same-page updates
+    if (typeof window !== 'undefined') {
+      // Dispatch event multiple times để đảm bảo dashboard nhận được
+      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: { balance } }));
+      console.log('✅ Dispatched profileUpdated event');
+
+      // Update localStorage for cross-page updates
+      try {
+        const timestamp = Date.now().toString();
+        localStorage.setItem('smartexpense_profile_updated', timestamp);
+        localStorage.setItem('smartexpense_balance_updated', String(balance));
+        console.log('✅ Set localStorage flags for profile update');
+        
+        setTimeout(() => {
+          localStorage.removeItem('smartexpense_profile_updated');
+          localStorage.removeItem('smartexpense_balance_updated');
+        }, 500); // Tăng thời gian để đảm bảo dashboard nhận được
+      } catch (e) {
+        console.warn('Failed to notify profile update:', e);
+      }
+
+      // Call reloadDashboard if available (same page)
+      if (typeof window.reloadDashboard === 'function') {
+        console.log('🔄 Calling reloadDashboard...');
+        window.reloadDashboard();
+      }
+      
+      // Thử gọi reloadDashboardData nếu có
+      if (typeof window.reloadDashboardData === 'function') {
+        console.log('🔄 Calling reloadDashboardData...');
+        window.reloadDashboardData();
+      }
+    }
+  }
+
+  // ===== Show Toast Notification =====
+  function showToastMessage(message, type = 'success') {
+    // Remove any existing toast
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+      existingToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#10b981' : '#ef4444'};
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-family: 'Noto Sans', Inter, system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      min-width: 280px;
+      max-width: 400px;
+      animation: slideInRight 0.3s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    `;
+    
+    const icon = type === 'success' ? '✓' : '✗';
+    toast.innerHTML = `
+      <span style="font-size: 20px;">${icon}</span>
+      <span>${message}</span>
+    `;
+
+    // Add animation style if not exists
+    if (!document.getElementById('toast-animations')) {
+      const style = document.createElement('style');
+      style.id = 'toast-animations';
+      style.textContent = `
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      toast.style.animation = 'slideOutRight 0.3s ease-out';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  }
+
+  // ===== Test Email Function =====
+  async function testEmail() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      showToastMessage('Vui lòng đăng nhập để test email', 'error');
+      return;
+    }
+
+    // Check if user has email
+    if (!currentUser.email) {
+      showToastMessage('Vui lòng cập nhật email trong hồ sơ trước khi test email', 'error');
+      return;
+    }
+
+    const token = localStorage.getItem('smartexpense_token');
+    if (!token) {
+      // Try to get token from cookie (for Google OAuth users)
+      const auth = typeof checkAuth === 'function' ? checkAuth() : null;
+      if (!auth || !auth.token) {
+        showToastMessage('Không tìm thấy token đăng nhập', 'error');
+        return;
+      }
+    }
+
+    const btn = document.getElementById('testEmailBtn');
+    if (!btn) {
+      showToastMessage('Không tìm thấy nút Test Email', 'error');
+      return;
+    }
+
+    try {
+      // Show loading
+      const originalText = btn.textContent;
+      btn.textContent = 'Đang gửi...';
+      btn.disabled = true;
+
+      // Get token (from localStorage or cookie)
+      const authToken = token || (typeof checkAuth === 'function' ? checkAuth()?.token : null);
+      
+      if (!authToken) {
+        showToastMessage('❌ Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.', 'error');
+        return;
+      }
+      
+      // Flask backend không có email endpoints - hiển thị thông báo
+      showToastMessage('⚠️ Tính năng email hiện chỉ có trên Backend Node.js. Flask backend không hỗ trợ email endpoints.\n\nĐể sử dụng tính năng email:\n1. Chạy Backend Node.js tại port 5001\n2. Hoặc sử dụng Backend Flask cho các tính năng khác', 'error');
+      return;
+
+    } catch (error) {
+      console.error('Email test error:', error);
+      const errorMsg = error.message || 'Lỗi khi gửi email test';
+      showToastMessage(`❌ ${errorMsg}`, 'error');
+    } finally {
+      // Restore button
+      const btn = document.getElementById('testEmailBtn');
+      if (btn) {
+        btn.textContent = 'Test Email';
+        btn.disabled = false;
+      }
+    }
+  }
+
+  // Export testEmail to window for onclick handler
+  window.testEmail = testEmail;
+
+  // ===== Google Sign-In (client-side) =====
+  function initGoogleSignIn() {
+    const btn = document.getElementById('googleSignInBtn');
+    if (!btn) return;
+    btn.style.cursor = 'pointer';
+    btn.addEventListener('click', async () => {
+      // Nếu đã có phiên, thông báo và cho phép đổi tài khoản
+      const hasToken = !!localStorage.getItem('smartexpense_token');
+      if (hasToken) {
+        if (confirm('Bạn đã đăng nhập. Bạn có muốn đổi tài khoản Google?')) {
+          window.location.href = 'login.html';
+        }
+        return;
+      }
+
+      // Lightweight fallback using prompt (nếu chưa cấu hình GIS)
+      try {
+        const name = prompt('Nhập tên Google của bạn:');
+        const email = prompt('Nhập email Google của bạn:');
+        if (!email) {
+          return;
+        }
+        const fakeToken = 'google-token-' + Date.now();
+        const user = { name: name || email.split('@')[0], email };
+        localStorage.setItem('smartexpense_user', JSON.stringify(user));
+        localStorage.setItem('smartexpense_token', fakeToken);
+        
+        // Đồng bộ hiển thị
+        const fullNameValue = document.getElementById('fullNameValue');
+        const emailValue = document.getElementById('emailValue');
+        if (fullNameValue) {
+          fullNameValue.textContent = user.name;
+        }
+        if (emailValue) {
+          emailValue.textContent = user.email;
+        }
+        
+        // Lưu vào profile
+        const raw = localStorage.getItem('profile');
+        const p = raw ? JSON.parse(raw) : {};
+        p.name = user.name;
+        p.email = user.email;
+        localStorage.setItem('profile', JSON.stringify(p));
+        
+        // Update avatar
+        updateAvatarInitial(user.name || user.email);
+        
+        alert('Đăng nhập Google thành công!');
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
+
+  // ===== Chatbox Functions =====
+  function initChatbox() {
+    const chatToggle = document.getElementById('chatToggle');
+    const chatbox = document.getElementById('chatbox');
+    const chatBody = document.getElementById('chatBody');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    if (!chatToggle || !chatbox || !chatBody || !chatInput || !sendBtn) {
+      return;
+    }
+
+    let greeted = false;
+
+    function addMsg(text, who = 'bot') {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + who;
+      const av = document.createElement('div');
+      av.className = 'avatar-s';
+      av.textContent = who === 'bot' ? '🐷' : '👤';
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.textContent = text;
+      if (who === 'bot') {
+        wrap.append(av, b);
+      } else {
+        wrap.append(b, av);
+      }
+      chatBody.appendChild(wrap);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function openChat() {
+      chatbox.classList.add('open');
+      chatbox.setAttribute('aria-hidden', 'false');
+      if (!greeted) {
+        addMsg(t('chat.greet'));
+        greeted = true;
+      }
+      setTimeout(() => chatInput.focus(), 100);
+    }
+
+    function closeChat() {
+      chatbox.classList.remove('open');
+      chatbox.setAttribute('aria-hidden', 'true');
+    }
+
+    chatToggle.onclick = () => chatbox.classList.contains('open') ? closeChat() : openChat();
+
+    function handleSend() {
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+      addMsg(txt, 'user');
+      chatInput.value = '';
+      addMsg(t('chat.ok'));
+    }
+
+    sendBtn.onclick = handleSend;
+    chatInput.onkeydown = e => {
+      if (e.key === 'Enter') {
+        handleSend();
+      }
+    };
+  }
+
+  // ===== Logout Handler =====
+  function initLogoutHandler() {
+    document.addEventListener('click', async function (e) {
+      const link = e.target && e.target.closest && e.target.closest('a[href="login.html"]');
+      if (!link) return;
+      e.preventDefault();
+      
+      // Use global logout function which handles sync properly
+      if (typeof window.logout === 'function') {
+        await window.logout();
+      } else {
+        // Fallback if logout function not available
+        // Sync data before logout
+        if (window.dataManager && typeof window.dataManager.syncAllDataToAPI === 'function') {
+          try {
+            console.log('🔄 Syncing data before logout...');
+            const syncPromise = window.dataManager.syncAllDataToAPI();
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 10000));
+            await Promise.race([syncPromise, timeoutPromise]);
+            console.log('✅ Data sync completed before logout');
+          } catch (error) {
+            console.error('❌ Error syncing before logout:', error);
+          }
+        }
+        
+        try {
+          localStorage.removeItem('smartexpense_user');
+          localStorage.removeItem('smartexpense_token');
+        } catch (_) { }
+        window.location.href = 'login.html';
+      }
+    });
+  }
+
+  // ===== Initialize Everything =====
+  function init() {
+    // Apply theme immediately
+    initTheme();
+
+    // Initialize i18n
+    translatePage();
+
+    // Helper function to run when DOM is ready
+    const runWhenReady = (fn) => {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+      } else {
+        fn();
+      }
+    };
+
+    // Attach save button listener - SIMPLIFIED VERSION
+    const attachSaveListener = () => {
+      const saveBtn = document.getElementById('saveBtn');
+      if (!saveBtn) {
+        console.warn('⚠️ Save button not found yet, will retry...');
+        return false;
+      }
+      
+      // Check if already attached
+      if (saveBtn.hasAttribute('data-listener-attached')) {
+        console.log('ℹ️ Save button listener already attached');
+        return true;
+      }
+      
+      // Ensure button is enabled and clickable
+      saveBtn.disabled = false;
+      saveBtn.style.pointerEvents = 'auto';
+      saveBtn.style.cursor = 'pointer';
+      saveBtn.style.opacity = '1';
+      
+      // Create handler function
+      const handleSave = async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🖱️ Save button clicked!');
+        
+        // Prevent multiple clicks
+        if (saveBtn.disabled) {
+          console.log('⏸️ Save already in progress, ignoring click');
+          return false;
+        }
+        
+        try {
+          await saveProfile();
+        } catch (err) {
+          console.error('❌ Error in saveProfile:', err);
+          const errorMsg = err && err.message ? err.message : 'Vui lòng thử lại';
+          showToastMessage('Lỗi khi lưu: ' + errorMsg, 'error');
+        }
+        return false;
+      };
+      
+      // Attach event listener with capture phase (to catch early)
+      saveBtn.addEventListener('click', handleSave, { capture: true, once: false });
+      
+      // Also attach as backup with normal bubbling
+      saveBtn.addEventListener('click', handleSave, false);
+      
+      // Mark as attached
+      saveBtn.setAttribute('data-listener-attached', 'true');
+      console.log('✅ Save button event listener attached successfully');
+      
+      // Test click to verify it works
+      console.log('🧪 Testing button clickability...');
+      
+      return true;
+    };
+
+    // Try to attach listener immediately and on DOM ready
+    runWhenReady(() => {
+      if (attachSaveListener()) {
+        console.log('✅ Save listener attached on DOM ready');
+      } else {
+        console.log('⏳ Save button not ready, scheduling retry...');
+        // Retry multiple times with increasing delays
+        setTimeout(() => attachSaveListener(), 100);
+        setTimeout(() => attachSaveListener(), 300);
+        setTimeout(() => attachSaveListener(), 1000);
+      }
+    });
+    
+    // Also try immediately (in case DOM is already ready)
+    if (document.readyState !== 'loading') {
+      setTimeout(() => attachSaveListener(), 50);
+    }
+
+    // Load profile when DOM is ready
+    runWhenReady(() => {
+      loadProfile();
+    });
+
+    // Initialize other event listeners when DOM is ready
+    runWhenReady(() => {
+      setupEventListeners();
+    });
+  }
+
+  function setupEventListeners() {
+    // Test email button
+    const testEmailBtn = document.getElementById('testEmailBtn');
+    if (testEmailBtn) {
+      testEmailBtn.addEventListener('click', testEmail);
+    }
+
+    // Google Sign-In
+    initGoogleSignIn();
+
+    // Chatbox
+    initChatbox();
+
+    // Logout handler
+    initLogoutHandler();
+
+    // Sync user session data
+    try {
       const sessionRaw = localStorage.getItem('smartexpense_user');
       if (sessionRaw) {
         const session = JSON.parse(sessionRaw);
@@ -13,15 +944,20 @@
         const nameEl = document.getElementById('fullNameValue');
         const emailEl = document.getElementById('emailValue');
         const inputName = document.getElementById('fullNameInput');
-        if (name && nameEl) nameEl.textContent = name;
-        if (email && emailEl) emailEl.textContent = email;
-        if (name && inputName) inputName.value = name;
-        // avatar initial
-        const initial = (name || email || 'Q').trim().charAt(0).toUpperCase();
-        const circle = document.querySelector('.avatar-big .circle');
-        if (circle) circle.textContent = initial || 'Q';
+        if (name && nameEl) {
+          nameEl.textContent = name;
+        }
+        if (email && emailEl) {
+          emailEl.textContent = email;
+        }
+        if (name && inputName) {
+          inputName.value = name;
+        }
+        
+        // Update avatar initial
+        updateAvatarInitial(name || email || 'Q');
 
-        // merge vào profile
+        // Merge into profile
         const pRaw = localStorage.getItem('profile');
         const p = pRaw ? JSON.parse(pRaw) : {};
         if (name) p.name = name;
@@ -29,7 +965,7 @@
         localStorage.setItem('profile', JSON.stringify(p));
       }
 
-      // 2) Đồng bộ monthly_budget sang key rút gọn để trang chủ đọc
+      // Sync monthly_budget
       try {
         const pRaw = localStorage.getItem('profile');
         if (pRaw) {
@@ -38,29 +974,24 @@
             localStorage.setItem('monthly_budget', String(p.monthly_budget));
           }
         }
-      } catch(_) {}
-
-      // 3) Nút Đăng nhập qua Google trên hồ sơ
-      const googleBtn = document.getElementById('googleSignInBtn');
-      if (googleBtn) {
-        googleBtn.style.cursor = 'pointer';
-        googleBtn.addEventListener('click', function(){
-          // Nếu đã có phiên, thông báo và cho phép đổi tài khoản bằng cách đi tới trang đăng nhập
-          const hasToken = !!localStorage.getItem('smartexpense_token');
-          if (hasToken) {
-            if (confirm('Bạn đã đăng nhập. Bạn có muốn đổi tài khoản Google?')) {
-              window.location.href = 'login.html';
-            }
-            return;
-          }
-          // Chuyển đến trang đăng nhập để dùng Google Identity Services
-          window.location.href = 'login.html';
-        });
-      }
+      } catch (_) { }
     } catch (e) {
       console.warn('Init profile failed:', e);
     }
-  });
+  }
+
+  // Start initialization
+  console.log('🔵 [hoso.js] Starting profile page initialization...');
+  init();
+  console.log('🔵 [hoso.js] Profile page initialization completed');
+  console.log('🔵 [hoso.js] Final window.saveProfile:', typeof window.saveProfile);
+  console.log('🔵 [hoso.js] IIFE execution completed successfully');
+  } catch (error) {
+    console.error('❌ [hoso.js] Error in IIFE:', error);
+    console.error('❌ [hoso.js] Stack:', error.stack);
+    // Report error to help debug
+    window._hosoJsError = error;
+  }
 })();
 
-
+console.log('🔵 [hoso.js] Script execution finished (IIFE completed)');

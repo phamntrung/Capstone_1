@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Origin for Google OAuth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+        .step h3 {
+            color: #1976D2;
+            margin-top: 0;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 5px 5px 0;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Kiểm tra Origin cho Google OAuth</h1>
+        
+        <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
+            <strong>⚠️ Lỗi hiện tại:</strong> 
+            <div style="margin-top: 10px;">
+                <code style="background: #fff; padding: 5px; border-radius: 3px;">
+                    [GSI_LOGGER]: The given origin is not allowed for the given client ID
+                </code><br>
+                <code style="background: #fff; padding: 5px; border-radius: 3px; margin-top: 5px; display: inline-block;">
+                    Failed to load resource: 403
+                </code>
+            </div>
+            <p style="margin-top: 10px; margin-bottom: 0;">
+                <strong>Nguyên nhân:</strong> Origin của trang web hiện tại chưa được thêm vào Google Console.<br>
+                <strong>Giải pháp:</strong> Copy origin bên dưới và thêm vào Google Console → Credentials → OAuth 2.0 Client ID → Authorized JavaScript origins
+            </p>
+        </div>
+
+        <div class="step">
+            <h3>📍 Thông tin Origin hiện tại</h3>
+            <p><strong>Origin:</strong> <span id="origin" class="code-block"></span></p>
+            <p><strong>Full URL:</strong> <span id="fullUrl" class="code-block"></span></p>
+            <p><strong>Protocol:</strong> <span id="protocol"></span></p>
+            <p><strong>Host:</strong> <span id="host"></span></p>
+            <p><strong>Port:</strong> <span id="port"></span></p>
+        </div>
+
+        <div class="step">
+            <h3>📋 Origin cần thêm vào Google Console</h3>
+            <div class="code-block" id="originToAdd"></div>
+            <button onclick="copyOrigin()">📋 Copy Origin</button>
+            <button onclick="copyAllOrigins()">📋 Copy tất cả Origins (Development)</button>
+        </div>
+
+        <div class="step">
+            <h3>🔗 Link Google Console</h3>
+            <p>
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank">
+                    https://console.cloud.google.com/apis/credentials
+                </a>
+            </p>
+            <p><strong>Client ID:</strong> <code>60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com</code></p>
+        </div>
+
+        <div class="step">
+            <h3>✅ Các Origins nên thêm (Development)</h3>
+            <div class="code-block" id="allOrigins"></div>
+        </div>
+
+        <div class="step">
+            <h3>🚀 Sau khi thêm Origin</h3>
+            <ol>
+                <li>Click "Save" trong Google Console</li>
+                <li>Đợi 5-10 phút để Google cập nhật</li>
+                <li>Xóa cache browser (Ctrl + Shift + R)</li>
+                <li>Test lại Google login</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const origin = window.location.origin;
+        const fullUrl = window.location.href;
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+
+        // Display current info
+        document.getElementById('origin').textContent = origin;
+        document.getElementById('fullUrl').textContent = fullUrl;
+        document.getElementById('protocol').textContent = protocol;
+        document.getElementById('host').textContent = host;
+        document.getElementById('port').textContent = port;
+
+        // Origin to add
+        document.getElementById('originToAdd').textContent = origin;
+
+        // All suggested origins for development
+        const allOrigins = [
+            origin,
+            'http://localhost',
+            'http://localhost:3000',
+            'http://localhost:8080',
+            'http://127.0.0.1',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:8080'
+        ].filter((v, i, a) => a.indexOf(v) === i).join('\n');
+
+        document.getElementById('allOrigins').textContent = allOrigins;
+
+        function copyOrigin() {
+            navigator.clipboard.writeText(origin).then(() => {
+                alert('✅ Đã copy origin: ' + origin);
+            }).catch(err => {
+                alert('❌ Lỗi copy: ' + err);
+            });
+        }
+
+        function copyAllOrigins() {
+            navigator.clipboard.writeText(allOrigins).then(() => {
+                alert('✅ Đã copy tất cả origins!');
+            }).catch(err => {
+                alert('❌ Lỗi copy: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>
+
