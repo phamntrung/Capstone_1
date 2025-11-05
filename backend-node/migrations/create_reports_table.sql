@@ -54,3 +54,9 @@ CREATE TABLE IF NOT EXISTS report_cache (
     UNIQUE KEY unique_user_cache (user_id, cache_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bảng cache cho summary reports';
 
+
+
+
+
+
+

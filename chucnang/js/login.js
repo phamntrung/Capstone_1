@@ -469,6 +469,15 @@ if (typeof window !== 'undefined') {
 if (typeof window.onGoogleCredential === 'undefined') {
     window.onGoogleCredential = async function onGoogleCredential(response) {
     console.log('Đã nhận callback credential từ Google:', response);
+    // Prevent double handling from duplicate callbacks/popups
+    if (typeof window.__GOOGLE_LOGIN_IN_PROGRESS === 'undefined') {
+        window.__GOOGLE_LOGIN_IN_PROGRESS = false;
+    }
+    if (window.__GOOGLE_LOGIN_IN_PROGRESS) {
+        console.log('Bỏ qua callback Google trùng lặp');
+        return;
+    }
+    window.__GOOGLE_LOGIN_IN_PROGRESS = true;
     
     try {
         // Extract credential - Google can pass it as response.credential or just response (string)
@@ -490,7 +499,7 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 const mockToken = credential;
                 await persistSession(mockUser, mockToken);
                 showSuccessMessage(`Đăng nhập thành công! Chào mừng ${name}`);
-                setTimeout(() => { 
+            setTimeout(() => { 
                     console.log('Chế độ frontend-only: Đang chuyển hướng đến trangchu.html');
                     window.location.href = 'trangchu.html'; 
                 }, 600);
@@ -629,6 +638,9 @@ if (typeof window.onGoogleCredential === 'undefined') {
             response: response
         });
         alert('Không thể xác thực Google. Vui lòng kiểm tra console để biết thêm chi tiết.');
+    } finally {
+        // Release the in-progress guard after navigation starts
+        setTimeout(() => { window.__GOOGLE_LOGIN_IN_PROGRESS = false; }, 2000);
     }
     };
 }

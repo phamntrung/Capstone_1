@@ -703,6 +703,9 @@
     }
     
     const max = Math.max(1, ...daily.map(d=>d.amount));
+
+    // Cache data for Detail button/modal reuse
+    window.__CHART_CACHE = { daily, max };
     const W=900, H=400, PADX=60, PADY=50, BOTTOM=60; // more padding for labels
     const innerW = W - PADX - 20, innerH = H - PADY - BOTTOM;
     
@@ -725,7 +728,7 @@
       const y = (H-BOTTOM) - (ratio * innerH);
       // Always show max and min, skip 0 if it's redundant
       if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-10}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="12" font-family="system-ui" font-weight="500">${fmt(value)}</text>`);
+        yLabels.push(`<text x="${PADX-10}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500">${fmt(value)}</text>`);
       }
     });
     
@@ -755,13 +758,13 @@
         dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
       }
       
-      if (showLabel) {
+      if (showLabel && p.amount > 0) {
         // Background for better readability + hover effect
         return `
           <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
             <circle cx="${p.x}" cy="${p.y}" r="5.5" fill="#22c55e" stroke="#0b1220" stroke-width="2.5" class="point-circle"/>
             <rect x="${labelX - 30}" y="${labelY - 10}" width="60" height="18" fill="#0b1220" opacity="0.85" rx="4"/>
-            <text x="${labelX}" y="${labelY + 2}" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600" font-family="system-ui">${fmt(p.amount)}</text>
+            <text x="${labelX}" y="${labelY + 2}" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600" font-family="'Noto Sans', system-ui">${fmt(p.amount)}</text>
           </g>
         `;
       }
@@ -774,16 +777,17 @@
     
     // X-axis labels (dates) - show date for all points if <= 8, otherwise every 2-3 points
     const xLabels = pointsData.map((p, i) => {
-      const showLabel = pointsData.length <= 8 || i % Math.max(1, Math.ceil(pointsData.length / 8)) === 0 || i === 0 || i === pointsData.length - 1;
-      if (!showLabel) return '';
       let dateStr = '';
-      if (p.label) {
-        dateStr = p.label.split(',')[0]; // e.g., "Thứ Hai"
-      } else if (p.date) {
+      if (p.date) {
         const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'});
+        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      } else if (p.label) {
+        // fallback: take dd/MM from label if present
+        const parts = p.label.split(',');
+        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
       }
-      return `<text x="${p.x}" y="${H-10}" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="system-ui">${dateStr}</text>`;
+      // rotate to avoid overlap
+      return `<g transform="translate(${p.x}, ${H-10}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="10" font-family="'Noto Sans', system-ui">${dateStr}</text></g>`;
     }).join('');
     
     const container = document.querySelector('.chart .panel');
@@ -901,7 +905,7 @@
       const value = Math.round(max * ratio);
       const y = (H - BOTTOM) - (ratio * innerH);
       if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="14" font-family="system-ui" font-weight="500">${fmt(value)}</text>`);
+        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="14" font-family="'Noto Sans', system-ui" font-weight="500">${fmt(value)}</text>`);
       }
     });
     
@@ -925,11 +929,18 @@
         dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
       }
       
+      if (p.amount > 0) {
+        return `
+          <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
+            <circle cx="${p.x}" cy="${p.y}" r="6" fill="#22c55e" stroke="#0b1220" stroke-width="3" class="point-circle"/>
+            <rect x="${labelX - 35}" y="${labelY - 12}" width="70" height="22" fill="#0b1220" opacity="0.9" rx="5"/>
+            <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600" font-family="'Noto Sans', system-ui">${fmt(p.amount)}</text>
+          </g>
+        `;
+      }
       return `
         <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
-          <circle cx="${p.x}" cy="${p.y}" r="6" fill="#22c55e" stroke="#0b1220" stroke-width="3" class="point-circle"/>
-          <rect x="${labelX - 35}" y="${labelY - 12}" width="70" height="22" fill="#0b1220" opacity="0.9" rx="5"/>
-          <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600" font-family="system-ui">${fmt(p.amount)}</text>
+          <circle cx="${p.x}" cy="${p.y}" r="5" fill="#22c55e" opacity="0.85" class="point-circle"/>
         </g>
       `;
     }).join('');
@@ -937,13 +948,14 @@
     // X-axis labels - show all dates
     const xLabels = pointsData.map((p, i) => {
       let dateStr = '';
-      if (p.label) {
-        dateStr = p.label;
-      } else if (p.date) {
+      if (p.date) {
         const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'});
+        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      } else if (p.label) {
+        const parts = p.label.split(',');
+        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
       }
-      return `<text x="${p.x}" y="${H-15}" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="system-ui" font-weight="500">${dateStr}</text>`;
+      return `<g transform="translate(${p.x}, ${H-15}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500">${dateStr}</text></g>`;
     }).join('');
     
     modalContainer.innerHTML = `
@@ -1019,6 +1031,51 @@
     }
     
     // Show modal
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Open a simple notice modal instead of the chart (for the Detail button)
+  window.openReportNoticeModal = async function(){
+    const modal = document.getElementById('chartModal');
+    const modalContainer = document.getElementById('chartModalContainer');
+    if (!modal || !modalContainer) return;
+    // Try to prepare a tiny summary (optional)
+    let daily = [];
+    try{
+      if (window.__CHART_CACHE && window.__CHART_CACHE.daily) {
+        daily = window.__CHART_CACHE.daily;
+      } else {
+        const d = await buildDailyTotals(12);
+        daily = d.slice().reverse();
+      }
+    }catch(_){}
+    const total = daily.reduce((s,x)=>s + (x.amount||0), 0);
+    const maxAmt = daily.reduce((m,x)=> Math.max(m, x.amount||0), 0);
+    const days = daily.length;
+    // Render simple notice content
+    modalContainer.innerHTML = `
+      <div style="width:100%;max-width:760px;margin:0 auto;color:#e2e8f0">
+        <div style="background:#0b1220;border:1px solid #162033;border-radius:12px;padding:20px">
+          <h3 style="margin:0 0 10px 0;color:#93c5fd;font-weight:800;font-size:20px">Thông báo báo cáo</h3>
+          <p style="margin:0 0 12px 0;opacity:0.9">Chế độ xem chi tiết chỉ hiển thị bảng thông báo. Biểu đồ đã được tắt theo yêu cầu.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Số ngày hiển thị</div>
+              <div style="font-weight:800;font-size:18px">${days}</div>
+            </div>
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Tổng chi tiêu</div>
+              <div style="font-weight:800;font-size:18px">${fmt(total)}</div>
+            </div>
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Ngày cao nhất</div>
+              <div style="font-weight:800;font-size:18px">${fmt(maxAmt)}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -1175,8 +1232,12 @@
     }
   };
 
-  // Detail button (demo)
-  document.getElementById('btnDetail').onclick = ()=> alert(t('report.viewDetail'));
+  // Detail button: open notice modal (no chart)
+  document.getElementById('btnDetail').onclick = async function(){
+    try{
+      await window.openReportNoticeModal();
+    }catch(e){ console.warn('Failed to open report notice:', e); }
+  };
 
   // ===== Chatbox =====
   const chatToggle = document.getElementById('chatToggle');

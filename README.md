@@ -384,6 +384,176 @@ const dateObj = new Date(d.date + 'T00:00:00');
 - [ ] Cải thiện UX với loading states tốt hơn
 - [ ] Thêm unit tests cho authentication flow
 
+## 🗄️ Database
+
+### Cấu Trúc Database
+
+Dự án sử dụng MySQL/MariaDB để lưu trữ dữ liệu. Có 2 file database chính:
+
+1. **`database_schema.sql`** - File SQL schema hoàn chỉnh chứa:
+   - Tất cả các bảng: `users`, `categories`, `expenses`, `budgets`, `reports`, `report_cache`, `user_settings`
+   - Stored procedures: `GetMonthlyExpense`, `GetBudgetStatus`
+   - Views: `v_user_category_summary`, `v_current_month_summary`
+   - Triggers: Tự động cập nhật balance khi có expense/income
+   - Indexes tối ưu cho performance
+
+2. **`database_complete.js`** - File helper Node.js hoàn chỉnh với:
+   - Functions kết nối database
+   - CRUD operations cho tất cả bảng
+   - Helper functions cho reports, cache, settings
+   - Transaction support
+   - Error handling đầy đủ
+
+### Thiết Lập Database
+
+#### Bước 1: Tạo Database và Tables
+
+**Cách 1: Sử dụng file SQL (Khuyến nghị)**
+```bash
+# Kết nối MySQL
+mysql -u root -p
+
+# Chạy file SQL
+mysql -u root -p < database_schema.sql
+```
+
+**Cách 2: Sử dụng script tự động (Backend Flask)**
+```bash
+cd backend
+python create_database_auto.py
+```
+
+#### Bước 2: Cấu hình `.env`
+
+**Cho Backend Node.js** (`backend-node/.env`):
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASS=your_password
+DB_NAME=smart_expense
+```
+
+**Cho Backend Flask** (`backend/.env`):
+```env
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=your_password
+MYSQL_DATABASE=smart_expense
+```
+
+#### Bước 3: Kiểm tra kết nối
+
+**Backend Node.js:**
+```javascript
+const db = require('./database_complete.js');
+await db.testConnection(); // Sẽ log "✅ Database connection: OK"
+```
+
+**Backend Flask:**
+```bash
+cd backend
+python app.py
+# Kiểm tra log xem có kết nối database thành công không
+```
+
+### Cấu Trúc Các Bảng
+
+#### 1. `users` - Người dùng
+- `id`: Primary key
+- `name`: Tên người dùng
+- `email`: Email (unique)
+- `password_hash`: Mật khẩu đã hash
+- `balance`: Số dư hiện tại (tự động cập nhật bởi triggers)
+- `gender`, `currency`, `phone`: Thông tin cá nhân
+- `google_id`, `login_method`, `avatar_url`: Google OAuth fields
+
+#### 2. `categories` - Danh mục chi tiêu
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `name`: Tên danh mục (unique per user)
+
+#### 3. `expenses` - Chi tiêu và thu nhập
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `date`: Ngày giao dịch
+- `amount`: Số tiền (dương cho income, âm cho expense)
+- `type`: 'expense' hoặc 'income'
+- `category_id`: Foreign key → `categories.id`
+- `note`: Ghi chú
+
+#### 4. `budgets` - Ngân sách theo tháng
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `month`: Tháng (format: YYYY-MM)
+- `amount`: Số tiền ngân sách
+
+#### 5. `reports` - Báo cáo đã tính toán
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `report_type`: 'daily', 'monthly', 'category', 'summary'
+- `period`: Chu kỳ báo cáo
+- `amount`, `budget`, `transactions`: Dữ liệu báo cáo
+- `metadata`: JSON data bổ sung
+
+#### 6. `report_cache` - Cache cho reports
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `cache_key`: Key để identify cache
+- `cache_data`: Dữ liệu cache (JSON)
+- `expires_at`: Thời gian hết hạn
+
+#### 7. `user_settings` - Cài đặt người dùng
+- `id`: Primary key
+- `user_id`: Foreign key → `users.id`
+- `setting_key`: Tên setting
+- `setting_value`: Giá trị setting
+
+### Sử Dụng Database Helper (Node.js)
+
+```javascript
+const db = require('./database_complete.js');
+
+// Kiểm tra kết nối
+await db.testConnection();
+
+// Lấy user theo email
+const user = await db.getUserByEmail('user@example.com');
+
+// Tạo expense mới
+const expense = await db.createExpense({
+  user_id: 1,
+  date: '2024-01-15',
+  amount: -50000,
+  type: 'expense',
+  category_id: 1,
+  note: 'Mua đồ ăn'
+});
+
+// Lấy expenses với filter
+const expenses = await db.getExpensesByUserId(1, {
+  date_from: '2024-01-01',
+  date_to: '2024-01-31',
+  type: 'expense'
+});
+
+// Sử dụng transaction
+await db.transaction(async (connection) => {
+  // Multiple queries trong transaction
+  await connection.query(...);
+});
+});
+```
+
+### Tính Năng Đặc Biệt
+
+1. **Auto-update Balance**: Triggers tự động cập nhật `balance` trong `users` khi có expense/income mới
+2. **Stored Procedures**: `GetMonthlyExpense`, `GetBudgetStatus` để query nhanh
+3. **Views**: `v_user_category_summary`, `v_current_month_summary` cho báo cáo
+4. **Indexes**: Tối ưu cho các query thường dùng (user_id + date, user_id + type, etc.)
+5. **Cascade Delete**: Khi xóa user, tất cả dữ liệu liên quan tự động xóa
+
 ## 📞 Hỗ Trợ
 
 Nếu gặp vấn đề:
@@ -391,6 +561,8 @@ Nếu gặp vấn đề:
 2. Kiểm tra log backend
 3. Đảm bảo backend đang chạy
 4. Kiểm tra file `.env` đã được cấu hình đúng
+5. Kiểm tra database đã được tạo và kết nối thành công
+6. Kiểm tra các bảng đã được tạo: `SHOW TABLES;` trong MySQL
 
 ## 📄 License
 

@@ -3,9 +3,9 @@
  */
 
 /* Import Google Fonts với hỗ trợ tiếng Việt */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap&subset=latin,vietnamese');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap&subset=latin,vietnamese');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap&subset=latin,vietnamese');
 
 /* Base font settings */
 * {

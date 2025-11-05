@@ -157,9 +157,9 @@ async function updateSummaryStats(data) {
         monthlyExpenseElement.textContent = formatCurrency(monthlyExpense);
       }
       
-      // Calculate remaining (Số tiền còn lại = Số dư - Chi tiêu hôm nay)
+      // Calculate remaining (Số tiền còn lại = Số dư - Chi tiêu THÁNG)
       // Allow negative to show when budget is exceeded
-      const remaining = userBalance - todayExpense;
+      const remaining = userBalance - monthlyExpense;
       
       // Update monthly expense input (Tổng chi tiêu tháng này) - hiển thị tổng số tiền đã chi trong tháng
       const monthlyExpenseInput = document.getElementById('monthlyExpenseInput');
@@ -186,7 +186,7 @@ async function updateSummaryStats(data) {
         monthlyBudgetElement.textContent = formatCurrency(monthlyBudget);
       }
       
-      // Remaining budget (Số tiền còn lại = Số dư - Chi tiêu hôm nay)
+      // Remaining budget (Số tiền còn lại = Số dư - Chi tiêu THÁNG)
       const remainingBudgetInput = document.getElementById('remainingBudgetInput');
       if (remainingBudgetInput) {
         remainingBudgetInput.value = formatCurrency(remaining);
@@ -199,7 +199,7 @@ async function updateSummaryStats(data) {
           remainingBudgetInput.style.color = '#10b981'; // Green if OK
         }
         console.log('✅ Updated remainingBudgetInput:', formatCurrency(remaining), 
-                    '(balance:', userBalance, '- today expense:', todayExpense, ')');
+                    '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
       }
     }
   } catch (error) {
@@ -342,7 +342,7 @@ async function updateSummaryStats(data) {
     monthlyExpenseInput.value = formatCurrency(monthlyExpense);
   }
   
-  // Update remaining budget with balance - today expense
+  // Update remaining budget with balance - monthly expense
   const remainingBudgetInput = document.getElementById('remainingBudgetInput');
   if (remainingBudgetInput) {
     // Get userBalance for fallback calculation
@@ -362,7 +362,7 @@ async function updateSummaryStats(data) {
       console.warn('Error getting balance for remaining calculation:', e);
     }
     // Allow negative to show when budget is exceeded
-    const remaining = fallbackBalance - todayExpense;
+    const remaining = fallbackBalance - monthlyExpense;
     remainingBudgetInput.value = formatCurrency(remaining);
     // Cập nhật màu sắc để đồng nhất với các phần khác
     if (remaining < 0) {
@@ -373,7 +373,7 @@ async function updateSummaryStats(data) {
       remainingBudgetInput.style.color = '#10b981'; // Green if OK
     }
     console.log('✅ Updated remainingBudgetInput (fallback):', formatCurrency(remaining), 
-                '(balance:', fallbackBalance, '- today expense:', todayExpense, ')');
+                '(balance:', fallbackBalance, '- monthly expense:', monthlyExpense, ')');
   }
   
   // Calculate expense change (compare with previous month)
@@ -408,14 +408,18 @@ function filterExpenses(expenses) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
+  // Helper: format local date to yyyy-mm-dd (avoid UTC shift from toISOString)
+  const toLocalYmd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  
   if (currentFilter === 'today') {
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = toLocalYmd(today);
     filtered = filtered.filter(e => e.date === todayStr);
   } else if (currentFilter === 'week') {
     const weekAgo = new Date(today);
     weekAgo.setDate(today.getDate() - 7);
-    const weekAgoStr = weekAgo.toISOString().split('T')[0];
-    filtered = filtered.filter(e => e.date >= weekAgoStr && e.date <= today.toISOString().split('T')[0]);
+    const weekAgoStr = toLocalYmd(weekAgo);
+    const todayStr = toLocalYmd(today);
+    filtered = filtered.filter(e => e.date >= weekAgoStr && e.date <= todayStr);
   } else if (currentFilter === 'month') {
     const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     filtered = filtered.filter(e => e.date && e.date.startsWith(currentMonth));
@@ -654,16 +658,16 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   }
   console.log('💵 Final user balance:', userBalance);
   
-  // Calculate remaining - Số tiền còn lại = Số dư - Chi tiêu hôm nay
+  // Calculate remaining - Số tiền còn lại = Số dư - Chi tiêu THÁNG
   // Allow negative to show when budget is exceeded
-  const remaining = userBalance - todayExpense;
+  const remaining = userBalance - monthlyExpense;
   console.log('✅✅✅ Remaining calculated:', remaining, 
-              '(balance:', userBalance, '- today expense:', todayExpense, ')');
+              '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
   console.log('📊 Summary:', {
     userBalance,
-    todayExpense,
+    monthlyExpense,
     remaining,
-    formula: `${userBalance} - ${todayExpense} = ${remaining}`
+    formula: `${userBalance} - ${monthlyExpense} = ${remaining}`
   });
   
   // Update UI immediately - check each element
@@ -693,7 +697,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   
   // Update remaining budget (Số tiền còn lại) - ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT
   console.log('🔍🔍🔍 Attempting to update remainingBudgetInput...');
-  console.log('🔍 Values:', { userBalance, todayExpense, remaining, formula: `${userBalance} - ${todayExpense} = ${remaining}` });
+  console.log('🔍 Values:', { userBalance, monthlyExpense, remaining, formula: `${userBalance} - ${monthlyExpense} = ${remaining}` });
   const remainingBudgetInput = document.getElementById('remainingBudgetInput');
   if (remainingBudgetInput) {
     const oldValue = remainingBudgetInput.value;
@@ -709,7 +713,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     console.log('✅✅✅ Updated remainingBudgetInput:', 
                 'old:', oldValue, 
                 'new:', formatCurrency(remaining), 
-                '(balance:', userBalance, '- today expense:', todayExpense, ')');
+                '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
     console.log('✅✅✅ Element after update:', {
       value: remainingBudgetInput.value,
       color: remainingBudgetInput.style.color,
@@ -820,6 +824,43 @@ function updateRecentExpenses(expenses) {
   if (todayExpenseInput) {
     todayExpenseInput.value = formatCurrency(todayTotal);
   }
+  
+  // Defensive: also refresh remaining = balance - MONTHLY expense (avoid any accidental today-only calc)
+  try {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthExpenses = expenses.filter(e => {
+      const expDate = e.date ? e.date.substring(0, 7) : '';
+      return expDate === currentMonth && e.type === 'expense';
+    });
+    const monthlyTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
+    
+    // Get balance from stored profile/UI
+    let balanceForUI = 0;
+    try {
+      const userData = localStorage.getItem('smartexpense_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        balanceForUI = user.balance || user.monthly_budget || 0;
+      } else {
+        const monthlyBudget = localStorage.getItem('monthly_budget');
+        if (monthlyBudget) balanceForUI = Number(monthlyBudget) || 0;
+      }
+    } catch (_) {}
+    
+    const remainingEl = document.getElementById('remainingBudgetInput');
+    if (remainingEl) {
+      const remainingCalc = balanceForUI - monthlyTotal;
+      remainingEl.value = formatCurrency(remainingCalc);
+      if (remainingCalc < 0) {
+        remainingEl.style.color = '#ef4444';
+      } else if (remainingCalc < balanceForUI * 0.2) {
+        remainingEl.style.color = '#f59e0b';
+      } else {
+        remainingEl.style.color = '#10b981';
+      }
+    }
+  } catch (_) {}
   
   // Update category list after updating expenses
   updateCategoryList(expenses);
@@ -1651,31 +1692,29 @@ function initDashboard() {
         balanceAmount.style.color = '#10b981';
       }
       
-      // Tính lại số tiền còn lại = balance - chi tiêu hôm nay
-      let todayExpense = 0;
-      
-      // Lấy todayExpense từ allExpenses nếu có
+      // Tính lại số tiền còn lại = balance - chi tiêu THÁNG
+      let monthlyExpenseForEvent = 0;
       if (allExpenses.length > 0) {
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0]; // yyyy-mm-dd
-        const todayExpenses = allExpenses.filter(e => {
-          return e.date === todayStr && e.type === 'expense';
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthExpenses = allExpenses.filter(e => {
+          const expMonth = e.date ? e.date.substring(0, 7) : '';
+          return expMonth === currentMonth && e.type === 'expense';
         });
-        todayExpense = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
+        monthlyExpenseForEvent = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       } else {
-        // Fallback: lấy từ todayExpenseInput nếu có
-        const todayExpenseInput = document.getElementById('todayExpenseInput');
-        if (todayExpenseInput && todayExpenseInput.value) {
-          // Parse giá trị từ input (có thể có format currency)
-          const todayExpenseStr = todayExpenseInput.value.replace(/[^\d.-]/g, '');
-          todayExpense = parseFloat(todayExpenseStr) || 0;
+        // Fallback: lấy từ monthlyExpenseInput nếu có
+        const monthlyExpenseInput = document.getElementById('monthlyExpenseInput');
+        if (monthlyExpenseInput && monthlyExpenseInput.value) {
+          const monthlyExpenseStr = monthlyExpenseInput.value.replace(/[^\d.-]/g, '');
+          monthlyExpenseForEvent = parseFloat(monthlyExpenseStr) || 0;
         }
       }
       
-      // Tính remaining = balance - todayExpense
+      // Tính remaining = balance - monthlyExpense
       // Allow negative to show when budget is exceeded
-      const remaining = balanceFromEvent - todayExpense;
-      console.log('💰 Calculating remaining:', balanceFromEvent, '-', todayExpense, '=', remaining);
+      const remaining = balanceFromEvent - monthlyExpenseForEvent;
+      console.log('💰 Calculating remaining:', balanceFromEvent, '-', monthlyExpenseForEvent, '=', remaining);
       
       // Cập nhật remainingBudgetInput (số tiền còn lại)
       const remainingBudgetInput = document.getElementById('remainingBudgetInput');
