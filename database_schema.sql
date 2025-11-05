@@ -7,8 +7,8 @@
 -- ============================================
 
 -- Tạo database (nếu chưa tồn tại)
-CREATE DATABASE IF NOT EXISTS smart_expense 
-CHARACTER SET utf8mb4 
+CREATE DATABASE IF NOT EXISTS smart_expense
+CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
 USE smart_expense;
@@ -22,30 +22,30 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(120) NOT NULL UNIQUE COMMENT 'Email đăng nhập (unique)',
     password_hash VARCHAR(255) NOT NULL COMMENT 'Mật khẩu đã hash (bcrypt)',
     role VARCHAR(20) DEFAULT 'user' COMMENT 'Vai trò: user, admin',
-    
+
     -- Thông tin cá nhân
     balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT 'Số dư tháng hiện tại',
     gender VARCHAR(20) NULL COMMENT 'Giới tính: Nam, Nữ, Khác',
     currency VARCHAR(50) NULL DEFAULT 'VND' COMMENT 'Đơn vị tiền tệ: VND, USD, EUR...',
     phone VARCHAR(20) NULL COMMENT 'Số điện thoại',
-    
+
     -- Google OAuth
     google_id VARCHAR(255) NULL UNIQUE COMMENT 'Google User ID (sub từ JWT)',
     login_method VARCHAR(20) DEFAULT 'password' COMMENT 'Phương thức đăng nhập: password, google',
     avatar_url VARCHAR(500) NULL COMMENT 'URL ảnh đại diện từ Google',
     email_verified BOOLEAN DEFAULT FALSE COMMENT 'Trạng thái xác thực email',
-    
+
     -- Timestamps
     last_login_at DATETIME NULL COMMENT 'Lần đăng nhập cuối',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Indexes
     INDEX idx_email (email),
     INDEX idx_google_id (google_id),
     INDEX idx_role (role),
     INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng quản lý người dùng và thông tin xác thực';
 
 -- ============================================
@@ -55,19 +55,22 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL COMMENT 'ID người dùng sở hữu danh mục',
     name VARCHAR(100) NOT NULL COMMENT 'Tên danh mục (ví dụ: Ăn uống, Mua sắm)',
-    
+    color VARCHAR(7) DEFAULT '#3b82f6' COMMENT 'Màu sắc hiển thị (hex, ví dụ: #3b82f6)',
+    note TEXT NULL COMMENT 'Ghi chú mô tả cho danh mục',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'Trạng thái hoạt động: TRUE = BẬT, FALSE = TẮT',
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign key
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    
+
     -- Indexes
     INDEX idx_user_id (user_id),
     INDEX idx_name (name),
     UNIQUE KEY unique_user_category (user_id, name) COMMENT 'Mỗi user chỉ có 1 category với tên duy nhất'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng danh mục chi tiêu của từng người dùng';
 
 -- ============================================
@@ -81,15 +84,15 @@ CREATE TABLE IF NOT EXISTS expenses (
     type VARCHAR(20) NOT NULL COMMENT 'Loại: expense (chi tiêu) hoặc income (thu nhập)',
     category_id INT NULL COMMENT 'ID danh mục (NULL nếu không có)',
     note TEXT NULL COMMENT 'Ghi chú của giao dịch',
-    
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign keys
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    
+
     -- Indexes để query nhanh
     INDEX idx_user_id (user_id),
     INDEX idx_date (date),
@@ -97,7 +100,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     INDEX idx_category_id (category_id),
     INDEX idx_user_date (user_id, date) COMMENT 'Composite index cho query theo user và date range',
     INDEX idx_user_type_date (user_id, type, date) COMMENT 'Composite index cho filter theo type và date'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng lưu trữ tất cả các giao dịch (chi tiêu và thu nhập)';
 
 -- ============================================
@@ -108,21 +111,21 @@ CREATE TABLE IF NOT EXISTS budgets (
     user_id INT NOT NULL COMMENT 'ID người dùng sở hữu ngân sách',
     month VARCHAR(7) NOT NULL COMMENT 'Tháng (format: YYYY-MM)',
     amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT 'Số tiền ngân sách cho tháng',
-    
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign key
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    
+
     -- Indexes
     INDEX idx_user_id (user_id),
     INDEX idx_month (month),
-    
+
     -- Unique constraint: Mỗi user chỉ có 1 budget cho 1 tháng
     UNIQUE KEY unique_user_month (user_id, month)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng quản lý ngân sách theo tháng của từng người dùng';
 
 -- ============================================
@@ -140,25 +143,25 @@ CREATE TABLE IF NOT EXISTS reports (
     category_name VARCHAR(255) NULL DEFAULT NULL COMMENT 'Tên danh mục',
     percentage DECIMAL(5, 2) NULL DEFAULT NULL COMMENT 'Phần trăm chi tiêu (chỉ cho category reports)',
     metadata JSON NULL COMMENT 'Dữ liệu bổ sung (JSON format)',
-    
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign key
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    
+
     -- Indexes để query nhanh
     INDEX idx_user_id (user_id),
     INDEX idx_report_type (report_type),
     INDEX idx_period (period),
     INDEX idx_user_type_period (user_id, report_type, period) COMMENT 'Composite index cho query reports',
     INDEX idx_created_at (created_at),
-    
+
     -- Unique constraint: Mỗi user chỉ có 1 report cho mỗi type + period
     UNIQUE KEY unique_user_report (user_id, report_type, period)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng lưu trữ các báo cáo đã tính toán (cache)';
 
 -- ============================================
@@ -170,23 +173,23 @@ CREATE TABLE IF NOT EXISTS report_cache (
     cache_key VARCHAR(100) NOT NULL COMMENT 'Key để identify cache (ví dụ: daily_summary, monthly_summary)',
     cache_data JSON NOT NULL COMMENT 'Dữ liệu cache (JSON format)',
     expires_at DATETIME NOT NULL COMMENT 'Thời gian hết hạn cache',
-    
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign key
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    
+
     -- Indexes
     INDEX idx_user_id (user_id),
     INDEX idx_cache_key (cache_key),
     INDEX idx_expires_at (expires_at),
     INDEX idx_user_key (user_id, cache_key) COMMENT 'Composite index cho query cache',
-    
+
     -- Unique constraint
     UNIQUE KEY unique_user_cache (user_id, cache_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng cache cho summary reports (giảm tải tính toán)';
 
 -- ============================================
@@ -197,21 +200,21 @@ CREATE TABLE IF NOT EXISTS user_settings (
     user_id INT NOT NULL COMMENT 'ID người dùng',
     setting_key VARCHAR(100) NOT NULL COMMENT 'Tên setting (ví dụ: daily_report, theme)',
     setting_value TEXT NULL COMMENT 'Giá trị setting (JSON hoặc text)',
-    
+
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+
     -- Foreign key
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    
+
     -- Indexes
     INDEX idx_user_id (user_id),
     INDEX idx_setting_key (setting_key),
-    
+
     -- Unique constraint: Mỗi user chỉ có 1 setting cho mỗi key
     UNIQUE KEY unique_user_setting (user_id, setting_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Bảng lưu trữ cài đặt cá nhân của người dùng';
 
 -- ============================================
@@ -225,7 +228,7 @@ CREATE PROCEDURE IF NOT EXISTS GetMonthlyExpense(
     IN p_month VARCHAR(7)  -- Format: YYYY-MM
 )
 BEGIN
-    SELECT 
+    SELECT
         COALESCE(SUM(CASE WHEN type = 'expense' THEN ABS(amount) ELSE 0 END), 0) AS total_expense,
         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS total_income,
         COUNT(*) AS transaction_count
@@ -242,14 +245,14 @@ CREATE PROCEDURE IF NOT EXISTS GetBudgetStatus(
     IN p_month VARCHAR(7)  -- Format: YYYY-MM
 )
 BEGIN
-    SELECT 
+    SELECT
         COALESCE(b.amount, 0) AS budget_amount,
         COALESCE(SUM(CASE WHEN e.type = 'expense' THEN ABS(e.amount) ELSE 0 END), 0) AS actual_expense,
         COALESCE(b.amount, 0) - COALESCE(SUM(CASE WHEN e.type = 'expense' THEN ABS(e.amount) ELSE 0 END), 0) AS remaining,
-        CASE 
-            WHEN COALESCE(b.amount, 0) > 0 THEN 
+        CASE
+            WHEN COALESCE(b.amount, 0) > 0 THEN
                 (COALESCE(SUM(CASE WHEN e.type = 'expense' THEN ABS(e.amount) ELSE 0 END), 0) / COALESCE(b.amount, 1)) * 100
-            ELSE 0 
+            ELSE 0
         END AS percentage_used
     FROM budgets b
     LEFT JOIN expenses e ON e.user_id = p_user_id AND DATE_FORMAT(e.date, '%Y-%m') = p_month
@@ -259,12 +262,60 @@ END //
 DELIMITER ;
 
 -- ============================================
+-- BẢNG 8: devices - Quản lý thiết bị đăng nhập
+-- ============================================
+-- Migration: create_devices_table.sql
+-- Ngày tạo: 2025
+-- Mục đích: Lưu trữ thông tin các thiết bị/phiên đăng nhập của người dùng
+-- ============================================
+CREATE TABLE IF NOT EXISTS devices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL COMMENT 'ID người dùng sở hữu thiết bị',
+
+    -- Thông tin thiết bị
+    device_name VARCHAR(100) NULL COMMENT 'Tên thiết bị (ví dụ: iPhone 15, MacBook Pro)',
+    platform VARCHAR(50) NULL COMMENT 'Hệ điều hành (iOS, macOS, Windows, Android, Linux)',
+    browser VARCHAR(50) NULL COMMENT 'Trình duyệt (Safari, Chrome, Edge, Firefox)',
+
+    -- Thông tin mạng và vị trí
+    ip_address VARCHAR(45) NULL COMMENT 'Địa chỉ IP (IPv4 hoặc IPv6)',
+    city VARCHAR(100) NULL COMMENT 'Thành phố (ước tính từ IP)',
+    country VARCHAR(10) NULL COMMENT 'Quốc gia (mã 2 chữ, ví dụ: VN, US)',
+
+    -- Bảo mật
+    fingerprint VARCHAR(100) NULL COMMENT 'Fingerprint duy nhất của thiết bị/trình duyệt',
+    session_token VARCHAR(255) NULL COMMENT 'Token phiên đăng nhập (JWT hoặc refresh token)',
+
+    -- Trạng thái
+    is_trusted BOOLEAN DEFAULT FALSE COMMENT 'Trạng thái tin cậy: TRUE = Tin cậy, FALSE = Không tin cậy',
+    is_blocked BOOLEAN DEFAULT FALSE COMMENT 'Trạng thái bị chặn: TRUE = Bị chặn, FALSE = Không bị chặn',
+    is_current BOOLEAN DEFAULT FALSE COMMENT 'Thiết bị hiện tại: TRUE = Đang sử dụng, FALSE = Khác',
+
+    -- Thời gian
+    last_activity_at DATETIME NULL COMMENT 'Thời gian hoạt động gần nhất',
+    expires_at DATETIME NULL COMMENT 'Thời gian hết hạn của phiên (nếu có)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Foreign key
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Indexes
+    INDEX idx_user_id (user_id),
+    INDEX idx_fingerprint (fingerprint),
+    INDEX idx_session_token (session_token),
+    INDEX idx_last_activity (last_activity_at),
+    INDEX idx_user_activity (user_id, last_activity_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Bảng quản lý thiết bị và phiên đăng nhập của người dùng';
+
+-- ============================================
 -- VIEWS - Các view hữu ích
 -- ============================================
 
 -- View: Tổng hợp chi tiêu theo danh mục của user
 CREATE OR REPLACE VIEW v_user_category_summary AS
-SELECT 
+SELECT
     u.id AS user_id,
     u.name AS user_name,
     c.id AS category_id,
@@ -279,7 +330,7 @@ GROUP BY u.id, u.name, c.id, c.name;
 
 -- View: Báo cáo tháng hiện tại của tất cả users
 CREATE OR REPLACE VIEW v_current_month_summary AS
-SELECT 
+SELECT
     u.id AS user_id,
     u.name AS user_name,
     DATE_FORMAT(NOW(), '%Y-%m') AS current_month,
@@ -322,7 +373,7 @@ BEGIN
     ELSEIF OLD.type = 'expense' THEN
         UPDATE users SET balance = balance + ABS(OLD.amount) WHERE id = OLD.user_id;
     END IF;
-    
+
     -- Thêm tác động của giá trị mới
     IF NEW.type = 'income' THEN
         UPDATE users SET balance = balance + NEW.amount WHERE id = NEW.user_id;

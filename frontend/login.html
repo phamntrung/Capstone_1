@@ -79,8 +79,18 @@
       <button type="submit">Đăng nhập</button>
     </form>
 
+    <!-- 2FA Form (ẩn ban đầu) -->
+    <form id="twoFAForm" style="display:none; margin-top:16px;">
+      <div style="text-align:left; margin-bottom:8px; font-size:14px; color:#6b7280;">
+        Vui lòng nhập mã 6 số từ ứng dụng Authenticator:
+      </div>
+      <input type="text" id="twoFACode" placeholder="000000" maxlength="7" inputmode="numeric" pattern="[0-9]{6}" required />
+      <button type="submit">Xác thực</button>
+      <button type="button" id="cancel2FA" style="background:#6b7280; margin-top:8px;">Hủy</button>
+    </form>
+
     <div style="margin:12px 0; font-size:12px; color:#6b7280;">hoặc</div>
-    
+
     <!-- Google OAuth Error Warning -->
     <div id="oauthWarning" class="oauth-warning">
       <strong>⚠️ Google đăng nhập không khả dụng</strong>
@@ -118,7 +128,7 @@
   const protocol = window.location.protocol;
   const host = window.location.host;
   const port = window.location.port;
-  
+
   // Check if using file:// protocol (won't work with Google OAuth)
   if (protocol === 'file:') {
     const warningDiv = document.getElementById('oauthWarning');
@@ -135,7 +145,7 @@
     warningDiv.classList.add('show');
     return;
   }
-  
+
   // Monitor for Google SDK load errors
   let googleSDKLoaded = false;
   const checkGoogleSDK = setInterval(function() {
@@ -144,7 +154,7 @@
       clearInterval(checkGoogleSDK);
     }
   }, 500);
-  
+
   // After 3 seconds, if Google SDK hasn't loaded, show warning
   setTimeout(function() {
     clearInterval(checkGoogleSDK);
@@ -152,7 +162,7 @@
       const warningDiv = document.getElementById('oauthWarning');
       const warningContent = document.getElementById('oauthWarningContent');
       const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
-      
+
       warningContent.innerHTML = `
         <div style="margin-bottom:8px;">Origin hiện tại chưa được phép trong Google Console:</div>
         <code>${currentOrigin}</code>
@@ -169,14 +179,14 @@
       warningDiv.classList.add('show');
     }
   }, 3000);
-  
+
   // Listen for Google SDK errors
   window.addEventListener('error', function(e) {
     if (e.message && e.message.includes('client') && e.message.includes('403')) {
       const warningDiv = document.getElementById('oauthWarning');
       const warningContent = document.getElementById('oauthWarningContent');
       const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
-      
+
       warningContent.innerHTML = `
         <div style="margin-bottom:8px;">Lỗi 403: Origin không được phép</div>
         <code>${currentOrigin}</code>

@@ -1,8 +1,78 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { authRequired, createToken, nextUserId, usersByEmail } = require('../middleware/auth');
 const { verifyPassword } = require('../utils/password');
+const emailService = require('../services/emailService');
+const { createDevice, query } = require('../database');
+const { getLocationFromIP } = require('../services/geoipService');
+
+// Helper: Extract device info from request
+async function extractDeviceInfo(req, clientPublicIP = null) {
+  const userAgent = req.headers['user-agent'] || '';
+
+  // Lấy IP - ưu tiên clientPublicIP (từ client gửi lên), sau đó x-forwarded-for, req.ip, remoteAddress
+  let ipAddress = clientPublicIP;
+  if (!ipAddress || ipAddress === '127.0.0.1' || ipAddress === '::1') {
+    ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim();
+  }
+  if (!ipAddress || ipAddress === '127.0.0.1' || ipAddress === '::1') {
+    ipAddress = req.ip || req.connection?.remoteAddress || 'Unknown';
+  }
+
+  // Detect platform
+  let platform = 'Unknown';
+  if (userAgent.includes('Windows')) platform = 'Windows';
+  else if (userAgent.includes('Mac OS X') || userAgent.includes('macOS')) platform = 'macOS';
+  else if (userAgent.includes('Linux')) platform = 'Linux';
+  else if (userAgent.includes('Android')) platform = 'Android';
+  else if (userAgent.includes('iPhone') || userAgent.includes('iPad') || userAgent.includes('iOS')) platform = 'iOS';
+
+  // Detect browser
+  let browser = 'Unknown';
+  if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) browser = 'Chrome';
+  else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) browser = 'Safari';
+  else if (userAgent.includes('Firefox')) browser = 'Firefox';
+  else if (userAgent.includes('Edg')) browser = 'Edge';
+  else if (userAgent.includes('Opera')) browser = 'Opera';
+
+  // Generate device name
+  let deviceName = `${platform} Device`;
+  if (platform === 'iOS') {
+    if (userAgent.includes('iPhone')) deviceName = 'iPhone';
+    else if (userAgent.includes('iPad')) deviceName = 'iPad';
+  } else if (platform === 'Android') {
+    deviceName = 'Android Device';
+  } else if (platform === 'macOS') {
+    deviceName = 'MacBook';
+  } else if (platform === 'Windows') {
+    deviceName = 'Windows PC';
+  }
+
+  // Lấy location từ IP (async)
+  let location = { city: null, country: null };
+  try {
+    location = await getLocationFromIP(ipAddress);
+  } catch (error) {
+    // Nếu không lấy được location, vẫn tiếp tục với city/country = null
+  }
+
+  return {
+    deviceName,
+    platform,
+    browser,
+    ipAddress,
+    city: location.city,
+    country: location.country
+  };
+}
+
+// Helper: Generate fingerprint
+function generateFingerprint(deviceInfo) {
+  const str = `${deviceInfo.platform}-${deviceInfo.browser}-${deviceInfo.ipAddress}`;
+  return crypto.createHash('md5').update(str).digest('hex').substring(0, 16).toUpperCase();
+}
 
 // Import database module (optional - fallback to in-memory if not available)
 let db = null;
@@ -40,7 +110,7 @@ router.post('/register', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    
+
     // Check if user exists (database or in-memory)
     let existingUser = null;
     if (db) {
@@ -63,7 +133,7 @@ router.post('/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     let user;
     if (db) {
       try {
@@ -116,25 +186,16 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
-    console.log('📥 Login request received');
-    console.log('   Raw body:', JSON.stringify(req.body));
-    console.log('   Headers:', JSON.stringify(req.headers));
-    
+
     const { email, password } = req.body;
-    
-    console.log(`   Email: "${email}" (type: ${typeof email})`);
-    console.log(`   Password: "${password ? password.substring(0, 3) + '...' : 'undefined'}" (type: ${typeof password})`);
 
     if (!email || !password) {
-      console.log('❌ Missing email or password');
       return res.status(400).json({ message: 'Thiếu email/password' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    
-    console.log(`🔐 Login attempt for: ${normalizedEmail}`);
-    console.log(`📊 Using database: ${db ? 'YES' : 'NO (in-memory)'}`);
-    
+
+
     // Get user from database or in-memory
     let user;
     if (db) {
@@ -142,8 +203,6 @@ router.post('/login', async (req, res) => {
         user = await db.getUserByEmail(normalizedEmail);
       } catch (error) {
         console.error('❌ Database query error:', error.message);
-        // Fallback to in-memory
-        console.log('⚠️ Falling back to in-memory storage');
         user = usersByEmail.get(normalizedEmail);
       }
     } else {
@@ -151,31 +210,21 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user) {
-      console.log(`❌ Login failed: User not found - ${normalizedEmail}`);
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
-    console.log(`✅ User found, checking password...`);
-    console.log(`   User ID: ${user.id}, Email: ${user.email}, Has password_hash: ${!!user.password_hash}`);
 
     // Check if user has password_hash (for Google login users, they might not have password)
     if (!user.password_hash) {
-      console.log(`❌ Login failed: User has no password (possibly Google-only user) - ${normalizedEmail}`);
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
 
     // Check password (supports both bcrypt and scrypt formats)
-    console.log(`🔐 Verifying password...`);
-    console.log(`   Password provided: "${password}"`);
-    console.log(`   Hash (first 30 chars): ${user.password_hash.substring(0, 30)}...`);
     const passwordMatch = await verifyPassword(password, user.password_hash);
-    console.log(`   Verification result: ${passwordMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
     if (!passwordMatch) {
-      console.log(`❌ Login failed: Password mismatch for ${normalizedEmail}`);
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
     }
-    
-    console.log(`✅ Password verified for ${normalizedEmail}`);
+
 
     // Update last_login_at if using database
     if (db && user.id) {
@@ -186,7 +235,110 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    // Kiểm tra user có bật 2FA không
+    let requires2FA = false;
+    if (db && user.id) {
+      try {
+        const twoFAStatus = await db.query(
+          'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+          [user.id, 'two_factor_enabled']
+        );
+        if (twoFAStatus && twoFAStatus.length > 0 && twoFAStatus[0].setting_value === 'true') {
+          requires2FA = true;
+        }
+      } catch (err) {
+        console.warn('Failed to check 2FA status:', err.message);
+      }
+    }
+
+    // Nếu cần 2FA, trả về response yêu cầu mã 2FA (không trả token)
+    if (requires2FA) {
+      return res.status(200).json({
+        requires2FA: true,
+        message: 'Vui lòng nhập mã 2FA',
+        email: normalizedEmail
+      });
+    }
+
     const token = createToken(user);
+
+    // Lấy public IP từ client (nếu có)
+    const clientPublicIP = req.body.clientIP || req.headers['x-client-ip'] || null;
+
+    // Kiểm tra thiết bị có bị chặn không
+    if (db && user.id) {
+      try {
+        const deviceInfo = await extractDeviceInfo(req, clientPublicIP);
+        const fingerprint = generateFingerprint(deviceInfo);
+
+        // Kiểm tra xem device này có bị blocked không
+        const existingDevice = await query(
+          'SELECT * FROM devices WHERE user_id = ? AND fingerprint = ?',
+          [user.id, fingerprint]
+        );
+
+        if (existingDevice.length > 0 && existingDevice[0].is_blocked) {
+          return res.status(403).json({
+            message: 'Thiết bị này đã bị chặn. Vui lòng liên hệ quản trị viên.'
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to check device status:', err.message);
+        // Không fail login nếu không check được
+      }
+    }
+
+    // Tạo device session khi login
+    if (db && user.id) {
+      try {
+        // Đặt is_current = false cho tất cả devices cũ
+        await query('UPDATE devices SET is_current = FALSE WHERE user_id = ?', [user.id]);
+
+        const deviceInfo = await extractDeviceInfo(req, clientPublicIP);
+        const fingerprint = generateFingerprint(deviceInfo);
+
+        // Kiểm tra device đã tồn tại chưa (cùng fingerprint)
+        const existingDevice = await query(
+          'SELECT * FROM devices WHERE user_id = ? AND fingerprint = ?',
+          [user.id, fingerprint]
+        );
+
+        if (existingDevice.length > 0) {
+          // Cập nhật device hiện có
+          await query(
+            `UPDATE devices SET
+              is_current = TRUE,
+              last_activity_at = NOW(),
+              session_token = ?,
+              ip_address = ?,
+              updated_at = NOW()
+            WHERE id = ?`,
+            [token, deviceInfo.ipAddress, existingDevice[0].id]
+          );
+        } else {
+          // Tạo device mới
+          await createDevice({
+            userId: user.id,
+            deviceName: deviceInfo.deviceName,
+            platform: deviceInfo.platform,
+            browser: deviceInfo.browser,
+            ipAddress: deviceInfo.ipAddress,
+            city: deviceInfo.city || null,
+            country: deviceInfo.country || null,
+            fingerprint: fingerprint,
+            sessionToken: token,
+            isCurrent: true,
+            isTrusted: false,
+            isBlocked: false
+          });
+          console.log(`✅ Created new device for user ${user.id}, fingerprint: ${fingerprint}`);
+        }
+      } catch (err) {
+        console.error('❌ Failed to create device session:', err.message);
+        console.error('Stack:', err.stack);
+        // Không fail login nếu không tạo được device
+      }
+    }
 
     res.json({
       user: {
@@ -223,17 +375,14 @@ router.post('/google', async (req, res) => {
     const googleId = payload.sub;
     const avatarUrl = payload.picture;
 
-    console.log(`🔐 Google login attempt for: ${email}`);
-    console.log(`📊 Using database: ${db ? 'YES' : 'NO (in-memory)'}`);
 
     // Get user from database or in-memory
     let user;
     if (db) {
       try {
         user = await db.getUserByEmail(email);
-        
+
         if (!user) {
-          console.log(`📝 Creating new Google user: ${email}`);
           // Create new user in database
           const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10); // Random password
           user = await db.createUser({
@@ -246,10 +395,8 @@ router.post('/google', async (req, res) => {
             avatar_url: avatarUrl,
             email_verified: payload.email_verified || false
           });
-          console.log(`✅ Created new user: ${user.id}`);
         } else {
-          console.log(`🔄 Updating existing user: ${email}`);
-          // Update user info
+          // Update existing user info
           await db.updateUser(user.id, {
             last_login_at: new Date(),
             google_id: googleId,
@@ -265,7 +412,7 @@ router.post('/google', async (req, res) => {
       }
     } else {
       user = usersByEmail.get(email);
-      
+
       if (!user) {
         user = {
           id: nextUserId(),
@@ -281,6 +428,82 @@ router.post('/google', async (req, res) => {
 
     const token = createToken(user);
 
+    // Lấy public IP từ client (nếu có)
+    const clientPublicIP = req.body.clientIP || req.headers['x-client-ip'] || null;
+
+    // Kiểm tra thiết bị có bị chặn không
+    if (db && user.id) {
+      try {
+        const deviceInfo = await extractDeviceInfo(req, clientPublicIP);
+        const fingerprint = generateFingerprint(deviceInfo);
+
+        // Kiểm tra xem device này có bị blocked không
+        const existingDevice = await query(
+          'SELECT * FROM devices WHERE user_id = ? AND fingerprint = ?',
+          [user.id, fingerprint]
+        );
+
+        if (existingDevice.length > 0 && existingDevice[0].is_blocked) {
+          return res.status(403).json({
+            message: 'Thiết bị này đã bị chặn. Vui lòng liên hệ quản trị viên.'
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to check device status:', err.message);
+        // Không fail login nếu không check được
+      }
+    }
+
+    // Tạo device session khi Google login
+    if (db && user.id) {
+      try {
+        // Đặt is_current = false cho tất cả devices cũ
+        await query('UPDATE devices SET is_current = FALSE WHERE user_id = ?', [user.id]);
+
+        const deviceInfo = await extractDeviceInfo(req, clientPublicIP);
+        const fingerprint = generateFingerprint(deviceInfo);
+
+        // Kiểm tra device đã tồn tại chưa (cùng fingerprint)
+        const existingDevice = await query(
+          'SELECT * FROM devices WHERE user_id = ? AND fingerprint = ?',
+          [user.id, fingerprint]
+        );
+
+        if (existingDevice.length > 0) {
+          // Cập nhật device hiện có
+          await query(
+            `UPDATE devices SET
+              is_current = TRUE,
+              last_activity_at = NOW(),
+              session_token = ?,
+              ip_address = ?,
+              updated_at = NOW()
+            WHERE id = ?`,
+            [token, deviceInfo.ipAddress, existingDevice[0].id]
+          );
+        } else {
+          // Tạo device mới
+          await createDevice({
+            userId: user.id,
+            deviceName: deviceInfo.deviceName,
+            platform: deviceInfo.platform,
+            browser: deviceInfo.browser,
+            ipAddress: deviceInfo.ipAddress,
+            city: deviceInfo.city || null,
+            country: deviceInfo.country || null,
+            fingerprint: fingerprint,
+            sessionToken: token,
+            isCurrent: true,
+            isTrusted: false,
+            isBlocked: false
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to create device session:', err.message);
+        // Không fail login nếu không tạo được device
+      }
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -293,6 +516,511 @@ router.post('/google', async (req, res) => {
   } catch (error) {
     console.error('Google login error:', error);
     res.status(401).json({ message: 'Đăng nhập Google thất bại' });
+  }
+});
+
+// Forgot Password - Gửi link reset password qua email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Vui lòng nhập email' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Tìm user
+    let user;
+    if (db) {
+      try {
+        user = await db.getUserByEmail(normalizedEmail);
+      } catch (error) {
+        console.error('❌ Database error:', error.message);
+        user = usersByEmail.get(normalizedEmail);
+      }
+    } else {
+      user = usersByEmail.get(normalizedEmail);
+    }
+
+    // Không báo lỗi nếu email không tồn tại (bảo mật)
+    if (!user) {
+      return res.json({ message: 'Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu' });
+    }
+
+    // Tạo reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 120000); // 2 phút
+
+    // Lưu token vào database (user_settings)
+    if (db) {
+      try {
+        // Xóa token cũ nếu có
+        await db.query(
+          'DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?',
+          [user.id, 'password_reset_token']
+        );
+        // Lưu token mới
+        await db.query(
+          'INSERT INTO user_settings (user_id, setting_key, setting_value, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+          [user.id, 'password_reset_token', JSON.stringify({ token: resetToken, expires_at: expiresAt.toISOString() })]
+        );
+      } catch (error) {
+        console.error('❌ Error saving reset token:', error.message);
+        // Fallback: có thể dùng in-memory nhưng không an toàn
+      }
+    }
+
+    // Tạo reset link
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/frontend/datlaimatkhau.html?token=${resetToken}`;
+
+    // Gửi email
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .button { display: inline-block; padding: 12px 24px; background: #2563eb; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .button:hover { background: #1f49cf; color: white !important; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h2>Đặt lại mật khẩu - SmartExpense</h2>
+            <p>Xin chào <strong>${user.name || user.email}</strong>,</p>
+            <p>Bạn đã yêu cầu đặt lại mật khẩu. Click vào nút bên dưới để đặt lại mật khẩu:</p>
+            <a href="${resetLink}" class="button">Đặt lại mật khẩu</a>
+            <p>Hoặc copy link này vào trình duyệt:</p>
+            <p style="word-break: break-all;">${resetLink}</p>
+            <p><strong>Lưu ý:</strong> Link này chỉ có hiệu lực trong 2 phút.</p>
+            <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">Email này được gửi tự động từ hệ thống SmartExpense.</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await emailService.sendEmail(
+        user.email,
+        'Đặt lại mật khẩu - SmartExpense',
+        htmlContent,
+        `Đặt lại mật khẩu - SmartExpense\n\nClick vào link sau để đặt lại mật khẩu:\n${resetLink}\n\nLink này chỉ có hiệu lực trong 2 phút.`
+      );
+
+    } catch (error) {
+      console.error('❌ Error sending email:', error.message);
+      // Không trả về lỗi 500, vẫn trả về success
+    }
+
+    res.json({ message: 'Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Lỗi xử lý yêu cầu' });
+  }
+});
+
+// Reset Password - Đặt lại mật khẩu với token
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Thiếu token hoặc mật khẩu mới' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+    }
+
+    // Tìm user có token này
+    let user = null;
+    let tokenData = null;
+
+    if (db) {
+      try {
+        // Tìm user có token
+        const results = await db.query(
+          `SELECT u.*, us.setting_value
+           FROM users u
+           INNER JOIN user_settings us ON u.id = us.user_id
+           WHERE us.setting_key = ?`,
+          ['password_reset_token']
+        );
+
+        // Tìm token khớp
+        for (const row of results) {
+          try {
+            const setting = JSON.parse(row.setting_value);
+            if (setting.token === token) {
+              const expiresAt = new Date(setting.expires_at);
+              if (expiresAt > new Date()) {
+                user = row;
+                tokenData = setting;
+                break;
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+
+        if (!user) {
+          return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+        }
+
+        // Hash mật khẩu mới
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Cập nhật mật khẩu
+        await db.query(
+          'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?',
+          [hashedPassword, user.id]
+        );
+
+        // Xóa token đã dùng
+        await db.query(
+          'DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?',
+          [user.id, 'password_reset_token']
+        );
+
+      } catch (error) {
+        console.error('❌ Database error:', error.message);
+        return res.status(500).json({ message: 'Lỗi cập nhật mật khẩu' });
+      }
+    } else {
+      // In-memory fallback (không an toàn, chỉ để test)
+      return res.status(503).json({ message: 'Tính năng này yêu cầu database' });
+    }
+
+    res.json({ message: 'Đặt lại mật khẩu thành công' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Lỗi đặt lại mật khẩu' });
+  }
+});
+
+// Change Password - Đổi mật khẩu
+router.post('/change-password', authRequired, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: 'Thiếu mật khẩu cũ hoặc mật khẩu mới' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    }
+
+    // Lấy user từ database
+    let user = null;
+    if (db) {
+      try {
+        user = await db.getUserById(req.user.id);
+      } catch (error) {
+        console.error('❌ Database error:', error.message);
+        return res.status(500).json({ message: 'Lỗi truy vấn database' });
+      }
+    } else {
+      return res.status(503).json({ message: 'Tính năng này yêu cầu database' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    // Kiểm tra mật khẩu cũ
+    if (!user.password_hash) {
+      return res.status(400).json({ message: 'Tài khoản này không có mật khẩu (đăng nhập bằng Google)' });
+    }
+
+    const passwordMatch = await verifyPassword(oldPassword, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: 'Mật khẩu cũ không đúng' });
+    }
+
+    // Kiểm tra mật khẩu mới không được trùng với mật khẩu cũ
+    const samePassword = await verifyPassword(newPassword, user.password_hash);
+    if (samePassword) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải khác mật khẩu cũ' });
+    }
+
+    // Hash mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Cập nhật mật khẩu
+    if (db) {
+      try {
+        await db.updateUser(user.id, { password_hash: hashedPassword });
+      } catch (error) {
+        console.error('❌ Database error:', error.message);
+        return res.status(500).json({ message: 'Lỗi cập nhật mật khẩu' });
+      }
+    }
+
+    res.json({ message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Lỗi đổi mật khẩu' });
+  }
+});
+
+// Verify 2FA và hoàn tất login
+router.post('/verify-2fa', async (req, res) => {
+  try {
+    console.log('🔐 2FA Verify Request:', {
+      body: req.body,
+      email: req.body?.email,
+      code: req.body?.code
+    });
+
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      console.log('❌ Missing email or code');
+      return res.status(400).json({ message: 'Thiếu email hoặc mã 2FA' });
+    }
+
+    // Loại bỏ khoảng trắng và chỉ lấy số
+    const cleanCode = code.replace(/\s+/g, '').replace(/\D/g, '');
+
+    if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
+      console.log('❌ Invalid code format:', { original: code, cleaned: cleanCode });
+      return res.status(400).json({ message: 'Mã 2FA phải là 6 chữ số' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('📧 Looking up user:', normalizedEmail);
+
+    // Lấy user
+    let user;
+    if (db) {
+      try {
+        user = await db.getUserByEmail(normalizedEmail);
+        console.log('👤 User found:', user ? { id: user.id, email: user.email } : 'NOT FOUND');
+      } catch (error) {
+        console.error('❌ Database query error:', error.message);
+        return res.status(500).json({ message: 'Lỗi truy vấn database' });
+      }
+    } else {
+      return res.status(503).json({ message: 'Tính năng này yêu cầu database' });
+    }
+
+    if (!user) {
+      console.log('❌ User not found');
+      return res.status(401).json({ message: 'Email không tồn tại' });
+    }
+
+    // Kiểm tra user có bật 2FA không
+    const twoFAStatus = await db.query(
+      'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+      [user.id, 'two_factor_enabled']
+    );
+
+    console.log('🔍 2FA Status:', twoFAStatus);
+
+    if (!twoFAStatus || twoFAStatus.length === 0 || twoFAStatus[0].setting_value !== 'true') {
+      console.log('❌ 2FA not enabled');
+      return res.status(400).json({ message: 'Tài khoản này chưa bật 2FA' });
+    }
+
+    // Lấy method (app hoặc sms)
+    const methodResult = await db.query(
+      'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+      [user.id, 'two_factor_method']
+    );
+    const method = methodResult && methodResult.length > 0 ? methodResult[0].setting_value : 'app';
+
+    console.log('📱 2FA Method:', method);
+
+    let verified = false;
+
+    if (method === 'sms') {
+      // SMS 2FA: Verify qua Twilio
+      const phoneResult = await db.query(
+        'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+        [user.id, 'two_factor_phone']
+      );
+
+      if (!phoneResult || phoneResult.length === 0) {
+        console.log('❌ Phone not found for SMS 2FA');
+        return res.status(500).json({ message: 'Không tìm thấy số điện thoại 2FA' });
+      }
+
+      const phone = phoneResult[0].setting_value;
+      const twilioService = require('../services/twilioService');
+      const verifyResult = await twilioService.verifySMSOTP(phone, cleanCode);
+
+      verified = verifyResult.verified;
+
+      console.log('🔐 SMS 2FA Verify Result:', {
+        userId: user.id,
+        email: user.email,
+        phone: phone,
+        code: cleanCode,
+        verified: verified
+      });
+    } else {
+      // App 2FA (TOTP): Verify qua speakeasy
+      const secretResult = await db.query(
+        'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+        [user.id, 'two_factor_secret']
+      );
+
+      console.log('🔑 Secret result:', secretResult ? 'Found' : 'NOT FOUND');
+
+      if (!secretResult || secretResult.length === 0) {
+        console.log('❌ Secret not found');
+        return res.status(500).json({ message: 'Không tìm thấy 2FA secret' });
+      }
+
+      let secret = secretResult[0].setting_value;
+      console.log('🔑 Secret raw:', secret.substring(0, 20) + '...');
+
+      // Xóa khoảng trắng và chuyển về uppercase (nếu có)
+      secret = secret.replace(/\s+/g, '').toUpperCase();
+      console.log('🔑 Secret cleaned:', secret.substring(0, 20) + '...');
+
+      const speakeasy = require('speakeasy');
+
+      // Thử generate code để debug
+      const testCode = speakeasy.totp({
+        secret: secret,
+        encoding: 'base32'
+      });
+
+      verified = speakeasy.totp.verify({
+        secret: secret,
+        encoding: 'base32',
+        token: cleanCode,
+        window: 2 // Cho phép ±2 time steps (120 giây)
+      });
+
+      console.log('🔐 TOTP 2FA Verify Result:', {
+        userId: user.id,
+        email: user.email,
+        originalCode: code,
+        cleanCode: cleanCode,
+        codeLength: cleanCode.length,
+        secretLength: secret.length,
+        secretPreview: secret.substring(0, 12) + '...',
+        testCode: testCode,
+        verified: verified,
+        timestamp: Math.floor(Date.now() / 1000),
+        timeStep: Math.floor(Date.now() / 1000 / 30)
+      });
+    }
+
+    if (!verified) {
+      // Kiểm tra recovery code
+      const recoveryCodesResult = await db.query(
+        'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+        [user.id, 'two_factor_recovery_codes']
+      );
+
+      let isRecoveryCode = false;
+      if (recoveryCodesResult && recoveryCodesResult.length > 0) {
+        try {
+          const recoveryCodes = JSON.parse(recoveryCodesResult[0].setting_value);
+          const codeIndex = recoveryCodes.indexOf(code);
+          if (codeIndex !== -1) {
+            // Xóa recovery code đã dùng
+            recoveryCodes.splice(codeIndex, 1);
+            await db.query(
+              `UPDATE user_settings SET setting_value = ?, updated_at = NOW() WHERE user_id = ? AND setting_key = ?`,
+              [JSON.stringify(recoveryCodes), user.id, 'two_factor_recovery_codes']
+            );
+            isRecoveryCode = true;
+          }
+        } catch (e) {
+          // Ignore parse error
+        }
+      }
+
+      if (!isRecoveryCode) {
+        return res.status(401).json({ message: 'Mã 2FA không đúng' });
+      }
+    }
+
+    // Tạo token và hoàn tất login
+    const token = createToken(user);
+
+    // Update last_login_at
+    if (db && user.id) {
+      try {
+        await db.updateUser(user.id, { last_login_at: new Date() });
+      } catch (err) {
+        console.warn('Failed to update last_login_at:', err.message);
+      }
+    }
+
+    // Lấy public IP từ client
+    const clientPublicIP = req.body.clientIP || req.headers['x-client-ip'] || null;
+
+    // Tạo device session
+    if (db && user.id) {
+      try {
+        const deviceInfo = await extractDeviceInfo(req, clientPublicIP);
+        const fingerprint = generateFingerprint(deviceInfo);
+
+        await query('UPDATE devices SET is_current = FALSE WHERE user_id = ?', [user.id]);
+
+        const existingDevice = await query(
+          'SELECT * FROM devices WHERE user_id = ? AND fingerprint = ?',
+          [user.id, fingerprint]
+        );
+
+        if (existingDevice.length > 0) {
+          await query(
+            `UPDATE devices SET
+              is_current = TRUE,
+              last_activity_at = NOW(),
+              session_token = ?,
+              ip_address = ?,
+              updated_at = NOW()
+            WHERE id = ?`,
+            [token, deviceInfo.ipAddress, existingDevice[0].id]
+          );
+        } else {
+          const { createDevice } = require('../database');
+          await createDevice({
+            userId: user.id,
+            deviceName: deviceInfo.deviceName,
+            platform: deviceInfo.platform,
+            browser: deviceInfo.browser,
+            ipAddress: deviceInfo.ipAddress,
+            city: deviceInfo.city || null,
+            country: deviceInfo.country || null,
+            fingerprint: fingerprint,
+            sessionToken: token,
+            isCurrent: true,
+            isTrusted: false,
+            isBlocked: false
+          });
+        }
+      } catch (err) {
+        console.error('❌ Failed to create device session:', err.message);
+        // Không fail login nếu không tạo được device
+      }
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role || 'user'
+      },
+      token
+    });
+  } catch (error) {
+    console.error('Verify 2FA error:', error);
+    res.status(500).json({ message: 'Lỗi xác thực 2FA' });
   }
 });
 

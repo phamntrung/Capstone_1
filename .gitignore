@@ -67,4 +67,6 @@ htmlcov/
 # Package files
 *.tar.gz
 *.zip
+note.md
+.vscode
 

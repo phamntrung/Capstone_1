@@ -154,7 +154,7 @@
     </div>
   </main>
 
-  <div id="toast" class="toast">✅ Đổi mật khẩu thành công!</div>
+  <div id="toast" class="toast"></div>
 
   <div id="chatbox" class="chatbox" aria-hidden="true">
     <div class="chat-head">
@@ -174,6 +174,7 @@
     <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
   </button>
 
+<script src="../chucnang/js/utils.js"></script>
 <script>
   document.querySelectorAll('.toggle').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -195,7 +196,7 @@
     if(/[a-z]/.test(pw)) s++;
     if(/[A-Z]/.test(pw)) s++;
     if(/\d/.test(pw)) s++;
-    if(/[^A-Za-z0-9]/.test(pw)) s++; 
+    if(/[^A-Za-z0-9]/.test(pw)) s++;
     return Math.min(s,4);
   }
   function renderStrength(){
@@ -215,17 +216,71 @@
   confirmPw.addEventListener('input', checkMatch);
 
 
-  document.getElementById('pwForm').addEventListener('submit', (e)=>{
+  document.getElementById('pwForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const old = document.getElementById('oldPw').value.trim();
     const nw  = newPw.value.trim();
     const cf  = confirmPw.value.trim();
-    if(!old || !nw || !cf){ alert('Vui lòng nhập đủ thông tin.'); return; }
-    if(strength(nw) < 3){ alert('Mật khẩu mới chưa đủ mạnh.'); return; }
-    if(nw !== cf){ alert('Mật khẩu nhập lại chưa khớp.'); return; }
-    const toast = document.getElementById('toast');
-    toast.style.display = 'block';
-    setTimeout(()=>{ toast.style.display='none'; window.location.href='caidat.html'; }, 1200);
+
+    if(!old || !nw || !cf){
+      alert('Vui lòng nhập đủ thông tin.');
+      return;
+    }
+
+    if(strength(nw) < 3){
+      alert('Mật khẩu mới chưa đủ mạnh.');
+      return;
+    }
+
+    if(nw !== cf){
+      alert('Mật khẩu nhập lại chưa khớp.');
+      return;
+    }
+
+    const submitBtn = document.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Đang xử lý...';
+
+    try {
+      // Load utils.js để có apiRequest
+      if (typeof apiRequest === 'undefined') {
+        const script = document.createElement('script');
+        script.src = '../chucnang/js/utils.js';
+        document.head.appendChild(script);
+        await new Promise((resolve) => {
+          script.onload = resolve;
+          setTimeout(resolve, 500);
+        });
+      }
+
+      const response = await apiRequest('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          oldPassword: old,
+          newPassword: nw
+        })
+      });
+
+      if (response && response.ok) {
+        const toast = document.getElementById('toast');
+        toast.textContent = '✅ ' + (response.data?.message || 'Đổi mật khẩu thành công!');
+        toast.style.display = 'block';
+        setTimeout(()=>{
+          toast.style.display='none';
+          window.location.href='caidat.html';
+        }, 2000);
+      } else {
+        alert(response.data?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    } catch (error) {
+      console.error('Change password error:', error);
+      alert('Lỗi kết nối đến server. Vui lòng thử lại sau.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+    }
   });
 
   /* Chatbox */

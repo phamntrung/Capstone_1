@@ -51,7 +51,7 @@ async function persistSession(user, token) {
             if (token) {
                 localStorage.setItem('smartexpense_token', token);
             }
-            
+
             const profileResult = await window.apiRequest('/api/me');
             if (profileResult && profileResult.ok && profileResult.data) {
                 // Merge profile data from API
@@ -72,7 +72,7 @@ async function persistSession(user, token) {
 
     // Store user data in localStorage
     localStorage.setItem('smartexpense_user', JSON.stringify(userData));
-    
+
     // Only store token in localStorage if provided (password login)
     // Google login tokens are in httpOnly cookie and should NOT be in localStorage
     if (token) {
@@ -82,7 +82,7 @@ async function persistSession(user, token) {
         localStorage.removeItem('smartexpense_token');
         console.log('✅ Token được lưu trong httpOnly cookie, không lưu trong localStorage');
     }
-    
+
     // Load data from API after login (ensure data is fresh from server)
     if (typeof window !== 'undefined' && window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
         console.log('🔄 Đang tải TẤT CẢ dữ liệu người dùng từ API sau khi đăng nhập...');
@@ -91,12 +91,12 @@ async function persistSession(user, token) {
             try {
                 // Force refresh from API - this will load expenses, categories, budgets, and profile
                 await window.dataManager.loadFromAPI(true);
-                
+
                 // Process any sync queue from previous session (retry any failed syncs)
                 if (typeof window.dataManager.processSyncQueue === 'function') {
                     await window.dataManager.processSyncQueue();
                 }
-                
+
                 // Verify profile data is loaded
                 const userStr = localStorage.getItem('smartexpense_user');
                 if (userStr) {
@@ -185,35 +185,176 @@ async function handleLogin(event) {
             setTimeout(() => { window.location.href = 'trangchu.html'; }, 500);
             return;
         }
-        
+
         // Try to use apiRequest from utils.js if available, otherwise use fetch
         let result;
         if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
             // Use unified apiRequest from utils.js
             console.log('Đang sử dụng apiRequest để đăng nhập...');
-            const requestData = { email, password };
-            console.log('📤 Request data:', { 
-                email: requestData.email, 
+            // Lấy public IP từ client để gửi lên server
+            let clientIP = null;
+            try {
+              const ipResponse = await fetch('https://api.ipify.org?format=json');
+              const ipData = await ipResponse.json();
+              clientIP = ipData.ip || null;
+            } catch (ipError) {
+              // Fallback: thử ip-api.com
+              try {
+                const ipResponse = await fetch('http://ip-api.com/json/?fields=query');
+                const ipData = await ipResponse.json();
+                clientIP = ipData.query || null;
+              } catch (e) {
+                // Không lấy được IP, để server tự detect
+              }
+            }
+
+            const requestData = { email, password, clientIP };
+            console.log('📤 Request data:', {
+                email: requestData.email,
                 passwordLength: requestData.password ? requestData.password.length : 0,
-                fullData: requestData 
+                fullData: requestData
             });
             result = await window.apiRequest('/api/auth/login', {
                 method: 'POST',
                 body: JSON.stringify(requestData)
             });
-            
+
             console.log('Phản hồi API đăng nhập:', result);
-            
-            if (!result || !result.ok) {
-                const errorMsg = result?.data?.message || 'Đăng nhập thất bại';
-                console.error('Đăng nhập thất bại:', errorMsg, result);
-                
+
+            // Kiểm tra nếu cần 2FA
+            if (result && result.ok && result.data && result.data.requires2FA) {
+                // Ẩn form login, hiển thị form 2FA
+                const loginForm = document.getElementById('loginForm');
+                const twoFAForm = document.getElementById('twoFAForm');
+                const twoFACodeInput = document.getElementById('twoFACode');
+
+                if (loginForm) loginForm.style.display = 'none';
+                if (twoFAForm) {
+                    twoFAForm.style.display = 'block';
+                    if (twoFACodeInput) {
+                        twoFACodeInput.focus();
+                        // Chỉ cho phép nhập số
+                        twoFACodeInput.addEventListener('input', (e) => {
+                            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        });
+                    }
+                }
+
                 // Reset button state
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Đăng nhập';
                 }
-                
+
+                // Xử lý submit form 2FA
+                let twoFAHandled = false;
+                const handle2FA = async (code) => {
+                    if (twoFAHandled) return;
+                    twoFAHandled = true;
+
+                    // Loại bỏ khoảng trắng và chỉ lấy số
+                    const cleanCode = code.replace(/\s+/g, '').replace(/\D/g, '');
+
+                    console.log('🔐 2FA code input:', { original: code, cleaned: cleanCode });
+
+                    if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
+                        alert('Vui lòng nhập mã 6 số hợp lệ');
+                        twoFAHandled = false;
+                        return;
+                    }
+
+                    const verifyBtn = twoFAForm?.querySelector('button[type="submit"]');
+                    if (verifyBtn) {
+                        verifyBtn.disabled = true;
+                        verifyBtn.textContent = 'Đang xác thực...';
+                    }
+
+                    try {
+                        console.log('🔐 Sending 2FA verify request:', { email, code: cleanCode });
+
+                        // Gọi API verify 2FA
+                        const verifyResult = await window.apiRequest('/api/auth/verify-2fa', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                email: email,
+                                code: cleanCode,
+                                clientIP: clientIP
+                            })
+                        });
+
+                        console.log('🔐 2FA verify response:', verifyResult);
+
+                        if (!verifyResult || !verifyResult.ok) {
+                            const errorMsg = verifyResult?.data?.message || 'Mã 2FA không đúng';
+                            alert(errorMsg);
+                            if (verifyBtn) {
+                                verifyBtn.disabled = false;
+                                verifyBtn.textContent = 'Xác thực';
+                            }
+                            twoFAHandled = false;
+                            if (twoFACodeInput) twoFACodeInput.value = '';
+                            return;
+                        }
+
+                        // Verify thành công, lưu token và redirect
+                        const user = verifyResult.data.user || {};
+                        const token = verifyResult.data.token;
+
+                        if (token && user.id) {
+                            await persistSession(user, token);
+                            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
+                            setTimeout(() => {
+                                window.location.href = 'trangchu.html';
+                            }, 500);
+                        } else {
+                            alert('Không nhận được token xác thực. Vui lòng thử lại.');
+                            twoFAHandled = false;
+                        }
+                    } catch (error) {
+                        console.error('2FA verify error:', error);
+                        alert('Lỗi kết nối đến server');
+                        twoFAHandled = false;
+                        if (verifyBtn) {
+                            verifyBtn.disabled = false;
+                            verifyBtn.textContent = 'Xác thực';
+                        }
+                    }
+                };
+
+                // Event listener cho form 2FA
+                if (twoFAForm) {
+                    twoFAForm.onsubmit = (e) => {
+                        e.preventDefault();
+                        const code = twoFACodeInput?.value.trim();
+                        console.log('🔐 Form 2FA submitted with code:', code);
+                        handle2FA(code);
+                    };
+                }
+
+                // Event listener cho nút Hủy
+                const cancelBtn = document.getElementById('cancel2FA');
+                if (cancelBtn) {
+                    cancelBtn.onclick = () => {
+                        if (loginForm) loginForm.style.display = 'block';
+                        if (twoFAForm) twoFAForm.style.display = 'none';
+                        if (twoFACodeInput) twoFACodeInput.value = '';
+                        twoFAHandled = false;
+                    };
+                }
+
+                return; // Dừng xử lý login bình thường
+            }
+
+            if (!result || !result.ok) {
+                const errorMsg = result?.data?.message || 'Đăng nhập thất bại';
+                console.error('Đăng nhập thất bại:', errorMsg, result);
+
+                // Reset button state
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Đăng nhập';
+                }
+
                 // Show user-friendly error message
                 // If it's a connection error, show detailed instructions
                 if (result?.data?.errorType === 'CONNECTION_ERROR') {
@@ -225,7 +366,7 @@ async function handleLogin(event) {
                 }
                 return;
             }
-            
+
             // Ensure result.data exists
             if (!result.data) {
                 console.error('Không có dữ liệu trong phản hồi:', result);
@@ -236,12 +377,12 @@ async function handleLogin(event) {
                 alert('Phản hồi từ server không hợp lệ. Vui lòng thử lại.');
                 return;
             }
-            
+
             const user = result.data.user || {};
             const token = result.data.token;
-            
+
             console.log('Dữ liệu phản hồi đăng nhập:', { user, hasToken: !!token, fullData: result.data });
-            
+
             if (!token) {
                 console.error('Không có token trong phản hồi:', result.data);
                 if (submitBtn) {
@@ -251,7 +392,7 @@ async function handleLogin(event) {
                 alert('Không nhận được token xác thực. Vui lòng thử lại.');
                 return;
             }
-            
+
             if (!user || !user.id) {
                 console.error('Dữ liệu người dùng không hợp lệ:', user);
                 if (submitBtn) {
@@ -261,11 +402,11 @@ async function handleLogin(event) {
                 alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
                 return;
             }
-            
+
             console.log('Đăng nhập thành công, user từ database:', user.email);
             await persistSession(user, token);
             showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
-            
+
             // Điều hướng đến trang chủ sau 0.5 giây
             isRedirecting = true; // Mark that redirect is starting
             setTimeout(() => {
@@ -280,10 +421,26 @@ async function handleLogin(event) {
         } else {
             // Fallback to direct fetch if apiRequest is not available
             console.log('Đang sử dụng fetch trực tiếp để đăng nhập...');
+            // Lấy public IP từ client
+            let clientIP = null;
+            try {
+              const ipResponse = await fetch('https://api.ipify.org?format=json');
+              const ipData = await ipResponse.json();
+              clientIP = ipData.ip || null;
+            } catch (ipError) {
+              try {
+                const ipResponse = await fetch('http://ip-api.com/json/?fields=query');
+                const ipData = await ipResponse.json();
+                clientIP = ipData.query || null;
+              } catch (e) {
+                // Không lấy được IP
+              }
+            }
+
             const res = await fetch(`${getApiBase()}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, clientIP })
             });
 
             const data = await res.json().catch((err) => {
@@ -321,9 +478,9 @@ async function handleLogin(event) {
 
             const user = data.user || {};
             const token = data.token;
-            
+
             console.log('Dữ liệu phản hồi đăng nhập:', { user, hasToken: !!token, fullData: data });
-            
+
             if (!token) {
                 console.error('Không có token trong phản hồi:', data);
                 if (submitBtn) {
@@ -333,7 +490,7 @@ async function handleLogin(event) {
                 alert('Không nhận được token xác thực. Vui lòng thử lại.');
                 return;
             }
-            
+
             if (!user || !user.id) {
                 console.error('Dữ liệu người dùng không hợp lệ:', user);
                 if (submitBtn) {
@@ -478,17 +635,17 @@ if (typeof window.onGoogleCredential === 'undefined') {
         return;
     }
     window.__GOOGLE_LOGIN_IN_PROGRESS = true;
-    
+
     try {
         // Extract credential - Google can pass it as response.credential or just response (string)
         const credential = (typeof response === 'string') ? response : (response?.credential || response);
-        
+
         if (!credential) {
             console.error('Không tìm thấy thông tin xác thực trong phản hồi:', response);
             alert('Không nhận được thông tin xác thực từ Google. Vui lòng thử lại.');
             return;
         }
-        
+
         if (FRONTEND_ONLY) {
             try {
                 const parts = credential.split('.');
@@ -499,9 +656,9 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 const mockToken = credential;
                 await persistSession(mockUser, mockToken);
                 showSuccessMessage(`Đăng nhập thành công! Chào mừng ${name}`);
-            setTimeout(() => { 
+            setTimeout(() => {
                     console.log('Chế độ frontend-only: Đang chuyển hướng đến trangchu.html');
-                    window.location.href = 'trangchu.html'; 
+                    window.location.href = 'trangchu.html';
                 }, 600);
                 return;
             } catch (e) {
@@ -510,21 +667,21 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 return;
             }
         }
-        
+
         // Try to use apiRequest from utils.js if available, otherwise use fetch
         if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
             // Use unified apiRequest from utils.js
             console.log('📤 Đang gửi thông tin xác thực Google đến backend API...');
             console.log('   URL API:', `${getApiBase()}/api/auth/google`);
             console.log('   Độ dài credential:', credential.length);
-            
+
             const result = await window.apiRequest('/api/auth/google', {
                 method: 'POST',
                 body: JSON.stringify({ credential: credential })
             });
-            
+
             console.log('📥 Đã nhận phản hồi từ backend:', result);
-            
+
             if (!result || !result.ok) {
                 const errorMsg = result?.data?.message || 'Đăng nhập Google thất bại';
                 console.error('❌ Đăng nhập Google thất bại:', errorMsg);
@@ -532,7 +689,7 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 alert(errorMsg);
                 return;
             }
-            
+
             const user = result.data.user || {};
             console.log('✅ Cuộc gọi API đăng nhập Google thành công!');
             console.log('   Dữ liệu người dùng nhận được:', user);
@@ -541,11 +698,11 @@ if (typeof window.onGoogleCredential === 'undefined') {
             console.log('   - Email:', user.email);
             console.log('   - Phương thức đăng nhập:', user.login_method);
             console.log('   - Google ID:', user.google_id);
-            
+
             // Token is now in httpOnly cookie, not in response body
             // But we still need to load full profile for localStorage
             console.log('🍪 Token được lưu trong httpOnly cookie (không có trong response body)');
-            
+
             // Load full user profile from /api/me (will use cookie automatically)
             try {
                 const profileResult = await window.apiRequest('/api/me');
@@ -564,7 +721,7 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 await persistSession(user, null);
             }
             showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
-            
+
             setTimeout(() => {
                 console.log('Đang chuyển hướng đến trangchu.html sau khi đăng nhập Google...');
                 try {
@@ -582,25 +739,25 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ credential: credential })
             });
-            
+
             const data = await res.json().catch((err) => {
                 console.error('Không thể phân tích JSON phản hồi:', err);
                 return { message: 'Lỗi xử lý phản hồi từ server' };
             });
-            
+
             console.log('Phản hồi backend:', { status: res.status, ok: res.ok, data });
-            
+
             if (!res.ok) {
                 const errorMsg = data.message || `Đăng nhập Google thất bại (${res.status})`;
                 console.error('Đăng nhập Google thất bại:', errorMsg);
                 alert(errorMsg);
                 return;
             }
-            
+
             const user = data.user || {};
             // Token is now in httpOnly cookie, not in response body
             console.log('Đăng nhập Google thành công, token được lưu trong httpOnly cookie');
-            
+
             // Load full user profile from /api/me (will use cookie automatically)
             try {
                 const profileResult = await window.apiRequest('/api/me');
@@ -619,7 +776,7 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 await persistSession(user, null);
             }
             showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
-            
+
             setTimeout(() => {
                 console.log('Đang chuyển hướng đến trangchu.html sau khi đăng nhập Google...');
                 try {
