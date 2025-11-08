@@ -43,9 +43,12 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
 
   .profile-head{display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:center}
-  .avatar-big{width:96px;height:96px;border-radius:26px;background:#fff2e5;display:grid;place-items:center}
+  .avatar-big{width:96px;height:96px;border-radius:26px;background:#fff2e5;display:grid;place-items:center;position:relative;cursor:pointer;overflow:hidden}
   html.dark .avatar-big{background:#2a1e12}
   .avatar-big .circle{width:76px;height:76px;border-radius:50%;background:var(--orange);display:grid;place-items:center;color:#fff;font-size:34px;font-weight:900}
+  .avatar-big img{width:100%;height:100%;object-fit:cover;display:none;position:absolute;inset:0;z-index:1}
+  .avatar-big .avatar-upload-btn{position:absolute;bottom:0;right:0;width:32px;height:32px;background:var(--blue);color:#fff;border-radius:50%;display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:2px solid #fff;font-size:16px;z-index:10;transition:opacity 0.2s;opacity:0.8}
+  .avatar-big:hover .avatar-upload-btn{opacity:1}
   .profile-name{font-size:22px;font-weight:800;margin:0}
   .email{color:var(--muted);margin-top:2px}
   .oauth{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:var(--card);font-weight:700;color:var(--text)}
@@ -103,6 +106,33 @@
   #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;background:#fff;outline:none;color:#0f172a}
   html.dark #chatInput{background:transparent;color:var(--text)}
   #sendBtn{width:38px;height:38px;border-radius:999px;border:0;background:var(--blue);color:#fff;display:grid;place-items:center;cursor:pointer}
+
+  /* Notifications */
+  .notification-item{
+    padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.2s;
+    display:flex;gap:12px;align-items:flex-start
+  }
+  .notification-item:hover{background:rgba(37,99,235,.05)}
+  .notification-item.unread{background:rgba(37,99,235,.08);font-weight:600}
+  .notification-item.unread .notification-icon{opacity:1}
+  .notification-icon{
+    width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:20px;
+    flex:0 0 40px;opacity:0.6
+  }
+  .notification-icon.info{background:rgba(37,99,235,.1);color:var(--blue)}
+  .notification-icon.success{background:rgba(34,197,94,.1);color:var(--green)}
+  .notification-icon.warning{background:rgba(251,146,60,.1);color:var(--orange)}
+  .notification-icon.error{background:rgba(239,68,68,.1);color:var(--red)}
+  .notification-content{flex:1;min-width:0}
+  .notification-title{font-weight:700;margin-bottom:4px;color:var(--text);font-size:14px}
+  .notification-message{color:var(--muted);font-size:13px;line-height:1.4;margin-bottom:4px}
+  .notification-time{color:var(--muted);font-size:11px}
+  .notification-actions{display:flex;gap:4px;flex:0 0 auto}
+  .notification-actions button{
+    padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);
+    color:var(--text);cursor:pointer;font-size:11px;transition:all 0.2s
+  }
+  .notification-actions button:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
 </style>
 </head>
 <body>
@@ -130,13 +160,20 @@
       <div style="display:grid;gap:16px">
         <div class="card">
           <div class="profile-head">
-            <div class="avatar-big"><div class="circle">Q</div></div>
+            <div class="avatar-big" id="avatarPreview">
+              <img id="avatarImage" src="" alt="Avatar">
+              <div class="circle" id="avatarPlaceholder">Q</div>
+              <div class="avatar-upload-btn" id="avatarUploadBtn">📷</div>
+              <input type="file" id="avatarInput" accept="image/*" style="display:none">
+            </div>
             <div>
               <h2 class="profile-name" id="fullNameValue">Quỳnh Như Nguyễn</h2>
               <div class="email" id="emailValue">quynhnhu6280@gmail.com</div>
-              <div style="margin-top:10px">
+              <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                 <span class="oauth" id="googleSignInBtn">🔗 <span data-i18n="profile.oauth">Đăng nhập qua Google</span></span>
+                <button id="btnRemoveAvatar" class="btn-primary" style="background:var(--red);display:none;height:36px;padding:0 14px;font-size:13px">Xóa ảnh</button>
               </div>
+              <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Nhấp vào ảnh đại diện để tải lên ảnh mới. Ảnh sẽ được hiển thị trên trang chủ.</p>
             </div>
           </div>
         </div>
@@ -155,6 +192,19 @@
               <tr><td>2025-09-23</td><td></td><td>0</td></tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="margin:0">🔔 Thông báo</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="unreadCountBadge" style="background:var(--red);color:#fff;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:700;display:none">0</span>
+              <button id="markAllReadBtn" class="btn-primary" style="height:32px;padding:0 12px;font-size:12px;display:none">Đánh dấu tất cả đã đọc</button>
+            </div>
+          </div>
+          <div id="notificationsContainer" style="max-height:400px;overflow-y:auto">
+            <div style="text-align:center;padding:20px;color:var(--muted)">Đang tải thông báo...</div>
+          </div>
         </div>
       </div>
 
@@ -202,12 +252,6 @@
             <span class="help">ⓘ</span>
           </div>
           <label class="switch"><input id="dailyReportToggle" type="checkbox"><span class="slider"></span></label>
-        </div>
-        <div class="row" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-color, #e0e0e0)">
-          <div class="label" style="font-size:13px;color:var(--text-secondary, #666)">
-            <span>Kiểm tra email báo cáo</span>
-          </div>
-          <button id="testEmailBtn" class="btn-secondary" style="padding:6px 12px;font-size:13px;min-width:auto" onclick="if(typeof window.testEmail === 'function'){window.testEmail().catch(e=>{console.error('Test email error:',e);});} else {console.error('testEmail function not found!');} return false;">Test Email</button>
         </div>
         <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" onclick="if(typeof window.saveProfile === 'function'){window.saveProfile().catch(e=>{console.error('Save error:',e); alert('Lỗi khi lưu: '+ (e.message||'Vui lòng thử lại'));});} else {console.error('saveProfile function not found! Please wait for page to finish loading.'); alert('Vui lòng đợi trang tải xong rồi thử lại.');} return false;">Lưu</button></div>
       </div>
@@ -389,7 +433,7 @@
 
   // Save button handler is now handled by hoso.js
   // This inline handler is kept for backward compatibility but will be overridden by hoso.js
-  // The actual save logic is in chucnang/js/hoso.js
+  // The actual save logic is in js/hoso.js
 
   /* ===== Google Sign-In (client-side) ===== */
   (function initGoogleSignIn(){
@@ -451,11 +495,11 @@
   chatInput.onkeydown=e=>{ if(e.key==='Enter') handleSend(); };
 </script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="../chucnang/js/utils.js"></script>
+  <script src="js/utils.js"></script>
   <script>
   // Add timestamp to force reload
   const script = document.createElement('script');
-  script.src = '../chucnang/js/hoso.js?v=' + Date.now();
+  script.src = 'js/hoso.js?v=' + Date.now();
   script.onerror = function() { console.error('❌ Error loading hoso.js:', this.src); };
   script.onload = function() {
     console.log('✅ hoso.js loaded successfully');

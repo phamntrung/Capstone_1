@@ -20,7 +20,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Import database và models
 from database import init_database, db, migrate
-from models import User, Category, Expense, Budget
+from models import User, Category, Expense, Budget, Notification
+from email_service import email_service
 try:
     # optional ML helpers
     from .ai_categorize import is_model_available, predict_category_ml, train_category_model_from_pairs
@@ -46,6 +47,15 @@ CORS(app,
      resources={r"/api/*": {"origins": os.getenv("CORS_ORIGIN", "*"), "supports_credentials": True}},
      supports_credentials=True
 )
+
+# Add Cross-Origin-Opener-Policy header to allow Google Sign-In postMessage
+# This prevents the "Cross-Origin-Opener-Policy policy would block the window.postMessage call" error
+@app.after_request
+def set_coop_header(response):
+    # Set COOP to "same-origin-allow-popups" to allow Google Sign-In postMessage
+    # This allows same-origin popups and postMessage while maintaining security
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+    return response
 
 # Khởi tạo database
 init_database(app)
@@ -130,6 +140,11 @@ def root():
             "PATCH /api/me/balance",
             "GET /api/profile",
             "PUT /api/profile",
+            "GET /api/notifications",
+            "GET /api/notifications/unread-count",
+            "PATCH /api/notifications/<id>/read",
+            "PATCH /api/notifications/read-all",
+            "DELETE /api/notifications/<id>",
             "GET/POST /api/expenses",
             "GET/PUT/DELETE /api/expenses/<id>",
             "GET /api/expenses/stats",
@@ -173,6 +188,19 @@ def register():
     db.session.add(user)
     db.session.commit()
 
+    # Tạo thông báo chào mừng
+    try:
+        email_service.send_notification(
+            user_id=user.id,
+            user_email=email,
+            title="Chào mừng đến với SmartExpense! 🎉",
+            message=f"Xin chào {name}! Cảm ơn bạn đã đăng ký tài khoản SmartExpense. Chúc bạn quản lý chi tiêu hiệu quả!",
+            notification_type="success",
+            send_email=True
+        )
+    except Exception as e:
+        print(f"⚠️ Lỗi khi tạo thông báo đăng ký: {e}")
+
     return jsonify({
         "success": True,
         "message": "Đăng ký thành công! Vui lòng đăng nhập.",
@@ -192,6 +220,23 @@ def login():
     user = User.query.filter_by(email=email).first()
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"message": "Email hoặc mật khẩu không đúng"}), 401
+
+    # Cập nhật last_login_at
+    user.last_login_at = datetime.datetime.utcnow()
+    db.session.commit()
+
+    # Tạo thông báo đăng nhập thành công
+    try:
+        email_service.send_notification(
+            user_id=user.id,
+            user_email=email,
+            title="Đăng nhập thành công ✅",
+            message=f"Xin chào {user.name}! Bạn đã đăng nhập thành công vào SmartExpense.",
+            notification_type="success",
+            send_email=False  # Không gửi email cho mỗi lần đăng nhập
+        )
+    except Exception as e:
+        print(f"⚠️ Lỗi khi tạo thông báo đăng nhập: {e}")
 
     token = create_token(user)
     return jsonify({
@@ -334,10 +379,23 @@ def google_login():
 
 @app.get("/api/me")
 def me():
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+    """
+    Get current user profile
+    Supports both httpOnly cookie (preferred) and Authorization header (fallback)
+    """
+    token = None
+    
+    # Priority 1: Try to get token from httpOnly cookie (most secure)
+    token = request.cookies.get('auth_token')
+    
+    # Priority 2: Fallback to Authorization header (for compatibility)
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+    
     if not token:
         return jsonify({"message": "Thiếu token"}), 401
+    
     try:
         payload = jwt.decode(token, os.getenv("JWT_SECRET", "dev_secret"), algorithms=["HS256"])
         user_id = payload.get("sub")
@@ -354,8 +412,15 @@ def me():
                     "currency": user.currency,
                     "phone": user.phone,
                 })
-    except Exception:
+    except jwt.ExpiredSignatureError:
+        return jsonify({"message": "Token đã hết hạn"}), 401
+    except jwt.InvalidTokenError as e:
+        print(f"❌ Invalid token in /api/me: {e}")
         pass
+    except Exception as e:
+        print(f"❌ Error in /api/me: {e}")
+        pass
+    
     return jsonify({"message": "Token không hợp lệ"}), 401
 
 
@@ -390,6 +455,112 @@ def get_profile():
         "currency": user.currency,
         "phone": user.phone,
         "balance": user.balance,
+    })
+
+
+# =======================
+# Notifications API
+# =======================
+@app.get("/api/notifications")
+@auth_required
+def get_notifications():
+    """Lấy danh sách thông báo của user hiện tại"""
+    user = request.user
+    # Lấy query parameters
+    limit = request.args.get("limit", type=int)
+    unread_only = request.args.get("unread_only", "false").lower() == "true"
+    
+    query = Notification.query.filter_by(user_id=user.id)
+    
+    if unread_only:
+        query = query.filter_by(is_read=False)
+    
+    query = query.order_by(Notification.created_at.desc())
+    
+    if limit:
+        query = query.limit(limit)
+    
+    notifications = query.all()
+    
+    # Đếm số thông báo chưa đọc
+    unread_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+    
+    return jsonify({
+        "items": [notif.to_dict() for notif in notifications],
+        "unreadCount": unread_count,
+        "total": len(notifications)
+    })
+
+
+@app.get("/api/notifications/unread-count")
+@auth_required
+def get_unread_count():
+    """Lấy số lượng thông báo chưa đọc"""
+    user = request.user
+    count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+    return jsonify({"count": count})
+
+
+@app.patch("/api/notifications/<int:notification_id>/read")
+@auth_required
+def mark_notification_read(notification_id: int):
+    """Đánh dấu thông báo đã đọc"""
+    user = request.user
+    notification = Notification.query.filter_by(
+        id=notification_id, 
+        user_id=user.id
+    ).first()
+    
+    if not notification:
+        return jsonify({"message": "Không tìm thấy thông báo"}), 404
+    
+    notification.is_read = True
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "notification": notification.to_dict()
+    })
+
+
+@app.patch("/api/notifications/read-all")
+@auth_required
+def mark_all_notifications_read():
+    """Đánh dấu tất cả thông báo đã đọc"""
+    user = request.user
+    updated = Notification.query.filter_by(
+        user_id=user.id,
+        is_read=False
+    ).update({"is_read": True})
+    
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "updated": updated,
+        "message": f"Đã đánh dấu {updated} thông báo đã đọc"
+    })
+
+
+@app.delete("/api/notifications/<int:notification_id>")
+@auth_required
+def delete_notification(notification_id: int):
+    """Xóa thông báo"""
+    user = request.user
+    notification = Notification.query.filter_by(
+        id=notification_id,
+        user_id=user.id
+    ).first()
+    
+    if not notification:
+        return jsonify({"message": "Không tìm thấy thông báo"}), 404
+    
+    db.session.delete(notification)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "message": "Đã xóa thông báo"
     })
 
 
@@ -556,6 +727,15 @@ def create_expense():
     db.session.add(expense)
     db.session.commit()
     
+    # Kiểm tra và gửi thông báo ngân sách nếu cần (chỉ cho expense, không phải income)
+    if etype == "expense" or amount < 0:
+        try:
+            from notification_service import NotificationService
+            NotificationService.check_and_notify_budget(request.user.id, date)
+        except Exception as e:
+            # Không làm ảnh hưởng đến response nếu thông báo lỗi
+            print(f"⚠️ Lỗi khi gửi thông báo ngân sách: {e}")
+    
     return jsonify(expense.to_dict()), 201
 
 
@@ -602,6 +782,16 @@ def update_expense(eid: int):
         expense.note = data["note"]
     
     db.session.commit()
+    
+    # Kiểm tra và gửi thông báo ngân sách nếu cần (chỉ cho expense, không phải income)
+    if expense.type == "expense" or expense.amount < 0:
+        try:
+            from notification_service import NotificationService
+            NotificationService.check_and_notify_budget(request.user.id, expense.date)
+        except Exception as e:
+            # Không làm ảnh hưởng đến response nếu thông báo lỗi
+            print(f"⚠️ Lỗi khi gửi thông báo ngân sách: {e}")
+    
     return jsonify(expense.to_dict())
 
 
@@ -721,6 +911,24 @@ def put_budget(yyyymm: str):
         budget.amount = amount
     
     db.session.commit()
+    
+    # Kiểm tra và gửi thông báo ngân sách sau khi cập nhật budget
+    try:
+        from notification_service import NotificationService
+        from utils.budget_checker import BudgetChecker
+        # Chuyển đổi yyyymm (202501) thành yyyy-mm (2025-01) để parse date
+        try:
+            year = int(yyyymm[:4])
+            month = int(yyyymm[4:])
+            expense_date = datetime.date(year, month, 1)
+            NotificationService.check_and_notify_budget(request.user.id, expense_date)
+        except Exception:
+            # Nếu không parse được, dùng tháng hiện tại
+            NotificationService.check_and_notify_budget(request.user.id, None)
+    except Exception as e:
+        # Không làm ảnh hưởng đến response nếu thông báo lỗi
+        print(f"⚠️ Lỗi khi gửi thông báo ngân sách: {e}")
+    
     return jsonify(budget.to_dict())
 
 
@@ -931,16 +1139,35 @@ def ai_alerts():
         if used_pct >= 100:
             level = "over"
             msg = "Dự báo vượt quá ngân sách tháng"
+            notification_type = "error"
         elif used_pct >= 85:
             level = "high"
             msg = "Cảnh báo: Dự báo sẽ chạm 85%+ ngân sách"
+            notification_type = "warning"
         elif used_pct >= 70:
             level = "medium"
             msg = "Lưu ý: Dự báo sẽ vượt 70% ngân sách"
+            notification_type = "info"
         else:
             level = "ok"
             msg = "Chi tiêu trong ngưỡng an toàn"
+            notification_type = "success"
         alerts.append({"level": level, "message": msg, "usedPercent": used_pct})
+        
+        # Tạo thông báo trong database cho các cảnh báo quan trọng (>= 70%)
+        if used_pct >= 70:
+            try:
+                email_service.send_notification(
+                    user_id=request.user.id,
+                    user_email=request.user.email,
+                    title=f"Cảnh báo ngân sách ({used_pct}%)",
+                    message=f"{msg}. Dự báo chi tiêu: {forecast:,.0f}đ / Ngân sách: {budget:,.0f}đ",
+                    notification_type=notification_type,
+                    send_email=(used_pct >= 85)  # Chỉ gửi email khi >= 85%
+                )
+            except Exception as e:
+                print(f"⚠️ Lỗi khi tạo thông báo cảnh báo: {e}")
+    
     return jsonify({"alerts": alerts})
 
 
@@ -1113,6 +1340,21 @@ def expenses_stats():
             current += datetime.timedelta(days=1)
         
         return jsonify({"items": result, "groupBy": "day"})
+
+
+# Khởi động scheduled tasks (background scheduler)
+try:
+    from scheduled_tasks import init_scheduler, shutdown_scheduler
+    import atexit
+    
+    # Khởi động scheduler khi app start
+    init_scheduler()
+    
+    # Đăng ký shutdown scheduler khi app exit
+    atexit.register(shutdown_scheduler)
+except Exception as e:
+    print(f"⚠️ Không thể khởi động scheduler: {e}")
+    print("   Thông báo định kỳ sẽ không hoạt động")
 
 
 if __name__ == "__main__":

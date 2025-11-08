@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from database import db
 
 class User(db.Model):
@@ -27,6 +27,9 @@ class User(db.Model):
     expenses = db.relationship('Expense', backref='user', lazy=True, cascade='all, delete-orphan')
     categories = db.relationship('Category', backref='user', lazy=True, cascade='all, delete-orphan')
     budgets = db.relationship('Budget', backref='user', lazy=True, cascade='all, delete-orphan')
+    notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='Notification.created_at.desc()')
+    report_caches = db.relationship('ReportCache', backref='user', lazy=True, cascade='all, delete-orphan')
+    user_settings = db.relationship('UserSetting', backref='user', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -121,6 +124,106 @@ class Budget(db.Model):
             'userId': self.user_id,
             'month': self.month,
             'amount': self.amount,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class Notification(db.Model):
+    """Model cho bảng notifications"""
+    __tablename__ = 'notifications'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), nullable=False, default='info')  # info, warning, error, success
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def to_dict(self):
+        # Ensure datetime is treated as UTC when serializing
+        created_at_str = None
+        if self.created_at:
+            # If datetime is naive (no timezone), assume it's UTC and add Z
+            # If datetime has timezone, convert to UTC and format
+            if self.created_at.tzinfo is None:
+                # Naive datetime - assume UTC and add Z
+                created_at_str = self.created_at.isoformat() + 'Z'
+            else:
+                # Datetime with timezone - convert to UTC
+                utc_dt = self.created_at.astimezone(timezone.utc)
+                created_at_str = utc_dt.isoformat().replace('+00:00', 'Z')
+        
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'title': self.title,
+            'message': self.message,
+            'type': self.type,
+            'isRead': self.is_read,
+            'createdAt': created_at_str
+        }
+
+class ReportCache(db.Model):
+    """Model cho bảng report_cache"""
+    __tablename__ = 'report_cache'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    cache_key = db.Column(db.String(100), nullable=False)  # Key để identify cache
+    cache_data = db.Column(db.JSON, nullable=False)  # Dữ liệu cache (JSON format)
+    expires_at = db.Column(db.DateTime, nullable=False)  # Thời gian hết hạn cache
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Unique constraint: Mỗi user chỉ có 1 cache cho mỗi key
+    __table_args__ = (db.UniqueConstraint('user_id', 'cache_key', name='unique_user_cache'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'cacheKey': self.cache_key,
+            'cacheData': self.cache_data,
+            'expiresAt': self.expires_at.isoformat() if self.expires_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def is_expired(self):
+        """Kiểm tra cache đã hết hạn chưa"""
+        if not self.expires_at:
+            return False
+        return datetime.utcnow() > self.expires_at
+
+class UserSetting(db.Model):
+    """Model cho bảng user_settings"""
+    __tablename__ = 'user_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    setting_key = db.Column(db.String(100), nullable=False)  # Tên setting (ví dụ: theme, language)
+    setting_value = db.Column(db.Text, nullable=True)  # Giá trị setting (JSON hoặc text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Unique constraint: Mỗi user chỉ có 1 setting cho mỗi key
+    __table_args__ = (db.UniqueConstraint('user_id', 'setting_key', name='unique_user_setting'),)
+    
+    def to_dict(self):
+        # Try to parse JSON if possible
+        value = self.setting_value
+        try:
+            import json
+            value = json.loads(self.setting_value) if self.setting_value else None
+        except (json.JSONDecodeError, TypeError):
+            pass
+        
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'settingKey': self.setting_key,
+            'settingValue': value,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

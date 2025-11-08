@@ -6,7 +6,6 @@
 <title>SmartExpense — Báo cáo</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="../chucnang/css/fonts.css" rel="stylesheet">
 <style>
   :root{
     --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
@@ -107,6 +106,38 @@
   .chart-tooltip .amount{display:block;font-size:14px;color:#22c55e;font-weight:700}
 
   /* Chart Modal */
+  /* Chart type selector */
+  .chart-type-selector{
+    display:flex;gap:10px;margin-bottom:16px;justify-content:flex-end;
+    background:rgba(15,23,42,0.3);padding:4px;border-radius:12px;
+    backdrop-filter:blur(10px);
+  }
+  .chart-type-btn{
+    padding:8px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);
+    background:transparent;color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;
+    cursor:pointer;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position:relative;overflow:hidden;
+  }
+  .chart-type-btn::before{
+    content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+    background:linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(34,197,94,0.1) 100%);
+    opacity:0;transition:opacity 0.3s ease;
+  }
+  .chart-type-btn:hover{
+    color:#fff;border-color:rgba(34,197,94,0.4);
+    transform:translateY(-2px);
+    box-shadow:0 4px 12px rgba(34,197,94,0.2);
+  }
+  .chart-type-btn:hover::before{opacity:1}
+  .chart-type-btn.active{
+    background:linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color:#fff;border-color:#22c55e;
+    box-shadow:0 4px 16px rgba(34,197,94,0.4),
+               0 0 0 1px rgba(34,197,94,0.3);
+    transform:translateY(-2px);
+  }
+  .chart-type-btn.active::before{opacity:0}
+
   .chart-modal{
     position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;
     display:none;align-items:center;justify-content:center;
@@ -209,7 +240,7 @@
 </style>
 </head>
 <body>
-  <script src="../chucnang/js/ai.js"></script>
+  <script src="/frontend/js/ai.js"></script>
 
   <aside class="sidebar">
     <div class="brand">
@@ -248,22 +279,15 @@
       <!-- Right: Chart + Monthly -->
       <div style="display:grid;gap:16px">
         <div class="card chart">
-          <div class="panel">
-            <svg viewBox="0 0 600 260" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#22c55e" stop-opacity="0.9"/>
-                  <stop offset="100%" stop-color="#22c55e" stop-opacity="0.05"/>
-                </linearGradient>
-              </defs>
-              <rect x="0" y="0" width="600" height="260" fill="#0b1220"/>
-              <g stroke="#24324a" stroke-width="1">
-                <line x1="40" y1="220" x2="580" y2="220"/>
-                <line x1="40" y1="30"  x2="40"  y2="220"/>
-              </g>
-              <path d="M40,210 L120,200 L180,190 L240,175 L300,170 L360,160 L420,150 L480,110 L540,60 L580,40 L580,220 L40,220 Z"
-                    fill="url(#g)" stroke="#22c55e" stroke-width="3"/>
-            </svg>
+          <div class="chart-type-selector">
+            <button class="chart-type-btn active" data-type="area" title="Biểu đồ vùng">📊 Vùng</button>
+            <button class="chart-type-btn" data-type="line" title="Biểu đồ đường">📈 Đường</button>
+            <button class="chart-type-btn" data-type="bar" title="Biểu đồ cột">📊 Cột</button>
+          </div>
+          <div class="panel" id="chartPanel">
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">
+              Đang tải biểu đồ...
+            </div>
           </div>
         </div>
 
@@ -522,7 +546,10 @@
     
     await renderDaily();
     await renderMonth();
-    await updateChartPanel();
+    await updateChartPanel(window.currentChartType || 'area');
+    
+    // Initialize chart type selector after rendering
+    initChartTypeSelector();
     
     console.log('✅ Report rendered successfully');
   }
@@ -670,8 +697,12 @@
   }
 
   // Update chart SVG with daily totals (simple area chart)
-  async function updateChartPanel(){
-    console.log('📊 Updating chart panel...');
+  // Chart type state
+  window.currentChartType = window.currentChartType || 'area';
+
+  // Update chart SVG with daily totals (supports area, line, bar)
+  async function updateChartPanel(chartType = window.currentChartType){
+    console.log('📊 Updating chart panel...', chartType);
     
     let daily;
     // Priority: Use API data if available
@@ -703,87 +734,115 @@
     }
     
     const max = Math.max(1, ...daily.map(d=>d.amount));
-    const W=900, H=400, PADX=60, PADY=50, BOTTOM=60; // more padding for labels
+
+    // Cache data for Detail button/modal reuse
+    window.__CHART_CACHE = { daily, max, chartType };
+    const W=900, H=400, PADX=70, PADY=60, BOTTOM=70;
     const innerW = W - PADX - 20, innerH = H - PADY - BOTTOM;
     
-    // Calculate points with data
+    // Calculate points with data - ensure amounts are valid numbers
     const pointsData = daily.map((d,i)=>{
+      const amount = Number(d.amount) || 0;
       const x = PADX + (daily.length > 1 ? (i/(daily.length-1))*innerW : 0);
-      const y = (H-BOTTOM) - (d.amount/max)*innerH;
-      return { x, y, amount: d.amount, date: d.date, label: d.label };
+      const y = (H-BOTTOM) - (amount/max)*innerH;
+      return { x, y, amount: amount, date: d.date, label: d.label };
     });
     
-    const points = pointsData.map(p => `${p.x},${p.y}`);
-    const path = `M${PADX},${H-BOTTOM} ` + points.map(p=>`L${p}`).join(' ') + ` L${PADX+innerW},${H-BOTTOM} L${PADX},${H-BOTTOM} Z`;
+    // Generate chart based on type
+    let chartPath = '';
+    let chartElements = '';
     
-    // Y-axis labels - show more levels for better readability
+    if (chartType === 'area') {
+      const points = pointsData.map(p => `${p.x},${p.y}`);
+      chartPath = `M${PADX},${H-BOTTOM} ` + points.map(p=>`L${p}`).join(' ') + ` L${PADX+innerW},${H-BOTTOM} L${PADX},${H-BOTTOM} Z`;
+      chartElements = `<path d="${chartPath}" fill="url(#areaGradient)" stroke="#22c55e" stroke-width="3" class="chart-area"/>`;
+    } else if (chartType === 'line') {
+      const points = pointsData.map(p => `${p.x},${p.y}`);
+      chartPath = `M${points[0]}` + points.slice(1).map(p=>`L${p}`).join(' ');
+      chartElements = `
+        <path d="${chartPath}" fill="none" stroke="url(#lineGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="chart-line"/>
+      `;
+    } else if (chartType === 'bar') {
+      const barWidth = innerW / (daily.length * 1.5);
+      const barSpacing = innerW / daily.length;
+      chartElements = pointsData.map((p, i) => {
+        const barHeight = (H-BOTTOM) - p.y;
+        const barX = p.x - barWidth / 2;
+        return `
+          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}" 
+                fill="url(#barGradient)" rx="4" class="chart-bar" 
+                data-amount="${p.amount}" data-date="${p.label || p.date}" data-index="${i}"/>
+        `;
+      }).join('');
+    }
+    
+    // Y-axis labels
     const yLabels = [];
-    // Show 4-5 levels: 0%, 25%, 50%, 75%, 100%
-    const ySteps = max > 0 ? [0, 0.25, 0.5, 0.75, 1] : [0];
+    const ySteps = max > 0 ? [1, 0.75, 0.5, 0.25, 0] : [0];
     ySteps.forEach(ratio => {
       const value = Math.round(max * ratio);
       const y = (H-BOTTOM) - (ratio * innerH);
-      // Always show max and min, skip 0 if it's redundant
       if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-10}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="12" font-family="system-ui" font-weight="500">${fmt(value)}</text>`);
+        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500" opacity="0.9">${fmt(value)}</text>`);
       }
     });
     
-    // Grid lines for each Y step
+    // Grid lines
     const gridLines = ySteps.map(ratio => {
       if (ratio === 0) return '';
       const y = (H-BOTTOM) - (ratio * innerH);
-      return `<line x1="${PADX}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#24324a" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.4"/>`;
+      return `<line x1="${PADX}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" opacity="0.3"/>`;
     }).join('');
     
-    // Data point labels (show value on all points or every 2nd if too many)
-    const dataLabels = pointsData.map((p, i) => {
-      const isMax = p.amount === max;
-      const isMin = p.amount === Math.min(...pointsData.map(d => d.amount));
-      // Show all labels if <= 8 points, otherwise show every other + max/min
-      const showLabel = pointsData.length <= 8 || i % 2 === 0 || isMax || isMin || i === 0 || i === pointsData.length - 1;
-      
-      const labelY = p.y - 12;
-      const labelX = p.x;
-      
-      // Format date for tooltip
-      let dateStr = '';
-      if (p.label) {
-        dateStr = p.label;
-      } else if (p.date) {
-        const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
-      }
-      
-      if (showLabel) {
-        // Background for better readability + hover effect
+    // Data point labels and circles (for area and line charts)
+    let dataLabels = '';
+    if (chartType !== 'bar') {
+      dataLabels = pointsData.map((p, i) => {
+        const isMax = p.amount === max;
+        const isMin = p.amount === Math.min(...pointsData.map(d => d.amount));
+        const showLabel = pointsData.length <= 8 || i % 2 === 0 || isMax || isMin || i === 0 || i === pointsData.length - 1;
+        
+        const labelY = p.y - 12;
+        const labelX = p.x;
+        
+        let dateStr = '';
+        if (p.label) {
+          dateStr = p.label;
+        } else if (p.date) {
+          const d = new Date(p.date);
+          dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
+        }
+        
+        if (showLabel && p.amount > 0) {
+          return `
+            <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
+              <circle cx="${p.x}" cy="${p.y}" r="6" fill="#22c55e" stroke="#0a0e27" stroke-width="3" class="point-circle"/>
+              <rect x="${labelX - 35}" y="${labelY - 12}" width="70" height="22" fill="#0a0e27" opacity="0.9" rx="6"/>
+              <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="700" font-family="'Noto Sans', system-ui">${fmt(p.amount)}</text>
+            </g>
+          `;
+        }
         return `
           <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
-            <circle cx="${p.x}" cy="${p.y}" r="5.5" fill="#22c55e" stroke="#0b1220" stroke-width="2.5" class="point-circle"/>
-            <rect x="${labelX - 30}" y="${labelY - 10}" width="60" height="18" fill="#0b1220" opacity="0.85" rx="4"/>
-            <text x="${labelX}" y="${labelY + 2}" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600" font-family="system-ui">${fmt(p.amount)}</text>
+            <circle cx="${p.x}" cy="${p.y}" r="5" fill="#22c55e" opacity="0.85" class="point-circle"/>
           </g>
         `;
-      }
-      return `
-        <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
-          <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#22c55e" opacity="0.8" class="point-circle"/>
-        </g>
-      `;
-    }).join('');
+      }).join('');
+    }
     
     // X-axis labels (dates) - show date for all points if <= 8, otherwise every 2-3 points
     const xLabels = pointsData.map((p, i) => {
-      const showLabel = pointsData.length <= 8 || i % Math.max(1, Math.ceil(pointsData.length / 8)) === 0 || i === 0 || i === pointsData.length - 1;
-      if (!showLabel) return '';
       let dateStr = '';
-      if (p.label) {
-        dateStr = p.label.split(',')[0]; // e.g., "Thứ Hai"
-      } else if (p.date) {
+      if (p.date) {
         const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'});
+        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      } else if (p.label) {
+        // fallback: take dd/MM from label if present
+        const parts = p.label.split(',');
+        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
       }
-      return `<text x="${p.x}" y="${H-10}" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="system-ui">${dateStr}</text>`;
+      // rotate to avoid overlap
+      return `<g transform="translate(${p.x}, ${H-10}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="10" font-family="'Noto Sans', system-ui">${dateStr}</text></g>`;
     }).join('');
     
     const container = document.querySelector('.chart .panel');
@@ -792,9 +851,17 @@
       <div class="chart-tooltip" id="chartTooltip"></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" id="chartSvg">
         <defs>
-          <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stop-color="#22c55e" stop-opacity="0.9"/>
             <stop offset="100%" stop-color="#22c55e" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#22c55e" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#4ade80" stop-opacity="1"/>
+          </linearGradient>
+          <linearGradient id="barGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#22c55e" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#16a34a" stop-opacity="1"/>
           </linearGradient>
         </defs>
         <rect x="0" y="0" width="${W}" height="${H}" fill="#0b1220"/>
@@ -803,31 +870,33 @@
           <line x1="${PADX}" y1="${H-BOTTOM}" x2="${W-20}" y2="${H-BOTTOM}"/>
           <line x1="${PADX}" y1="30"  x2="${PADX}"  y2="${H-BOTTOM}"/>
         </g>
-        <path d="${path}" fill="url(#g)" stroke="#22c55e" stroke-width="4"/>
+        ${chartElements}
         ${dataLabels}
         ${yLabels.join('')}
         ${xLabels}
       </svg>`;
     
-    // Add hover effects to data points
+    // Add hover effects
     const svg = container.querySelector('#chartSvg');
     const tooltip = container.querySelector('#chartTooltip');
-    const svgRect = container.getBoundingClientRect();
     
-    // Make circles hoverable
-    const circles = svg.querySelectorAll('.point-circle');
-    circles.forEach((circle, idx) => {
-      const pointGroup = circle.closest('.data-point');
-      if (!pointGroup) return;
+    // Handle hover for circles (area/line) and bars
+    const interactiveElements = svg.querySelectorAll('.point-circle, .chart-bar');
+    interactiveElements.forEach((element) => {
+      const pointGroup = element.closest('.data-point') || element;
+      const amount = pointGroup.getAttribute('data-amount') || element.getAttribute('data-amount');
+      const date = pointGroup.getAttribute('data-date') || element.getAttribute('data-date');
       
-      const amount = pointGroup.getAttribute('data-amount');
-      const date = pointGroup.getAttribute('data-date');
-      
-      // Add hover styles
-      circle.addEventListener('mouseenter', function(e) {
-        circle.setAttribute('r', '7.5');
-        circle.setAttribute('fill', '#4ade80');
-        circle.setAttribute('opacity', '1');
+      element.addEventListener('mouseenter', function(e) {
+        if (element.classList.contains('point-circle')) {
+          element.setAttribute('r', '8');
+          element.setAttribute('fill', '#4ade80');
+          element.setAttribute('opacity', '1');
+        } else if (element.classList.contains('chart-bar')) {
+          element.setAttribute('opacity', '0.9');
+          const currentFill = element.getAttribute('fill');
+          element.setAttribute('fill', '#4ade80');
+        }
         
         // Show tooltip
         if (tooltip) {
@@ -843,18 +912,23 @@
         }
       });
       
-      circle.addEventListener('mouseleave', function(e) {
-        const originalR = pointGroup.querySelector('text') ? '5.5' : '4.5';
-        circle.setAttribute('r', originalR);
-        circle.setAttribute('fill', '#22c55e');
-        circle.setAttribute('opacity', pointGroup.querySelector('text') ? '1' : '0.8');
+      element.addEventListener('mouseleave', function() {
+        if (element.classList.contains('point-circle')) {
+          const originalR = pointGroup.querySelector('text') ? '6' : '5';
+          element.setAttribute('r', originalR);
+          element.setAttribute('fill', '#22c55e');
+          element.setAttribute('opacity', pointGroup.querySelector('text') ? '1' : '0.85');
+        } else if (element.classList.contains('chart-bar')) {
+          element.setAttribute('opacity', '1');
+          element.setAttribute('fill', 'url(#barGradient)');
+        }
         
         if (tooltip) {
           tooltip.classList.remove('show');
         }
       });
       
-      circle.addEventListener('mousemove', function(e) {
+      element.addEventListener('mousemove', function(e) {
         if (tooltip && tooltip.classList.contains('show')) {
           const rect = container.getBoundingClientRect();
           const x = e.clientX - rect.left;
@@ -871,15 +945,18 @@
       if (e.target.closest('.data-point') || e.target.closest('#chartTooltip')) {
         return;
       }
-      openChartModal(daily, max);
+      // Pass current chart type to modal
+      openChartModal(daily, max, chartType);
     });
   }
 
   // Open chart modal with enlarged chart (make it global so baocao.js can use it)
-  window.openChartModal = function(daily, max) {
+  window.openChartModal = function(daily, max, chartType = window.currentChartType || 'area') {
     const modal = document.getElementById('chartModal');
     const modalContainer = document.getElementById('chartModalContainer');
     if (!modal || !modalContainer) return;
+    
+    console.log('🔍 Opening chart modal with type:', chartType);
     
     // Render larger chart in modal
     const W = 1000, H = 600, PADX = 80, PADY = 60, BOTTOM = 80;
@@ -891,8 +968,29 @@
       return { x, y, amount: d.amount, date: d.date, label: d.label };
     });
     
-    const points = pointsData.map(p => `${p.x},${p.y}`);
-    const path = `M${PADX},${H-BOTTOM} ` + points.map(p => `L${p}`).join(' ') + ` L${PADX+innerW},${H-BOTTOM} L${PADX},${H-BOTTOM} Z`;
+    // Generate chart based on type
+    let chartElements = '';
+    
+    if (chartType === 'area') {
+      const points = pointsData.map(p => `${p.x},${p.y}`);
+      const path = `M${PADX},${H-BOTTOM} ` + points.map(p => `L${p}`).join(' ') + ` L${PADX+innerW},${H-BOTTOM} L${PADX},${H-BOTTOM} Z`;
+      chartElements = `<path d="${path}" fill="url(#gModalArea)" stroke="#22c55e" stroke-width="5" class="chart-area"/>`;
+    } else if (chartType === 'line') {
+      const points = pointsData.map(p => `${p.x},${p.y}`);
+      const path = `M${points[0]}` + points.slice(1).map(p => `L${p}`).join(' ');
+      chartElements = `<path d="${path}" fill="none" stroke="url(#gModalLine)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" class="chart-line"/>`;
+    } else if (chartType === 'bar') {
+      const barWidth = innerW / (daily.length * 1.5);
+      chartElements = pointsData.map((p, i) => {
+        const barHeight = (H-BOTTOM) - p.y;
+        const barX = p.x - barWidth / 2;
+        return `
+          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}" 
+                fill="url(#gModalBar)" rx="4" class="chart-bar" 
+                data-amount="${p.amount}" data-date="${p.label || p.date}" data-index="${i}"/>
+        `;
+      }).join('');
+    }
     
     // Y-axis labels
     const yLabels = [];
@@ -901,7 +999,7 @@
       const value = Math.round(max * ratio);
       const y = (H - BOTTOM) - (ratio * innerH);
       if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="14" font-family="system-ui" font-weight="500">${fmt(value)}</text>`);
+        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="14" font-family="'Noto Sans', system-ui" font-weight="500">${fmt(value)}</text>`);
       }
     });
     
@@ -912,47 +1010,66 @@
       return `<line x1="${PADX}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#24324a" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`;
     }).join('');
     
-    // Data point labels - show all labels for larger chart
-    const dataLabels = pointsData.map((p, i) => {
-      const labelY = p.y - 15;
-      const labelX = p.x;
-      
-      let dateStr = '';
-      if (p.label) {
-        dateStr = p.label;
-      } else if (p.date) {
-        const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
-      }
-      
-      return `
-        <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
-          <circle cx="${p.x}" cy="${p.y}" r="6" fill="#22c55e" stroke="#0b1220" stroke-width="3" class="point-circle"/>
-          <rect x="${labelX - 35}" y="${labelY - 12}" width="70" height="22" fill="#0b1220" opacity="0.9" rx="5"/>
-          <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600" font-family="system-ui">${fmt(p.amount)}</text>
-        </g>
-      `;
-    }).join('');
+    // Data point labels - show all labels for larger chart (only for area and line)
+    let dataLabels = '';
+    if (chartType !== 'bar') {
+      dataLabels = pointsData.map((p, i) => {
+        const labelY = p.y - 15;
+        const labelX = p.x;
+        
+        let dateStr = '';
+        if (p.label) {
+          dateStr = p.label;
+        } else if (p.date) {
+          const d = new Date(p.date);
+          dateStr = d.toLocaleDateString('vi-VN', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'});
+        }
+        
+        if (p.amount > 0) {
+          return `
+            <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
+              <circle cx="${p.x}" cy="${p.y}" r="6" fill="#22c55e" stroke="#0b1220" stroke-width="3" class="point-circle"/>
+              <rect x="${labelX - 35}" y="${labelY - 12}" width="70" height="22" fill="#0b1220" opacity="0.9" rx="5"/>
+              <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600" font-family="'Noto Sans', system-ui">${fmt(p.amount)}</text>
+            </g>
+          `;
+        }
+        return `
+          <g class="data-point" data-amount="${p.amount}" data-date="${dateStr}" data-index="${i}">
+            <circle cx="${p.x}" cy="${p.y}" r="5" fill="#22c55e" opacity="0.85" class="point-circle"/>
+          </g>
+        `;
+      }).join('');
+    }
     
     // X-axis labels - show all dates
     const xLabels = pointsData.map((p, i) => {
       let dateStr = '';
-      if (p.label) {
-        dateStr = p.label;
-      } else if (p.date) {
+      if (p.date) {
         const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'});
+        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      } else if (p.label) {
+        const parts = p.label.split(',');
+        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
       }
-      return `<text x="${p.x}" y="${H-15}" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="system-ui" font-weight="500">${dateStr}</text>`;
+      return `<g transform="translate(${p.x}, ${H-15}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500">${dateStr}</text></g>`;
     }).join('');
     
     modalContainer.innerHTML = `
       <div class="chart-tooltip" id="chartModalTooltip"></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" id="chartModalSvg">
         <defs>
-          <linearGradient id="gModal" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id="gModalArea" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stop-color="#22c55e" stop-opacity="0.9"/>
             <stop offset="100%" stop-color="#22c55e" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="gModalLine" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#22c55e" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#4ade80" stop-opacity="1"/>
+          </linearGradient>
+          <linearGradient id="gModalBar" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#22c55e" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#16a34a" stop-opacity="1"/>
           </linearGradient>
         </defs>
         <rect x="0" y="0" width="${W}" height="${H}" fill="#0b1220"/>
@@ -961,7 +1078,7 @@
           <line x1="${PADX}" y1="${H-BOTTOM}" x2="${W-20}" y2="${H-BOTTOM}"/>
           <line x1="${PADX}" y1="40" x2="${PADX}" y2="${H-BOTTOM}"/>
         </g>
-        <path d="${path}" fill="url(#gModal)" stroke="#22c55e" stroke-width="5"/>
+        ${chartElements}
         ${dataLabels}
         ${yLabels.join('')}
         ${xLabels}
@@ -973,6 +1090,7 @@
     const tooltip = modalContainer.querySelector('#chartModalTooltip');
     
     if (svg && tooltip) {
+      // Handle circles (for area and line charts)
       const circles = svg.querySelectorAll('.point-circle');
       circles.forEach((circle) => {
         const pointGroup = circle.closest('.data-point');
@@ -1016,9 +1134,137 @@
           }
         });
       });
+      
+      // Handle bars (for bar chart)
+      const bars = svg.querySelectorAll('.chart-bar');
+      bars.forEach((bar) => {
+        const amount = bar.getAttribute('data-amount');
+        const date = bar.getAttribute('data-date');
+        
+        bar.addEventListener('mouseenter', function(e) {
+          bar.setAttribute('opacity', '0.9');
+          bar.setAttribute('fill', '#4ade80');
+          
+          if (tooltip) {
+            tooltip.innerHTML = `<span class="date">${date}</span><span class="amount">${fmt(parseFloat(amount))}</span>`;
+            tooltip.classList.add('show');
+            
+            const rect = modalContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
+            tooltip.style.top = `${Math.max(y - 60, 10)}px`;
+          }
+        });
+        
+        bar.addEventListener('mouseleave', function() {
+          bar.setAttribute('opacity', '1');
+          bar.setAttribute('fill', 'url(#gModalBar)');
+          
+          if (tooltip) {
+            tooltip.classList.remove('show');
+          }
+        });
+        
+        bar.addEventListener('mousemove', function(e) {
+          if (tooltip && tooltip.classList.contains('show')) {
+            const rect = modalContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
+            tooltip.style.top = `${Math.max(y - 60, 10)}px`;
+          }
+        });
+      });
     }
     
     // Show modal
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Chart type selector event handlers (initialize after DOM ready)
+  function initChartTypeSelector() {
+    const chartTypeButtons = document.querySelectorAll('.chart-type-btn');
+    if (chartTypeButtons.length === 0) return;
+    
+    chartTypeButtons.forEach(btn => {
+      // Skip if listener already attached
+      if (btn.hasAttribute('data-listener-attached')) {
+        return;
+      }
+      
+      btn.setAttribute('data-listener-attached', 'true');
+      
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Remove active class from all buttons
+        document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+        // Add active class to clicked button
+        this.classList.add('active');
+        // Update chart type
+        const chartType = this.getAttribute('data-type');
+        window.currentChartType = chartType;
+        console.log('🔄 Switching to chart type:', chartType);
+        // Re-render chart with new type
+        updateChartPanel(chartType);
+      });
+    });
+  }
+  
+  // Initialize when DOM is ready or immediately if already loaded
+  (function() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initChartTypeSelector);
+    } else {
+      // DOM already loaded, initialize immediately
+      setTimeout(initChartTypeSelector, 100);
+    }
+  })();
+
+  // Open a simple notice modal instead of the chart (for the Detail button)
+  window.openReportNoticeModal = async function(){
+    const modal = document.getElementById('chartModal');
+    const modalContainer = document.getElementById('chartModalContainer');
+    if (!modal || !modalContainer) return;
+    // Try to prepare a tiny summary (optional)
+    let daily = [];
+    try{
+      if (window.__CHART_CACHE && window.__CHART_CACHE.daily) {
+        daily = window.__CHART_CACHE.daily;
+      } else {
+        const d = await buildDailyTotals(12);
+        daily = d.slice().reverse();
+      }
+    }catch(_){}
+    const total = daily.reduce((s,x)=>s + (x.amount||0), 0);
+    const maxAmt = daily.reduce((m,x)=> Math.max(m, x.amount||0), 0);
+    const days = daily.length;
+    // Render simple notice content
+    modalContainer.innerHTML = `
+      <div style="width:100%;max-width:760px;margin:0 auto;color:#e2e8f0">
+        <div style="background:#0b1220;border:1px solid #162033;border-radius:12px;padding:20px">
+          <h3 style="margin:0 0 10px 0;color:#93c5fd;font-weight:800;font-size:20px">Thông báo báo cáo</h3>
+          <p style="margin:0 0 12px 0;opacity:0.9">Chế độ xem chi tiết chỉ hiển thị bảng thông báo. Biểu đồ đã được tắt theo yêu cầu.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Số ngày hiển thị</div>
+              <div style="font-weight:800;font-size:18px">${days}</div>
+            </div>
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Tổng chi tiêu</div>
+              <div style="font-weight:800;font-size:18px">${fmt(total)}</div>
+            </div>
+            <div style="background:#111827;border:1px solid #1f2a44;border-radius:10px;padding:14px">
+              <div style="opacity:0.8;font-size:12px">Ngày cao nhất</div>
+              <div style="font-weight:800;font-size:18px">${fmt(maxAmt)}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -1175,8 +1421,12 @@
     }
   };
 
-  // Detail button (demo)
-  document.getElementById('btnDetail').onclick = ()=> alert(t('report.viewDetail'));
+  // Detail button: open notice modal (no chart)
+  document.getElementById('btnDetail').onclick = async function(){
+    try{
+      await window.openReportNoticeModal();
+    }catch(e){ console.warn('Failed to open report notice:', e); }
+  };
 
   // ===== Chatbox =====
   const chatToggle = document.getElementById('chatToggle');
@@ -1285,10 +1535,10 @@
     window.location.href = 'login.html';
   });
   </script>
-  <script src="../chucnang/js/utils.js"></script>
-  <script src="../chucnang/js/dataManager.js"></script>
+  <script src="/frontend/js/utils.js"></script>
+  <script src="/frontend/js/dataManager.js"></script>
   <!-- SheetJS for Excel export -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <script src="../chucnang/js/baocao.js"></script>
+  <script src="/frontend/js/baocao.js"></script>
 </body>
 </html>

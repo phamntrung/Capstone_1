@@ -102,15 +102,10 @@ async function apiRequest(endpoint, options = {}) {
   const publicEndpoints = ['/api/auth/register', '/api/auth/login', '/api/auth/google'];
   const isPublicEndpoint = publicEndpoints.some(publicPath => endpoint.includes(publicPath));
   
-  // Chỉ yêu cầu auth cho các endpoint được bảo vệ (không phải auth endpoints)
-  if (!auth && endpoint.includes('/api/') && !isPublicEndpoint) {
-    // Lấy đường dẫn chính xác đến login.html dựa trên vị trí hiện tại
-    const loginPath = window.location.pathname.includes('frontend') 
-      ? 'login.html' 
-      : '../frontend/login.html';
-    window.location.href = loginPath;
-    return null;
-  }
+  // Note: Don't redirect immediately if !auth because:
+  // - Google login uses httpOnly cookies (not in localStorage)
+  // - Cookie-based auth should be tried first
+  // - Only redirect if API returns 401 after trying
   
   const defaultOptions = {
     headers: {
@@ -137,6 +132,19 @@ async function apiRequest(endpoint, options = {}) {
   };
   
   try {
+    // Log request details for debugging (especially for Google login)
+    const user = auth?.user;
+    const hasToken = !!(auth?.token);
+    const isGoogleLogin = user?.login_method === 'google';
+    console.log(`📤 API Request: ${endpoint}`, {
+      method: finalOptions.method || 'GET',
+      hasAuth: !!auth,
+      hasToken: hasToken,
+      isGoogleLogin: isGoogleLogin,
+      credentials: finalOptions.credentials,
+      hasAuthHeader: !!finalOptions.headers['Authorization']
+    });
+    
     const response = await fetch(`${API_BASE}${endpoint}`, finalOptions);
     
     // Check if response has content before parsing JSON
@@ -161,6 +169,81 @@ async function apiRequest(endpoint, options = {}) {
           data: { message: 'Lỗi xử lý phản hồi từ server' }
         };
       }
+    }
+    
+    // Handle "Thiếu token" error - might be cookie issue
+    // Always verify session via cookie before redirecting, because:
+    // - Google login uses httpOnly cookies (not in localStorage)
+    // - Cookie might exist even if localStorage is empty
+    // - After Google login, user data might not be in localStorage yet
+    if (!response.ok && response.status === 401 && data.message === 'Thiếu token') {
+      console.warn('⚠️ Token missing error - checking authentication state:', {
+        hasAuth: !!auth,
+        hasToken: hasToken,
+        isGoogleLogin: isGoogleLogin,
+        endpoint: endpoint
+      });
+      
+      // Always try to verify session via cookie before redirecting
+      // This handles cases where:
+      // - Google login just completed and cookie exists but localStorage is empty
+      // - Cookie exists but wasn't sent properly in the request
+      // - Token in localStorage expired but cookie is still valid
+      console.log('🔄 Verifying session via cookie before redirecting...');
+      
+      try {
+        const verifyResult = await fetch(`${API_BASE}/api/me`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include'
+        });
+        
+        if (verifyResult.ok) {
+          const verifyData = await verifyResult.json();
+          console.log('✅ Session verified via cookie - retrying original request...');
+          
+          // Update localStorage with user data if we got it from verification
+          if (verifyData && verifyData.user) {
+            // Store user data (token is in cookie, not in localStorage)
+            localStorage.setItem('smartexpense_user', JSON.stringify(verifyData.user));
+            localStorage.removeItem('smartexpense_token');
+            console.log('✅ Updated localStorage with user data from cookie session');
+          }
+          
+          // Session is valid, retry the original request
+          return apiRequest(endpoint, options);
+        } else {
+          console.warn('❌ Session verification failed - user needs to re-login');
+        }
+      } catch (verifyError) {
+        console.error('Error verifying session:', verifyError);
+      }
+    }
+    
+    console.log(`📥 API Response: ${endpoint}`, {
+      status: response.status,
+      ok: response.ok,
+      message: data.message
+    });
+    
+    // If API returns 401 (unauthorized), redirect to login
+    // This handles cases where:
+    // - No auth in localStorage (Google login uses cookies)
+    // - Cookie expired or invalid
+    // - User not authenticated
+    if (!response.ok && response.status === 401 && !isPublicEndpoint) {
+      console.warn('⚠️ Unauthorized (401) - redirecting to login');
+      const loginPath = window.location.pathname.includes('frontend') 
+        ? 'login.html' 
+        : '../frontend/login.html';
+      window.location.href = loginPath;
+      return {
+        ok: false,
+        status: 401,
+        data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+      };
     }
     
     return {
@@ -347,6 +430,21 @@ async function logout() {
   
   // Clear session (only after sync is done)
   try {
+    // Save avatar before clearing user data (avatar should persist across logout)
+    const userData = localStorage.getItem('smartexpense_user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        if (user.avatar) {
+          // Save avatar to separate key so it persists across logout
+          localStorage.setItem('smartexpense_avatar', user.avatar);
+          console.log('✅ Đã lưu avatar trước khi đăng xuất');
+        }
+      } catch (e) {
+        console.warn('Lỗi khi lưu avatar:', e);
+      }
+    }
+    
     // Keep smartexpense_data for backup (will be synced on next login)
     // Only clear authentication tokens and flags
     localStorage.removeItem('smartexpense_user');
