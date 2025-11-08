@@ -4,7 +4,7 @@ from database import db
 class User(db.Model):
     """Model cho bảng users"""
     __tablename__ = 'users'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -22,12 +22,12 @@ class User(db.Model):
     last_login_at = db.Column(db.DateTime, nullable=True)  # Last login timestamp
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     # Relationships
     expenses = db.relationship('Expense', backref='user', lazy=True, cascade='all, delete-orphan')
     categories = db.relationship('Category', backref='user', lazy=True, cascade='all, delete-orphan')
     budgets = db.relationship('Budget', backref='user', lazy=True, cascade='all, delete-orphan')
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -50,16 +50,16 @@ class User(db.Model):
 class Category(db.Model):
     """Model cho bảng categories"""
     __tablename__ = 'categories'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     # Relationships
     expenses = db.relationship('Expense', backref='category', lazy=True)
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -72,7 +72,7 @@ class Category(db.Model):
 class Expense(db.Model):
     """Model cho bảng expenses"""
     __tablename__ = 'expenses'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
@@ -82,12 +82,12 @@ class Expense(db.Model):
     note = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     def to_dict(self):
         category_name = None
         if self.category_id and self.category:
             category_name = self.category.name
-
+        
         return {
             'id': self.id,
             'userId': self.user_id,
@@ -104,17 +104,17 @@ class Expense(db.Model):
 class Budget(db.Model):
     """Model cho bảng budgets"""
     __tablename__ = 'budgets'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     month = db.Column(db.String(7), nullable=False)  # Format: YYYY-MM
     amount = db.Column(db.Float, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     # Unique constraint để mỗi user chỉ có 1 budget cho 1 tháng
     __table_args__ = (db.UniqueConstraint('user_id', 'month', name='unique_user_month'),)
-
+    
     def to_dict(self):
         return {
             'id': self.id,

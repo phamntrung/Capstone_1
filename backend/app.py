@@ -1,7 +1,5 @@
 import os
 import datetime
-import secrets
-import json
 from typing import Dict, Any, List, Optional
 from functools import wraps
 try:
@@ -19,7 +17,6 @@ from flask_cors import CORS
 import jwt
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import text
 
 # Import database và models
 from database import init_database, db, migrate
@@ -45,7 +42,7 @@ from google.auth.transport import requests as google_requests
 load_dotenv()
 app = Flask(__name__)
 # Enable credentials (cookies) for CORS - required for httpOnly cookies
-CORS(app,
+CORS(app, 
      resources={r"/api/*": {"origins": os.getenv("CORS_ORIGIN", "*"), "supports_credentials": True}},
      supports_credentials=True
 )
@@ -90,18 +87,18 @@ def auth_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         token = None
-
+        
         # Priority 1: Try to get token from httpOnly cookie (most secure)
         token = request.cookies.get('auth_token')
-
+        
         # Priority 2: Fallback to Authorization header (for compatibility)
         if not token:
             auth_header = request.headers.get("Authorization", "")
             token = auth_header[7:] if auth_header.startswith("Bearer ") else None
-
+        
         if not token:
             return jsonify({"message": "Thiếu token"}), 401
-
+        
         try:
             payload = jwt.decode(token, os.getenv("JWT_SECRET", "dev_secret"), algorithms=["HS256"])
             user_id = payload.get("sub")
@@ -115,7 +112,7 @@ def auth_required(fn):
         except jwt.InvalidTokenError as e:
             print(f"❌ Invalid token: {e}")
             pass
-
+        
         return jsonify({"message": "Token không hợp lệ"}), 401
     return wrapper
 
@@ -172,7 +169,7 @@ def register():
         password_hash=generate_password_hash(password),
         role="user"
     )
-
+    
     db.session.add(user)
     db.session.commit()
 
@@ -233,7 +230,7 @@ def google_login():
         name = idinfo.get("name") or (email.split("@")[0] if email else "Người dùng")
         avatar_url = idinfo.get("picture")
         email_verified = idinfo.get("email_verified", False)
-
+        
         if not email:
             return jsonify({"message": "Không lấy được email từ Google"}), 400
 
@@ -304,13 +301,13 @@ def google_login():
 
         # Create JWT token
         token = create_token(user)
-
+        
         # Create response with user info
         response = jsonify({
             "success": True,
             "user": user.to_dict()
         })
-
+        
         # Set httpOnly cookie with JWT token (secure, cannot be accessed by JavaScript)
         is_secure = os.getenv("FLASK_ENV") != "development"  # Use secure cookies in production
         response.set_cookie(
@@ -321,10 +318,10 @@ def google_login():
             samesite='Lax',     # CSRF protection
             max_age=86400 * 7   # 7 days
         )
-
+        
         print(f"✅ Set httpOnly cookie for user: {email}")
         return response
-
+        
     except ValueError as e:
         print(f"❌ Google token validation error: {e}")
         return jsonify({"message": "ID token không hợp lệ"}), 401
@@ -333,146 +330,6 @@ def google_login():
         import traceback
         traceback.print_exc()
         return jsonify({"message": f"Đăng nhập Google thất bại: {str(e)}"}), 500
-
-
-@app.post("/api/auth/forgot-password")
-def forgot_password():
-    """Forgot Password - Gửi link reset password qua email"""
-    try:
-        # Đọc JSON từ body (giống các endpoint khác)
-        data = request.get_json(silent=True) or {}
-        email = (data.get("email") or "").strip().lower()
-
-        if not email:
-            return jsonify({"message": "Vui lòng nhập email"}), 400
-
-        # Tìm user
-        user = User.query.filter_by(email=email).first()
-
-        # Không báo lỗi nếu email không tồn tại (bảo mật)
-        if not user:
-            return jsonify({"message": "Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu"}), 200
-
-        # Tạo reset token
-        reset_token = secrets.token_urlsafe(32)
-        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=2)
-
-        # Lưu token vào database (user_settings)
-        try:
-            # Xóa token cũ nếu có
-            db.session.execute(
-                text("DELETE FROM user_settings WHERE user_id = :user_id AND setting_key = :key"),
-                {"user_id": user.id, "key": "password_reset_token"}
-            )
-
-            # Lưu token mới
-            token_data = json.dumps({
-                "token": reset_token,
-                "expires_at": expires_at.isoformat()
-            })
-            db.session.execute(
-                text("""
-                    INSERT INTO user_settings (user_id, setting_key, setting_value, created_at, updated_at)
-                    VALUES (:user_id, :key, :value, NOW(), NOW())
-                """),
-                {"user_id": user.id, "key": "password_reset_token", "value": token_data}
-            )
-            db.session.commit()
-        except Exception as db_error:
-            db.session.rollback()
-            print(f"❌ Error saving reset token: {db_error}")
-            return jsonify({"message": "Lỗi lưu token reset"}), 500
-
-        # Tạo reset link
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8080")
-        reset_link = f"{frontend_url}/frontend/datlaimatkhau.html?token={reset_token}"
-
-        # TODO: Gửi email khi có email service được cấu hình
-
-        return jsonify({"message": "Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu"}), 200
-
-    except Exception as e:
-        print(f"❌ Forgot password error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": "Lỗi xử lý yêu cầu"}), 500
-
-
-@app.post("/api/auth/reset-password")
-def reset_password():
-    """Reset Password - Đặt lại mật khẩu với token"""
-    try:
-        data = request.get_json(silent=True) or {}
-        token = data.get("token", "").strip()
-        password = data.get("password", "")
-
-        if not token or not password:
-            return jsonify({"message": "Thiếu token hoặc mật khẩu mới"}), 400
-
-        if len(password) < 6:
-            return jsonify({"message": "Mật khẩu phải có ít nhất 6 ký tự"}), 400
-
-        # Tìm user có token này
-        try:
-            result = db.session.execute(
-                text("""
-                    SELECT u.id, us.setting_value
-                    FROM users u
-                    INNER JOIN user_settings us ON u.id = us.user_id
-                    WHERE us.setting_key = :key
-                """),
-                {"key": "password_reset_token"}
-            )
-            rows = result.fetchall()
-
-            user = None
-            for row in rows:
-                try:
-                    user_id = row[0]  # user.id
-                    setting_value = row[1]  # setting_value
-                    token_data = json.loads(setting_value)
-                    if token_data.get("token") == token:
-                        expires_at = datetime.datetime.fromisoformat(token_data.get("expires_at"))
-                        if expires_at > datetime.datetime.utcnow():
-                            # Lấy user từ database
-                            user = User.query.get(user_id)
-                            break
-                except (json.JSONDecodeError, ValueError, KeyError, IndexError):
-                    continue
-
-            if not user:
-                return jsonify({"message": "Token không hợp lệ hoặc đã hết hạn"}), 400
-
-            # Hash mật khẩu mới
-            hashed_password = generate_password_hash(password)
-
-            # Cập nhật mật khẩu
-            user.password_hash = hashed_password
-            user.updated_at = datetime.datetime.utcnow()
-
-            # Xóa token đã dùng
-            db.session.execute(
-                text("DELETE FROM user_settings WHERE user_id = :user_id AND setting_key = :key"),
-                {"user_id": user.id, "key": "password_reset_token"}
-            )
-
-            db.session.commit()
-
-            print(f"✅ Password reset successful for user: {user.email}")
-            return jsonify({"message": "Đặt lại mật khẩu thành công"}), 200
-
-        except Exception as db_error:
-            db.session.rollback()
-            print(f"❌ Database error: {db_error}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({"message": "Lỗi cập nhật mật khẩu"}), 500
-
-    except Exception as e:
-        print(f"❌ Reset password error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": "Lỗi đặt lại mật khẩu"}), 500
 
 
 @app.get("/api/me")
@@ -542,14 +399,14 @@ def update_profile():
     """Cập nhật thông tin hồ sơ của user hiện tại"""
     data = request.get_json(silent=True) or {}
     user = request.user
-
+    
     print(f"[UPDATE_PROFILE] Received data: {data}")
     print(f"[UPDATE_PROFILE] Current user: {user.email} (ID: {user.id})")
     print(f"[UPDATE_PROFILE] Current user state - name: {user.name}, balance: {user.balance}, gender: {user.gender}, currency: {user.currency}")
-
+    
     try:
         updated_fields = []
-
+        
         # Cập nhật các trường được gửi lên
         if "name" in data:
             name = (data.get("name") or "").strip()
@@ -557,22 +414,22 @@ def update_profile():
                 old_name = user.name
                 user.name = name
                 updated_fields.append(f"name: {old_name} -> {name}")
-
+        
         if "gender" in data:
             old_gender = user.gender
             user.gender = data.get("gender")
             updated_fields.append(f"gender: {old_gender} -> {user.gender}")
-
+        
         if "currency" in data:
             old_currency = user.currency
             user.currency = data.get("currency")
             updated_fields.append(f"currency: {old_currency} -> {user.currency}")
-
+        
         if "phone" in data:
             old_phone = user.phone
             user.phone = data.get("phone")
             updated_fields.append(f"phone: {old_phone} -> {user.phone}")
-
+        
         if "balance" in data:
             try:
                 old_balance = user.balance
@@ -582,17 +439,17 @@ def update_profile():
             except (ValueError, TypeError) as e:
                 print(f"[UPDATE_PROFILE] Error parsing balance: {e}")
                 pass
-
+        
         print(f"[UPDATE_PROFILE] Fields to update: {updated_fields}")
-
+        
         # Commit changes to database
         db.session.commit()
-
+        
         # Verify changes were saved
         db.session.refresh(user)
         print(f"[UPDATE_PROFILE] After commit - name: {user.name}, balance: {user.balance}, gender: {user.gender}, currency: {user.currency}")
         print(f"[UPDATE_PROFILE] ✅ Successfully updated profile in database")
-
+        
         return jsonify({
             "success": True,
             "message": "Cập nhật hồ sơ thành công",
@@ -638,11 +495,11 @@ def list_expenses():
     user_id = request.user.id
     # Optional filters: date_from, date_to, categoryId
     query = Expense.query.filter_by(user_id=user_id)
-
+    
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
     category_id = request.args.get("categoryId")
-
+    
     if date_from:
         query = query.filter(Expense.date >= date_from)
     if date_to:
@@ -653,7 +510,7 @@ def list_expenses():
             query = query.filter(Expense.category_id == cid)
         except ValueError:
             pass
-
+    
     expenses_list = query.order_by(Expense.date.desc()).all()
     return jsonify({"items": [expense.to_dict() for expense in expenses_list]})
 
@@ -668,7 +525,7 @@ def create_expense():
         etype = (data.get("type") or "expense").strip()  # expense|income
         category_id = data.get("categoryId")
         note = (data.get("note") or "").strip()
-
+        
         # Nếu không có ngày từ client, lấy ngày hiện tại từ server
         if not date_str:
             date = get_current_date_vietnam()
@@ -695,10 +552,10 @@ def create_expense():
         category_id=int(category_id) if category_id is not None else None,
         note=note
     )
-
+    
     db.session.add(expense)
     db.session.commit()
-
+    
     return jsonify(expense.to_dict()), 201
 
 
@@ -709,7 +566,7 @@ def _get_expense_owned(eid: int, uid: int) -> Optional[Expense]:
 @app.get("/api/expenses/<int:eid>")
 @auth_required
 def get_expense(eid: int):
-    expense = _get_expense_owned(eid, request.user.id)
+    expense = _get_expense_owned(eid, request.user.id) 
     if not expense:
         return jsonify({"message": "Không tìm thấy"}), 404
     return jsonify(expense.to_dict())
@@ -718,12 +575,12 @@ def get_expense(eid: int):
 @app.put("/api/expenses/<int:eid>")
 @auth_required
 def update_expense(eid: int):
-    expense = _get_expense_owned(eid, request.user.id)
+    expense = _get_expense_owned(eid, request.user.id) 
     if not expense:
         return jsonify({"message": "Không tìm thấy"}), 404
-
+    
     data = request.get_json(silent=True) or {}
-
+    
     if "date" in data:
         try:
             expense.date = datetime.datetime.strptime(data["date"], "%Y-%m-%d").date()
@@ -743,7 +600,7 @@ def update_expense(eid: int):
             pass
     if "note" in data:
         expense.note = data["note"]
-
+    
     db.session.commit()
     return jsonify(expense.to_dict())
 
@@ -754,11 +611,11 @@ def delete_expense(eid: int):
     expense = _get_expense_owned(eid, request.user.id)
     if not expense:
         return jsonify({"message": "Không tìm thấy"}), 404
-
+    
     deleted_data = expense.to_dict()
     db.session.delete(expense)
     db.session.commit()
-
+    
     return jsonify({"deleted": deleted_data})
 
 
@@ -779,15 +636,15 @@ def create_category():
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"message": "Thiếu tên"}), 400
-
+    
     category = Category(
         user_id=request.user.id,
         name=name
     )
-
+    
     db.session.add(category)
     db.session.commit()
-
+    
     return jsonify(category.to_dict()), 201
 
 
@@ -806,13 +663,13 @@ def update_category(cid: int):
     category = Category.query.filter_by(id=cid, user_id=request.user.id).first()
     if not category:
         return jsonify({"message": "Không tìm thấy"}), 404
-
+    
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     if name:
         category.name = name
         db.session.commit()
-
+    
     return jsonify(category.to_dict())
 
 
@@ -822,10 +679,10 @@ def delete_category(cid: int):
     category = Category.query.filter_by(id=cid, user_id=request.user.id).first()
     if not category:
         return jsonify({"message": "Không tìm thấy"}), 404
-
+    
     db.session.delete(category)
     db.session.commit()
-
+    
     return jsonify({"deleted": cid})
 
 
@@ -850,7 +707,7 @@ def put_budget(yyyymm: str):
         amount = float(data.get("amount"))
     except Exception:
         return jsonify({"message": "Số tiền không hợp lệ"}), 400
-
+    
     # Tìm budget hiện có hoặc tạo mới
     budget = Budget.query.filter_by(user_id=request.user.id, month=yyyymm).first()
     if not budget:
@@ -862,7 +719,7 @@ def put_budget(yyyymm: str):
         db.session.add(budget)
     else:
         budget.amount = amount
-
+    
     db.session.commit()
     return jsonify(budget.to_dict())
 
@@ -1183,26 +1040,26 @@ def ai_chat():
 def expenses_stats():
     """Lấy thống kê chi tiêu cho biểu đồ xu hướng"""
     uid = request.user.id
-
+    
     # Get query parameters
     period = request.args.get("period", "10")  # 10, 30, 60, 90 days
     group_by = request.args.get("groupBy", "day")  # day, week, category
-
+    
     try:
         days = int(period)
     except:
         days = 10
-
+    
     today = datetime.date.today()
     start_date = today - datetime.timedelta(days=days)
-
+    
     # Get user expenses in range
     expenses = Expense.query.filter(
         Expense.user_id == uid,
         Expense.date >= start_date,
         Expense.date <= today
     ).order_by(Expense.date.asc()).all()
-
+    
     if group_by == "category":
         # Group by category
         cat_stats = {}
@@ -1214,10 +1071,10 @@ def expenses_stats():
                     cat_stats[cid] = {"name": cat_name, "amount": 0, "count": 0}
                 cat_stats[cid]["amount"] += abs(e.amount)
                 cat_stats[cid]["count"] += 1
-
+        
         result = [{"id": cid, **stats} for cid, stats in cat_stats.items()]
         return jsonify({"items": result, "groupBy": "category"})
-
+    
     elif group_by == "week":
         # Group by week
         week_stats = {}
@@ -1229,10 +1086,10 @@ def expenses_stats():
                     week_stats[week_key] = {"date": week_key, "amount": 0, "count": 0}
                 week_stats[week_key]["amount"] += abs(e.amount)
                 week_stats[week_key]["count"] += 1
-
+        
         result = sorted([stats for stats in week_stats.values()], key=lambda x: x["date"])
         return jsonify({"items": result, "groupBy": "week"})
-
+    
     else:
         # Group by day (default)
         day_stats = {}
@@ -1243,7 +1100,7 @@ def expenses_stats():
                     day_stats[day_key] = {"date": day_key, "amount": 0, "count": 0}
                 day_stats[day_key]["amount"] += abs(e.amount)
                 day_stats[day_key]["count"] += 1
-
+        
         # Fill missing days with 0
         result = []
         current = start_date
@@ -1254,7 +1111,7 @@ def expenses_stats():
             else:
                 result.append({"date": day_key, "amount": 0, "count": 0})
             current += datetime.timedelta(days=1)
-
+        
         return jsonify({"items": result, "groupBy": "day"})
 
 
