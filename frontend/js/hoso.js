@@ -1137,6 +1137,7 @@
     const container = document.getElementById('notificationsContainer');
     const unreadBadge = document.getElementById('unreadCountBadge');
     const markAllReadBtn = document.getElementById('markAllReadBtn');
+    const deleteAllBtn = document.getElementById('deleteAllNotificationsBtn');
     
     if (!container) return;
     
@@ -1161,8 +1162,17 @@
           if (markAllReadBtn) {
             markAllReadBtn.style.display = unreadCount > 0 ? 'block' : 'none';
           }
+          
+          // Show/hide delete all button (show when there are any notifications)
+          if (deleteAllBtn) {
+            deleteAllBtn.style.display = items && items.length > 0 ? 'block' : 'none';
+          }
         } else {
           container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Không có thông báo nào</div>';
+          // Hide delete all button when no notifications
+          if (deleteAllBtn) {
+            deleteAllBtn.style.display = 'none';
+          }
         }
       } else {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Không thể tải thông báo</div>';
@@ -1284,17 +1294,47 @@
     }
   }
   
+  async function deleteAllNotifications() {
+    if (!confirm('Bạn có chắc chắn muốn xóa tất cả thông báo? Hành động này không thể hoàn tác.')) {
+      return;
+    }
+    
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest('/api/notifications/all', {
+          method: 'DELETE'
+        });
+        if (result && result.ok) {
+          loadNotifications(); // Reload notifications
+          const deletedCount = result.data?.deleted || 0;
+          showToastMessage(`Đã xóa ${deletedCount} thông báo`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      showToastMessage('Lỗi khi xóa thông báo', 'error');
+    }
+  }
+  
   // Export functions to window for onclick handlers
   window.markNotificationRead = markNotificationRead;
   window.deleteNotification = deleteNotification;
   window.markAllNotificationsRead = markAllNotificationsRead;
+  window.deleteAllNotifications = deleteAllNotifications;
   
   // Initialize notifications when DOM is ready
   function initNotifications() {
     const markAllReadBtn = document.getElementById('markAllReadBtn');
+    const deleteAllBtn = document.getElementById('deleteAllNotificationsBtn');
+    
     if (markAllReadBtn) {
       markAllReadBtn.addEventListener('click', markAllNotificationsRead);
     }
+    
+    if (deleteAllBtn) {
+      deleteAllBtn.addEventListener('click', deleteAllNotifications);
+    }
+    
     loadNotifications();
     
     // Auto refresh notifications every 30 seconds

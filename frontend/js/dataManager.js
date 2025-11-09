@@ -18,7 +18,7 @@ class DataManager {
     }
     
     // Load data from API server (PRIORITY: API first, localStorage as fallback)
-    async loadFromAPI(forceRefresh = false) {
+    async loadFromAPI(forceRefresh = false, retryCount = 0) {
         const user = this.getCurrentUser();
         if (!user) {
             console.log('No user logged in, skipping API load');
@@ -27,9 +27,15 @@ class DataManager {
         
         // Check if apiRequest is available
         if (typeof window === 'undefined' || typeof window.apiRequest !== 'function') {
-            console.warn('apiRequest not available, will retry later');
-            // Retry after a delay
-            setTimeout(() => this.loadFromAPI(forceRefresh), 1000);
+            // Giới hạn số lần retry để tránh vòng lặp vô hạn
+            const MAX_RETRIES = 5;
+            if (retryCount >= MAX_RETRIES) {
+                console.error('❌ apiRequest không khả dụng sau ' + MAX_RETRIES + ' lần thử. Vui lòng kiểm tra lại việc load file utils.js');
+                return;
+            }
+            console.warn('apiRequest not available, will retry later (' + (retryCount + 1) + '/' + MAX_RETRIES + ')');
+            // Retry after a delay với retryCount tăng dần
+            setTimeout(() => this.loadFromAPI(forceRefresh, retryCount + 1), 1000);
             return;
         }
         
@@ -1034,7 +1040,11 @@ class DataManager {
 // Create global instance
 window.dataManager = new DataManager();
 
-// Auto-sync with API every 30 seconds (more frequent for better sync)
+// Auto-sync with API every 60 seconds (tối ưu để giảm tải)
+// Chỉ sync khi có thay đổi thực sự hoặc khi cần thiết
+let lastSyncTime = 0;
+const SYNC_INTERVAL = 60000; // 60 giây thay vì 30 giây
+
 setInterval(async () => {
     if (window.dataManager) {
         // Sync localStorage cache
@@ -1043,18 +1053,31 @@ setInterval(async () => {
         const user = window.dataManager.getCurrentUser();
         if (user && typeof window.apiRequest === 'function') {
             try {
-                // First, sync any pending changes
-                await window.dataManager.syncPendingChangesToAPI();
-                // Then, refresh from API
-                await window.dataManager.loadFromAPI();
-                // Process sync queue
-                await window.dataManager.processSyncQueue();
+                // Kiểm tra xem có thay đổi cần sync không
+                const hasPendingChanges = window.dataManager.needsSync();
+                const timeSinceLastSync = Date.now() - lastSyncTime;
+                
+                // Chỉ sync nếu có thay đổi hoặc đã qua 5 phút (để đảm bảo đồng bộ định kỳ)
+                if (hasPendingChanges || timeSinceLastSync > 300000) {
+                    console.log('🔄 Auto-sync: Syncing changes...');
+                    // First, sync any pending changes
+                    await window.dataManager.syncPendingChangesToAPI();
+                    // Then, refresh from API (chỉ khi có thay đổi)
+                    if (hasPendingChanges) {
+                        await window.dataManager.loadFromAPI();
+                    }
+                    // Process sync queue
+                    await window.dataManager.processSyncQueue();
+                    lastSyncTime = Date.now();
+                } else {
+                    console.log('⏭️ Auto-sync: No changes, skipping');
+                }
             } catch (error) {
                 console.warn('Auto-sync failed:', error);
             }
         }
     }
-}, 30000); // Every 30 seconds
+}, SYNC_INTERVAL);
 
 // Sync before page unload (when user closes tab/browser)
 window.addEventListener('beforeunload', async (event) => {

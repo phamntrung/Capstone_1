@@ -91,13 +91,39 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### Quick Start
+### 🎯 Cách Chạy (Nhanh Nhất)
+
+#### ⚡ Cách 1: Chạy Tự Động (Khuyến nghị - Windows PowerShell)
+
+**Chạy cả Backend và Frontend tự động:**
+
+```powershell
+.\start.ps1
+```
+
+Script này sẽ:
+- ✅ Tự động fix lỗi pyvenv.cfg (nếu có)
+- ✅ Khởi động Backend Node.js trong terminal mới
+- ✅ Khởi động Frontend HTTP server trong terminal mới
+- ✅ Tự động mở trình duyệt tại http://localhost:8080/frontend/login.html
+
+**Hoặc chạy riêng từng phần:**
+
+```powershell
+# Chạy Backend Flask (nếu dùng Flask thay vì Node.js)
+.\run-flask.ps1
+
+# Chạy Frontend
+.\run-frontend.ps1
+```
+
+#### 📝 Cách 2: Chạy Thủ Công
 
 ⚠️ **QUAN TRỌNG:** Bạn PHẢI khởi động Backend Node.js TRƯỚC KHI sử dụng ứng dụng. Nếu không, bạn sẽ gặp lỗi "Lỗi kết nối đến server" khi đăng nhập.
 
-#### Bước 1: Khởi động Backend Node.js (BẮT BUỘC)
+**Bước 1: Khởi động Backend Node.js (BẮT BUỘC)**
 
-**Mở terminal/command prompt và chạy:**
+Mở terminal/command prompt và chạy:
 
 ```bash
 cd backend-node
@@ -120,9 +146,9 @@ npm start            # Khởi động server thông thường
 
 **⚠️ ĐỪNG đóng terminal này!** Server phải chạy liên tục để ứng dụng hoạt động.
 
-#### Bước 2: Khởi động Frontend
+**Bước 2: Khởi động Frontend**
 
-**Mở một terminal/command prompt KHÁC và chạy:**
+Mở một terminal/command prompt KHÁC và chạy:
 
 ```bash
 # Di chuyển vào thư mục frontend (hoặc thư mục gốc của project)
@@ -141,7 +167,7 @@ python -m http.server 8080
 Serving HTTP on 0.0.0.0 port 8080 ...
 ```
 
-#### Bước 3: Truy cập ứng dụng
+**Bước 3: Truy cập ứng dụng**
 
 - **Frontend:** http://localhost:8080/frontend/login.html (hoặc http://127.0.0.1:8080/frontend/login.html)
 - **Backend API:** http://127.0.0.1:5001 (để kiểm tra server có đang chạy)

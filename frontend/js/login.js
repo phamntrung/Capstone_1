@@ -144,43 +144,11 @@ async function persistSession(user, token) {
     }
     
     // Load data from API after login (ensure data is fresh from server)
+    // Note: This will be loaded on the next page (trangchu.html), so we don't delay redirect
+    // The data loading will happen in parallel with page navigation for better performance
     if (typeof window !== 'undefined' && window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-        console.log('🔄 Đang tải TẤT CẢ dữ liệu người dùng từ API sau khi đăng nhập...');
-        // Give it a small delay to ensure API is ready
-        setTimeout(async () => {
-            try {
-                // Force refresh from API - this will load expenses, categories, budgets, and profile
-                await window.dataManager.loadFromAPI(true);
-                
-                // Process any sync queue from previous session (retry any failed syncs)
-                if (typeof window.dataManager.processSyncQueue === 'function') {
-                    await window.dataManager.processSyncQueue();
-                }
-                
-                // Verify profile data is loaded
-                const userStr = localStorage.getItem('smartexpense_user');
-                if (userStr) {
-                    const userData = JSON.parse(userStr);
-                    console.log('✅ Dữ liệu người dùng đã được tải từ API sau khi đăng nhập:', {
-                        expenses: window.dataManager?.data?.expenses?.length || 0,
-                        categories: window.dataManager?.data?.categories?.length || 0,
-                        budgets: Object.keys(window.dataManager?.data?.budgets || {}).length || 0,
-                        profile: {
-                            balance: userData.balance,
-                            gender: userData.gender,
-                            currency: userData.currency,
-                            phone: userData.phone
-                        }
-                    });
-                }
-            } catch (error) {
-                console.warn('Không thể tải dữ liệu từ API sau khi đăng nhập:', error);
-                // Mark that we need to sync later
-                if (window.dataManager && typeof window.dataManager.markNeedsSync === 'function') {
-                    window.dataManager.markNeedsSync();
-                }
-            }
-        }, 500);
+        console.log('🔄 Dữ liệu sẽ được tải trên trang chủ để không làm chậm redirect...');
+        // Don't delay redirect - let the next page load the data
     }
 }
 
@@ -244,10 +212,8 @@ async function handleLogin(event) {
             console.log('✅ Đã lưu session (frontend-only), chuẩn bị redirect...');
             showSuccessMessage(`Đăng nhập thành công! Chào mừng ${mockUser.name}`);
             // Redirect immediately without delay
-            setTimeout(() => {
-                console.log('🔄 Đang thực hiện redirect (frontend-only)...');
-                safeRedirect('trangchu.html');
-            }, 50);
+            console.log('🔄 Đang thực hiện redirect (frontend-only)...');
+            safeRedirect('trangchu.html');
             return;
         }
         
@@ -335,11 +301,8 @@ async function handleLogin(event) {
             // Redirect immediately without delay
             isRedirecting = true; // Mark that redirect is starting
             console.log('🔄 Bắt đầu redirect đến trangchu.html...');
-            // Use immediate redirect instead of setTimeout for more reliability
-            setTimeout(() => {
-                console.log('🔄 Đang thực hiện redirect...');
-                safeRedirect('trangchu.html');
-            }, 50);
+            // Redirect immediately for better performance
+            safeRedirect('trangchu.html');
         } else {
             // Fallback to direct fetch if apiRequest is not available
             console.log('Đang sử dụng fetch trực tiếp để đăng nhập...');
@@ -415,11 +378,8 @@ async function handleLogin(event) {
             // Redirect immediately without delay
             isRedirecting = true; // Mark that redirect is starting
             console.log('🔄 Bắt đầu redirect đến trangchu.html...');
-            // Use immediate redirect instead of setTimeout for more reliability
-            setTimeout(() => {
-                console.log('🔄 Đang thực hiện redirect...');
-                safeRedirect('trangchu.html');
-            }, 50);
+            // Redirect immediately for better performance
+            safeRedirect('trangchu.html');
         }
     } catch (error) {
         console.error('Lỗi đăng nhập:', error);
@@ -464,38 +424,112 @@ function showSuccessMessage(message) {
     setTimeout(() => notification.parentElement && notification.remove(), 3000);
 }
 
-// Check if already logged in
-function checkExistingLogin() {
-    const token = localStorage.getItem('smartexpense_token');
-    const user = localStorage.getItem('smartexpense_user');
+// Check if already logged in - với verify từ server để tránh vòng lặp
+async function checkExistingLogin() {
+    // Tránh check nhiều lần cùng lúc
+    if (window.__CHECKING_EXISTING_LOGIN) {
+        console.log('⏭️ Đang kiểm tra login, bỏ qua request mới');
+        return;
+    }
+    
+    window.__CHECKING_EXISTING_LOGIN = true;
+    
+    try {
+        const token = localStorage.getItem('smartexpense_token');
+        const user = localStorage.getItem('smartexpense_user');
 
-    if (token && user) {
-        try {
-            const userData = JSON.parse(user);
-            console.log('Người dùng đã đăng nhập:', userData.name);
-            console.log('Đang chuyển hướng người dùng đã xác thực đến trang chủ...');
-            window.location.href = 'trangchu.html';
-        } catch (error) {
-            console.error('Dữ liệu người dùng không hợp lệ, đang xóa localStorage');
-            localStorage.removeItem('smartexpense_user');
-            localStorage.removeItem('smartexpense_token');
+        // Nếu không có cả token và user, không làm gì
+        if (!token && !user) {
+            window.__CHECKING_EXISTING_LOGIN = false;
+            return;
         }
+
+        // Kiểm tra xem có đang ở trang login không
+        const isLoginPage = window.location.pathname.includes('login.html') || 
+                            window.location.href.includes('login.html');
+        if (!isLoginPage) {
+            console.log('⏭️ Không ở trang login, bỏ qua check');
+            window.__CHECKING_EXISTING_LOGIN = false;
+            return;
+        }
+
+        // Verify với server trước khi redirect (tránh vòng lặp)
+        if (typeof window.apiRequest === 'function') {
+            try {
+                console.log('🔍 Đang verify session với server...');
+                const verifyResult = await window.apiRequest('/api/me', {
+                    method: 'GET'
+                });
+                
+                if (verifyResult && verifyResult.ok && verifyResult.data && verifyResult.data.user) {
+                    // Session hợp lệ, có thể redirect
+                    const userData = verifyResult.data.user;
+                    console.log('✅ Session hợp lệ, người dùng đã đăng nhập:', userData.name || userData.email);
+                    
+                    // Cập nhật localStorage với dữ liệu từ server
+                    localStorage.setItem('smartexpense_user', JSON.stringify(userData));
+                    
+                    // Kiểm tra lại xem có đang redirect không
+                    if (window.__REDIRECT_IN_PROGRESS) {
+                        console.log('⏭️ Đang trong quá trình redirect, bỏ qua');
+                        window.__CHECKING_EXISTING_LOGIN = false;
+                        return;
+                    }
+                    
+                    console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến trang chủ...');
+                    safeRedirect('trangchu.html');
+                } else {
+                    // Session không hợp lệ, xóa localStorage
+                    console.warn('⚠️ Session không hợp lệ, xóa localStorage');
+                    localStorage.removeItem('smartexpense_user');
+                    localStorage.removeItem('smartexpense_token');
+                }
+            } catch (error) {
+                console.error('❌ Lỗi khi verify session:', error);
+                // Nếu lỗi kết nối, không redirect (tránh vòng lặp)
+                // Chỉ redirect nếu chắc chắn session hợp lệ
+            }
+        } else {
+            // Fallback: chỉ redirect nếu có cả token và user (không verify)
+            // Nhưng chỉ khi apiRequest chưa được load
+            if (token && user) {
+                try {
+                    const userData = JSON.parse(user);
+                    console.log('⚠️ apiRequest chưa sẵn sàng, sử dụng fallback check');
+                    console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến trang chủ...');
+                    safeRedirect('trangchu.html');
+                } catch (error) {
+                    console.error('Dữ liệu người dùng không hợp lệ, đang xóa localStorage');
+                    localStorage.removeItem('smartexpense_user');
+                    localStorage.removeItem('smartexpense_token');
+                }
+            }
+        }
+    } finally {
+        // Reset flag sau 2 giây
+        setTimeout(() => {
+            window.__CHECKING_EXISTING_LOGIN = false;
+        }, 2000);
     }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM đã tải xong - Đang khởi tạo hệ thống đăng nhập...');
-    checkExistingLogin();
+    // Delay check để đảm bảo apiRequest đã được load
+    setTimeout(() => {
+        checkExistingLogin();
+    }, 500);
     initSimpleLogin();
 });
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     console.log('DOM đã sẵn sàng - Đang khởi tạo đăng nhập ngay lập tức...');
+    // Delay check để đảm bảo apiRequest đã được load
     setTimeout(() => {
         checkExistingLogin();
         initSimpleLogin();
-    }, 100);
+    }, 500);
 }
 
 console.log('Script đăng nhập đã được tải');
@@ -571,7 +605,8 @@ if (typeof window !== 'undefined') {
                         <li>Refresh trang (Ctrl + Shift + R)</li>
                     </ol>
                     <div style="margin-top:8px;">
-                        <a href="../check-origin.html" target="_blank" style="color:#0066ff;font-weight:700;text-decoration:none;">🔍 Xem hướng dẫn chi tiết và copy tất cả origins</a>
+                        <a href="debug-google-oauth.html" target="_blank" style="color:#0066ff;font-weight:700;text-decoration:none;">🔍 Debug Google OAuth - Kiểm tra Origin chi tiết</a><br>
+                        <a href="check-origin.html" target="_blank" style="color:#0066ff;font-weight:700;text-decoration:none;margin-top:4px;display:inline-block;">📋 Hướng dẫn thêm Origin vào Google Console</a>
                     </div>
                 `;
                 warningDiv.classList.add('show');
@@ -821,10 +856,8 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 window.__GOOGLE_LOGIN_IN_PROGRESS = false;
                 
                 // Redirect immediately without delay
-                setTimeout(() => {
-                    console.log('🔄 Đang thực hiện redirect (frontend-only Google)...');
-                    safeRedirect('trangchu.html');
-                }, 50);
+                console.log('🔄 Đang thực hiện redirect (frontend-only Google)...');
+                safeRedirect('trangchu.html');
                 return; // Return after setting up redirect
             } catch (e) {
                 console.error('❌ Giải mã thông tin xác thực Google thất bại ở chế độ FRONTEND_ONLY:', e);
@@ -875,29 +908,9 @@ if (typeof window.onGoogleCredential === 'undefined') {
             console.log('✅ Đã lưu thông tin người dùng cơ bản vào localStorage');
             
             // Load full user profile from /api/me (will use cookie automatically)
-            // Wait a bit for cookie to be set properly in browser
-            // Wait for it to complete before redirect (like the old code)
-            try {
-                // Small delay to ensure cookie is set in browser
-                await new Promise(resolve => setTimeout(resolve, 200));
-                console.log('🔄 Đang tải hồ sơ đầy đủ từ /api/me...');
-                const profileResult = await window.apiRequest('/api/me');
-                if (profileResult && profileResult.ok && profileResult.data) {
-                    // Merge profile data
-                    const fullUser = {
-                        ...user,
-                        ...profileResult.data
-                    };
-                    // Update localStorage with full profile
-                    await persistSession(fullUser, null);
-                    console.log('✅ Đã tải và cập nhật hồ sơ đầy đủ từ /api/me');
-                } else {
-                    console.log('⚠️ Không thể tải hồ sơ đầy đủ, sử dụng thông tin cơ bản');
-                }
-            } catch (error) {
-                console.warn('Không thể tải hồ sơ đầy đủ, sử dụng thông tin người dùng cơ bản:', error);
-                // This is OK - we already have user data from login response
-            }
+            // Don't wait - redirect immediately and let the next page load full profile
+            // This improves perceived performance
+            console.log('🔄 Hồ sơ đầy đủ sẽ được tải trên trang chủ để không làm chậm redirect...');
             
             // Show success message (don't let errors here block redirect)
             try {
@@ -909,15 +922,13 @@ if (typeof window.onGoogleCredential === 'undefined') {
             // Reset flag before redirect
             window.__GOOGLE_LOGIN_IN_PROGRESS = false;
             
-            // Redirect after loading full profile (like the old code)
+            // Redirect immediately after loading full profile
             console.log('🔄 Chuẩn bị chuyển hướng đến trangchu.html (apiRequest mode)...');
             console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
             
-            // Redirect after a short delay to ensure everything is saved
-            setTimeout(() => {
-                console.log('🔄 Đang thực hiện redirect Google login...');
-                safeRedirect('trangchu.html');
-            }, 300);
+            // Redirect immediately for better performance
+            console.log('🔄 Đang thực hiện redirect Google login...');
+            safeRedirect('trangchu.html');
         } else {
             // Fallback to direct fetch if apiRequest is not available
             console.log('Đang gửi thông tin xác thực Google đến backend:', `${getApiBase()}/api/auth/google`);
@@ -952,33 +963,9 @@ if (typeof window.onGoogleCredential === 'undefined') {
             console.log('✅ Đã lưu thông tin người dùng cơ bản vào localStorage');
             
             // Load full user profile from /api/me (will use cookie automatically)
-            // Wait a bit for cookie to be set properly in browser
-            // Wait for it to complete before redirect (like the old code)
-            try {
-                if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
-                    // Small delay to ensure cookie is set in browser
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    console.log('🔄 Đang tải hồ sơ đầy đủ từ /api/me...');
-                    const profileResult = await window.apiRequest('/api/me');
-                    if (profileResult && profileResult.ok && profileResult.data) {
-                        // Merge profile data
-                        const fullUser = {
-                            ...user,
-                            ...profileResult.data
-                        };
-                        // Update localStorage with full profile
-                        await persistSession(fullUser, null);
-                        console.log('✅ Đã tải và cập nhật hồ sơ đầy đủ từ /api/me');
-                    } else {
-                        console.log('⚠️ Không thể tải hồ sơ đầy đủ, sử dụng thông tin cơ bản');
-                    }
-                } else {
-                    console.log('⚠️ apiRequest không khả dụng, sử dụng thông tin cơ bản');
-                }
-            } catch (error) {
-                console.warn('Không thể tải hồ sơ đầy đủ, sử dụng thông tin người dùng cơ bản:', error);
-                // This is OK - we already have user data from login response
-            }
+            // Don't wait - redirect immediately and let the next page load full profile
+            // This improves perceived performance
+            console.log('🔄 Hồ sơ đầy đủ sẽ được tải trên trang chủ để không làm chậm redirect...');
             
             // Show success message (don't let errors here block redirect)
             try {
@@ -990,15 +977,13 @@ if (typeof window.onGoogleCredential === 'undefined') {
             // Reset flag before redirect
             window.__GOOGLE_LOGIN_IN_PROGRESS = false;
             
-            // Redirect after loading full profile (like the old code)
+            // Redirect immediately after loading full profile
             console.log('🔄 Chuẩn bị chuyển hướng đến trangchu.html (fallback fetch mode)...');
             console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
             
-            // Redirect after a short delay to ensure everything is saved
-            setTimeout(() => {
-                console.log('🔄 Đang thực hiện redirect Google login (fallback)...');
-                safeRedirect('trangchu.html');
-            }, 300);
+            // Redirect immediately for better performance
+            console.log('🔄 Đang thực hiện redirect Google login (fallback)...');
+            safeRedirect('trangchu.html');
         }
     } catch (error) {
         console.error('Lỗi đăng nhập Google:', error);

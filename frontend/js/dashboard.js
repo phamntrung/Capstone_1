@@ -9,7 +9,11 @@
 // Load user data
 async function loadUserData() {
   const auth = checkAuth();
-  if (!auth) return;
+  if (!auth) {
+    // Không redirect ở đây, để apiRequest() xử lý redirect
+    // Tránh redirect vòng lặp
+    return;
+  }
   
   let user = auth.user;
   
@@ -63,6 +67,10 @@ let currentFilter = 'all'; // Time filter: 'all', 'today', 'week', 'month'
 let currentSearchQuery = '';
 let currentPage = 1; // Current page for pagination
 const itemsPerPage = 10; // Number of items per page
+
+// Debounce để tránh reload nhiều lần cùng lúc
+let reloadDebounceTimer = null;
+let isReloading = false; // Flag để tránh reload đồng thời
 
 // Update summary statistics
 async function updateSummaryStats(data) {
@@ -1092,7 +1100,11 @@ function updatePagination(totalItems, totalPages) {
 // Load dashboard data from API
 async function loadDashboardData() {
   const auth = checkAuth();
-  if (!auth) return;
+  if (!auth) {
+    // Không redirect ở đây, để apiRequest() xử lý redirect
+    // Tránh redirect vòng lặp
+    return;
+  }
 
   try {
     console.log('🔄 Loading dashboard data from API...');
@@ -1147,9 +1159,43 @@ async function loadDashboardData() {
   }
 }
 
-// Reload dashboard data (for realtime updates)
-async function reloadDashboardData() {
-  await loadDashboardData();
+// Reload dashboard data (for realtime updates) - với debounce để tránh reload nhiều lần
+async function reloadDashboardData(immediate = false) {
+  // Nếu đang reload, bỏ qua
+  if (isReloading && !immediate) {
+    console.log('⏭️ Reload đang chạy, bỏ qua request mới');
+    return;
+  }
+  
+  // Debounce: đợi 500ms trước khi reload (trừ khi immediate = true)
+  if (!immediate && reloadDebounceTimer) {
+    clearTimeout(reloadDebounceTimer);
+  }
+  
+  const doReload = async () => {
+    if (isReloading) {
+      console.log('⏭️ Reload đang chạy, bỏ qua');
+      return;
+    }
+    
+    isReloading = true;
+    try {
+      await loadDashboardData();
+    } catch (error) {
+      console.error('Error reloading dashboard:', error);
+    } finally {
+      // Đợi 1 giây trước khi cho phép reload tiếp (tránh spam)
+      setTimeout(() => {
+        isReloading = false;
+      }, 1000);
+    }
+  };
+  
+  if (immediate) {
+    await doReload();
+  } else {
+    reloadDebounceTimer = setTimeout(doReload, 500);
+  }
 }
 
 // logout function is now available from utils.js
@@ -1827,9 +1873,8 @@ async function initDashboard() {
             return;
           }
           console.log('📡 BroadcastChannel: Expense added in another tab, reloading...');
-          setTimeout(() => {
-            reloadDashboardData();
-          }, 300);
+          // Sử dụng debounced reload
+          reloadDashboardData();
         }
       };
       console.log('✅ BroadcastChannel initialized for cross-tab sync');
@@ -1854,6 +1899,7 @@ async function initDashboard() {
   // Listen for expense updates from other pages
   window.addEventListener('storage', async (e) => {
     if (e.key === 'smartexpense_expense_added') {
+      // Sử dụng debounced reload
       reloadDashboardData();
     }
     // Listen for profile updates (balance changes) from other pages
@@ -1883,7 +1929,7 @@ async function initDashboard() {
         }
       }
       
-      // Reload toàn bộ dữ liệu từ API
+      // Reload toàn bộ dữ liệu từ API (sử dụng debounced reload)
       reloadDashboardData();
     }
   });
@@ -1897,12 +1943,13 @@ async function initDashboard() {
     }
     // Chỉ reload nếu expense đến từ nguồn khác (ví dụ: từ code khác, chưa được quick update)
     console.log('🔄 Reloading dashboard - expense from external source');
+    // Sử dụng debounced reload
     reloadDashboardData();
   });
   
   // Listen for profile updates (for same-page updates)
   window.addEventListener('profileUpdated', async (event) => {
-    console.log('Profile updated event received, reloading dashboard...', event);
+    console.log('Profile updated event received, updating dashboard...', event);
     
     // Lấy balance từ event detail nếu có
     const balanceFromEvent = event.detail?.balance;

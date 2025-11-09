@@ -42,11 +42,36 @@ from google.auth.transport import requests as google_requests
 
 load_dotenv()
 app = Flask(__name__)
+
+# CORS Configuration - Allow multiple origins for development
+# In production, specify exact origins for security
+cors_origin_env = os.getenv("CORS_ORIGIN", "*")
+if cors_origin_env == "*":
+    # Development: Allow common localhost origins
+    allowed_origins = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+else:
+    # Production: Use configured origin(s)
+    allowed_origins = [origin.strip() for origin in cors_origin_env.split(",")]
+
 # Enable credentials (cookies) for CORS - required for httpOnly cookies
 CORS(app, 
-     resources={r"/api/*": {"origins": os.getenv("CORS_ORIGIN", "*"), "supports_credentials": True}},
+     resources={r"/api/*": {"origins": allowed_origins, "supports_credentials": True}},
      supports_credentials=True
 )
+
+# Log CORS configuration for debugging
+print(f"🌐 CORS Configuration:")
+print(f"   Allowed origins: {allowed_origins}")
+print(f"   Supports credentials: True")
 
 # Add Cross-Origin-Opener-Policy header to allow Google Sign-In postMessage
 # This prevents the "Cross-Origin-Opener-Policy policy would block the window.postMessage call" error
@@ -55,6 +80,13 @@ def set_coop_header(response):
     # Set COOP to "same-origin-allow-popups" to allow Google Sign-In postMessage
     # This allows same-origin popups and postMessage while maintaining security
     response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+    
+    # Log CORS requests for debugging (only in development)
+    if os.getenv("FLASK_ENV") == "development" or os.getenv("FLASK_DEBUG") == "True":
+        origin = request.headers.get('Origin', 'No Origin')
+        if origin != 'No Origin':
+            print(f"🌐 CORS Request: {request.method} {request.path} from {origin}")
+    
     return response
 
 # Khởi tạo database
@@ -132,6 +164,7 @@ def root():
     return jsonify({
         "status": "ok",
         "message": "Minimal SmartExpense API running",
+        "cors_origins": allowed_origins,
         "endpoints": [
             "POST /api/auth/register",
             "POST /api/auth/login",
@@ -145,6 +178,7 @@ def root():
             "PATCH /api/notifications/<id>/read",
             "PATCH /api/notifications/read-all",
             "DELETE /api/notifications/<id>",
+            "DELETE /api/notifications/all",
             "GET/POST /api/expenses",
             "GET/PUT/DELETE /api/expenses/<id>",
             "GET /api/expenses/stats",
@@ -561,6 +595,21 @@ def delete_notification(notification_id: int):
     return jsonify({
         "success": True,
         "message": "Đã xóa thông báo"
+    })
+
+
+@app.delete("/api/notifications/all")
+@auth_required
+def delete_all_notifications():
+    """Xóa tất cả thông báo của user hiện tại"""
+    user = request.user
+    deleted_count = Notification.query.filter_by(user_id=user.id).delete()
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "deleted": deleted_count,
+        "message": f"Đã xóa {deleted_count} thông báo"
     })
 
 

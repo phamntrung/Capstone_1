@@ -94,6 +94,14 @@ function notifyExpenseAdded() {
   }
 }
 
+// Flag để tránh redirect vòng lặp
+if (typeof window.__REDIRECT_TO_LOGIN_IN_PROGRESS === 'undefined') {
+  window.__REDIRECT_TO_LOGIN_IN_PROGRESS = false;
+}
+if (typeof window.__LAST_REDIRECT_TIME === 'undefined') {
+  window.__LAST_REDIRECT_TIME = 0;
+}
+
 // Make API request with authentication
 async function apiRequest(endpoint, options = {}) {
   const auth = checkAuth();
@@ -234,10 +242,45 @@ async function apiRequest(endpoint, options = {}) {
     // - Cookie expired or invalid
     // - User not authenticated
     if (!response.ok && response.status === 401 && !isPublicEndpoint) {
+      // Tránh redirect vòng lặp: chỉ redirect nếu chưa redirect gần đây (trong 3 giây)
+      const now = Date.now();
+      const timeSinceLastRedirect = now - window.__LAST_REDIRECT_TIME;
+      
+      // Nếu đang trong quá trình redirect hoặc vừa redirect gần đây, bỏ qua
+      if (window.__REDIRECT_TO_LOGIN_IN_PROGRESS || timeSinceLastRedirect < 3000) {
+        console.warn('⏭️ Đang trong quá trình redirect hoặc vừa redirect gần đây, bỏ qua');
+        return {
+          ok: false,
+          status: 401,
+          data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+        };
+      }
+      
+      // Kiểm tra xem có đang ở trang login không
+      const isLoginPage = window.location.pathname.includes('login.html') || 
+                          window.location.href.includes('login.html');
+      if (isLoginPage) {
+        console.warn('⏭️ Đã ở trang login, không redirect nữa');
+        return {
+          ok: false,
+          status: 401,
+          data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+        };
+      }
+      
       console.warn('⚠️ Unauthorized (401) - redirecting to login');
+      window.__REDIRECT_TO_LOGIN_IN_PROGRESS = true;
+      window.__LAST_REDIRECT_TIME = now;
+      
       const loginPath = window.location.pathname.includes('frontend') 
         ? 'login.html' 
         : '../frontend/login.html';
+      
+      // Reset flag sau 5 giây (safety measure)
+      setTimeout(() => {
+        window.__REDIRECT_TO_LOGIN_IN_PROGRESS = false;
+      }, 5000);
+      
       window.location.href = loginPath;
       return {
         ok: false,
