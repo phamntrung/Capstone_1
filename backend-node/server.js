@@ -111,6 +111,11 @@ app.get('/', (req, res) => {
       'GET/PUT/DELETE /api/categories/:id',
       'GET/PUT /api/budgets/:yyyymm',
       'GET /api/reports/summary',
+      'GET /api/expenses/stats',
+      'GET /api/devices',
+      'GET /api/2fa/status',
+      'POST /api/2fa/generate',
+      'POST /api/2fa/verify',
       'POST /api/ai/categorize',
       'GET /api/ai/forecast',
       'GET /api/ai/alerts',
@@ -128,6 +133,46 @@ app.get('/', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+// Alias /api/me to /api/auth/me for compatibility (must be before /api/expenses to avoid route conflict)
+app.get('/api/me', require('./middleware/auth').authRequired, async (req, res) => {
+  try {
+    // Load full user data from database if available
+    let userData = {
+      userId: req.user.id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    };
+
+    if (db) {
+      try {
+        const fullUser = await db.getUserById(req.user.id);
+        if (fullUser) {
+          userData = {
+            userId: fullUser.id,
+            email: fullUser.email,
+            name: fullUser.name,
+            role: fullUser.role || 'user',
+            balance: fullUser.balance || 0,
+            gender: fullUser.gender || null,
+            currency: fullUser.currency || 'VND',
+            phone: fullUser.phone || null,
+            avatar_url: fullUser.avatar_url || null,
+            login_method: fullUser.login_method || 'password'
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to load full user data:', error.message);
+        // Continue with basic user data
+      }
+    }
+
+    res.json(userData);
+  } catch (error) {
+    console.error('Error in /api/me:', error);
+    res.status(500).json({ message: 'Lỗi lấy thông tin người dùng' });
+  }
+});
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/devices', deviceRoutes);

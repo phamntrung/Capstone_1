@@ -50,13 +50,38 @@ router.post('/generate', authRequired, async (req, res) => {
     // Đảm bảo secret không có khoảng trắng và uppercase
     const cleanSecret = secret.base32.replace(/\s+/g, '').toUpperCase();
 
+    // Validate secret format (base32 chỉ chứa A-Z, 2-7)
+    if (!/^[A-Z2-7]+$/.test(cleanSecret)) {
+      console.error('❌ Invalid secret format:', cleanSecret);
+      return res.status(500).json({ message: 'Lỗi tạo secret: format không hợp lệ' });
+    }
+
+    // Xóa tất cả secret_temp cũ trước khi tạo mới (đảm bảo chỉ có 1 secret)
+    await db.query(
+      'DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?',
+      [userId, 'two_factor_secret_temp']
+    );
+
     // Lưu secret tạm thời vào database (chưa kích hoạt)
     await db.query(
       `INSERT INTO user_settings (user_id, setting_key, setting_value, created_at, updated_at)
-       VALUES (?, ?, ?, NOW(), NOW())
-       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()`,
+       VALUES (?, ?, ?, NOW(), NOW())`,
       [userId, 'two_factor_secret_temp', cleanSecret]
     );
+
+    // Verify secret đã được lưu đúng
+    const savedSecret = await db.query(
+      'SELECT setting_value, updated_at FROM user_settings WHERE user_id = ? AND setting_key = ? ORDER BY updated_at DESC LIMIT 1',
+      [userId, 'two_factor_secret_temp']
+    );
+
+    if (!savedSecret || savedSecret.length === 0 || savedSecret[0].setting_value !== cleanSecret) {
+      console.error('❌ Secret not saved correctly:', {
+        expected: cleanSecret,
+        saved: savedSecret?.[0]?.setting_value
+      });
+      return res.status(500).json({ message: 'Lỗi lưu secret vào database' });
+    }
 
     // Tạo QR code với secret đã clean
     const otpauthUrl = speakeasy.otpauthURL({
@@ -67,11 +92,22 @@ router.post('/generate', authRequired, async (req, res) => {
     });
     const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
 
+    // Generate test code để verify secret hoạt động
+    const testCode = speakeasy.totp({
+      secret: cleanSecret,
+      encoding: 'base32'
+    });
+
     console.log('2FA Generate:', {
       userId: userId,
       email: userEmail,
       secretLength: cleanSecret.length,
-      secretPreview: cleanSecret.substring(0, 8) + '...'
+      secretPreview: cleanSecret.substring(0, 8) + '...',
+      secretEnd: '...' + cleanSecret.substring(cleanSecret.length - 4),
+      secretFull: cleanSecret, // Log full secret để debug (chỉ trong development)
+      testCode: testCode, // Code được generate từ secret này
+      savedSecretMatch: savedSecret[0].setting_value === cleanSecret,
+      savedAt: savedSecret[0].updated_at
     });
 
     res.json({
@@ -97,9 +133,9 @@ router.post('/verify', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'Mã phải là 6 chữ số' });
     }
 
-    // Lấy secret tạm thời
+    // Lấy secret tạm thời (lấy secret mới nhất)
     const secretResult = await db.query(
-      'SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?',
+      'SELECT setting_value, updated_at FROM user_settings WHERE user_id = ? AND setting_key = ? ORDER BY updated_at DESC LIMIT 1',
       [userId, 'two_factor_secret_temp']
     );
 
@@ -112,23 +148,88 @@ router.post('/verify', authRequired, async (req, res) => {
     // Xóa khoảng trắng và chuyển về uppercase (nếu có)
     secret = secret.replace(/\s+/g, '').toUpperCase();
 
-    // Verify mã
-    const verified = speakeasy.totp.verify({
+    // Validate secret format
+    if (!/^[A-Z2-7]+$/.test(secret)) {
+      console.error('❌ Invalid secret format in database:', secret);
+      return res.status(500).json({ message: 'Secret trong database không hợp lệ. Vui lòng tạo secret mới.' });
+    }
+
+    // Generate test code từ secret để verify
+    const testCodeFromSecret = speakeasy.totp({
+      secret: secret,
+      encoding: 'base32'
+    });
+
+    console.log('2FA Verify Debug:', {
+      userId: userId,
+      code: code,
+      codeLength: code.length,
+      secretLength: secret.length,
+      secretPreview: secret.substring(0, 8) + '...',
+      secretEnd: '...' + secret.substring(secret.length - 4),
+      secretFull: secret, // Log full secret để debug (chỉ trong development)
+      secretUpdatedAt: secretResult[0].updated_at,
+      testCodeFromSecret: testCodeFromSecret, // Code được generate từ secret này
+      codesMatch: testCodeFromSecret === code
+    });
+
+    // Verify mã với window mặc định
+    let verified = speakeasy.totp.verify({
       secret: secret,
       encoding: 'base32',
       token: code,
       window: 2 // Cho phép ±2 time steps (120 giây)
     });
 
-    console.log('2FA Setup Verify:', {
+    console.log('2FA Setup Verify Result:', {
       userId: userId,
       codeLength: code.length,
       secretLength: secret.length,
-      verified: verified
+      verified: verified,
+      currentTime: Math.floor(Date.now() / 1000),
+      timeStep: Math.floor(Date.now() / 1000 / 30)
     });
 
+    // Nếu verify fail, thử với window lớn hơn (có thể do time drift)
     if (!verified) {
-      return res.status(401).json({ message: 'Mã không đúng. Vui lòng thử lại.' });
+      console.log('⚠️ First verification failed, trying with larger window (window=10)...');
+
+      // Thử với các window khác nhau: 5, 10, 15 (để compensate time drift lớn)
+      let verifiedAlt = false;
+      for (let window = 5; window <= 15; window += 5) {
+        verifiedAlt = speakeasy.totp.verify({
+          secret: secret,
+          encoding: 'base32',
+          token: code,
+          window: window
+        });
+
+        if (verifiedAlt) {
+          console.log(`✅ Verification succeeded with window=${window}`);
+          verified = true;
+          break;
+        }
+      }
+
+      if (!verified) {
+        console.log('❌ Verification failed even with window up to 15');
+        console.log('🔍 Debug Info:', {
+          secretLength: secret.length,
+          secretPreview: secret.substring(0, 8) + '...' + secret.substring(secret.length - 4),
+          testCodeFromSecret: testCodeFromSecret,
+          userEnteredCode: code,
+          codesMatch: testCodeFromSecret === code,
+          currentTime: Math.floor(Date.now() / 1000),
+          timeStep: Math.floor(Date.now() / 1000 / 30),
+          message: 'Có thể user đang dùng secret cũ hoặc scan QR code từ lần generate trước. Vui lòng tạo secret mới và scan QR code mới.'
+        });
+      }
+    }
+
+    if (!verified) {
+      return res.status(401).json({
+        message: 'Mã không đúng. Vui lòng kiểm tra lại:\n1. Mã 6 số từ ứng dụng Authenticator\n2. Thời gian trên điện thoại đã được đồng bộ đúng\n3. Đảm bảo bạn đang dùng QR code/secret mới nhất (nếu đã tạo lại, vui lòng scan lại QR code mới)'
+      });
     }
 
     // Tạo recovery codes

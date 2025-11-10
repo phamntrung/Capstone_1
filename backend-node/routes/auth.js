@@ -342,11 +342,29 @@ router.post('/login', async (req, res) => {
 
     // Set httpOnly cookie với token (bảo mật hơn)
     const isSecure = process.env.NODE_ENV === 'production';
-    res.cookie('auth_token', token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: isSecure, // Chỉ dùng HTTPS trong production
       sameSite: 'lax', // CSRF protection
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (khớp với JWT expiration)
+      path: '/' // Đảm bảo cookie available cho tất cả routes
+    };
+
+    // Không set domain cho localhost (browser sẽ tự động xử lý)
+    // Nếu set domain cho localhost, cookie sẽ không hoạt động
+    if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
+      cookieOptions.domain = process.env.COOKIE_DOMAIN;
+    }
+
+    res.cookie('auth_token', token, cookieOptions);
+
+    console.log('✅ Cookie set:', {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      maxAge: cookieOptions.maxAge,
+      path: cookieOptions.path,
+      domain: cookieOptions.domain || 'not set (localhost)'
     });
 
     res.json({
@@ -552,11 +570,29 @@ router.post('/google', async (req, res) => {
 
     // Set httpOnly cookie với token (bảo mật hơn)
     const isSecure = process.env.NODE_ENV === 'production';
-    res.cookie('auth_token', token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: isSecure, // Chỉ dùng HTTPS trong production
       sameSite: 'lax', // CSRF protection
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (khớp với JWT expiration)
+      path: '/' // Đảm bảo cookie available cho tất cả routes
+    };
+
+    // Không set domain cho localhost (browser sẽ tự động xử lý)
+    // Nếu set domain cho localhost, cookie sẽ không hoạt động
+    if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
+      cookieOptions.domain = process.env.COOKIE_DOMAIN;
+    }
+
+    res.cookie('auth_token', token, cookieOptions);
+
+    console.log('✅ Cookie set:', {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      maxAge: cookieOptions.maxAge,
+      path: cookieOptions.path,
+      domain: cookieOptions.domain || 'not set (localhost)'
     });
 
     res.json({

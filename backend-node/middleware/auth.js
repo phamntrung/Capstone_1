@@ -11,7 +11,7 @@ function createToken(user) {
     email: user.email,
     name: user.name,
     role: user.role || 'user',
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+    exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30 days (khớp với cookie maxAge)
   };
   return jwt.sign(payload, process.env.JWT_SECRET || 'dev_secret');
 }
@@ -62,7 +62,18 @@ async function authRequired(req, res, next) {
   }
 
   if (!token) {
-    return res.status(401).json({ message: 'Thiếu token' });
+    // Log chi tiết để debug
+    console.warn('⚠️ No token found:', {
+      hasCookies: !!req.cookies,
+      cookieKeys: req.cookies ? Object.keys(req.cookies) : [],
+      hasAuthHeader: !!req.headers.authorization,
+      endpoint: req.path,
+      method: req.method
+    });
+    return res.status(401).json({
+      message: 'Thiếu token',
+      code: 'NO_TOKEN'
+    });
   }
 
   try {
@@ -74,6 +85,42 @@ async function authRequired(req, res, next) {
       role: payload.role || 'user'
     };
 
+    // Auto-refresh token nếu token sắp hết hạn (còn < 7 ngày)
+    // Điều này giúp session không bị hết hạn khi user đang active
+    const tokenExpiration = payload.exp * 1000; // Convert to milliseconds
+    const now = Date.now();
+    const daysUntilExpiration = (tokenExpiration - now) / (1000 * 60 * 60 * 24);
+
+    if (daysUntilExpiration < 7 && daysUntilExpiration > 0) {
+      // Token sắp hết hạn, tạo token mới và cập nhật cookie
+      const newToken = createToken(req.user);
+
+      const isSecure = process.env.NODE_ENV === 'production';
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        path: '/'
+      };
+
+      if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.COOKIE_DOMAIN;
+      }
+
+      res.cookie('auth_token', newToken, cookieOptions);
+      console.log('✅ Token auto-refreshed:', {
+        userId: req.user.id,
+        daysUntilExpiration: daysUntilExpiration.toFixed(2),
+        newTokenExpiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
+
+      // Cập nhật token trong database device nếu có
+      req.token = newToken; // Lưu token mới vào request để dùng cho device update
+    } else {
+      req.token = token; // Giữ nguyên token cũ
+    }
+
     // Kiểm tra thiết bị có bị chặn không
     let db = null;
     try {
@@ -84,7 +131,7 @@ async function authRequired(req, res, next) {
 
     if (db && req.user.id) {
       try {
-        // Kiểm tra device có bị blocked không qua session_token
+        // Kiểm tra device có bị blocked không qua session_token (dùng token cũ hoặc mới)
         const device = await db.query(
           'SELECT * FROM devices WHERE user_id = ? AND session_token = ?',
           [req.user.id, token]
@@ -97,12 +144,21 @@ async function authRequired(req, res, next) {
           });
         }
 
-        // Cập nhật last_activity_at cho device hiện tại
+        // Cập nhật last_activity_at và session_token (nếu đã refresh) cho device hiện tại
         if (device.length > 0) {
-          await db.query(
-            'UPDATE devices SET last_activity_at = NOW() WHERE id = ?',
-            [device[0].id]
-          );
+          if (req.token !== token) {
+            // Token đã được refresh, cập nhật session_token
+            await db.query(
+              'UPDATE devices SET last_activity_at = NOW(), session_token = ?, updated_at = NOW() WHERE id = ?',
+              [req.token, device[0].id]
+            );
+          } else {
+            // Chỉ cập nhật last_activity_at
+            await db.query(
+              'UPDATE devices SET last_activity_at = NOW() WHERE id = ?',
+              [device[0].id]
+            );
+          }
         }
       } catch (err) {
         // Không fail request nếu không check được device
@@ -112,7 +168,30 @@ async function authRequired(req, res, next) {
 
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Token không hợp lệ' });
+    // Log chi tiết lỗi để debug
+    if (error.name === 'TokenExpiredError') {
+      console.warn('⚠️ Token expired:', {
+        expiredAt: error.expiredAt,
+        currentTime: new Date(),
+        userId: req.cookies?.auth_token ? 'present' : 'missing'
+      });
+      return res.status(401).json({
+        message: 'Token đã hết hạn. Vui lòng đăng nhập lại.',
+        code: 'TOKEN_EXPIRED'
+      });
+    } else if (error.name === 'JsonWebTokenError') {
+      console.warn('⚠️ Invalid token:', error.message);
+      return res.status(401).json({
+        message: 'Token không hợp lệ. Vui lòng đăng nhập lại.',
+        code: 'TOKEN_INVALID'
+      });
+    } else {
+      console.error('❌ Auth error:', error);
+      return res.status(401).json({
+        message: 'Lỗi xác thực. Vui lòng đăng nhập lại.',
+        code: 'AUTH_ERROR'
+      });
+    }
   }
 }
 

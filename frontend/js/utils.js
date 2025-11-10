@@ -258,12 +258,23 @@ async function apiRequest(endpoint, options = {}) {
       message: data.message
     });
 
-    // If API returns 401 (unauthorized), redirect to login
+    // If API returns 401 (unauthorized), handle appropriately
     // This handles cases where:
     // - No auth in localStorage (Google login uses cookies)
     // - Cookie expired or invalid
     // - User not authenticated
     if (!response.ok && response.status === 401 && !isPublicEndpoint) {
+      // Đã xử lý "Thiếu token" ở trên, đây là các trường hợp khác (Token expired, Token invalid, etc.)
+      const errorCode = data.code || 'UNKNOWN';
+
+      console.warn('⚠️ Unauthorized (401):', {
+        endpoint: endpoint,
+        errorCode: errorCode,
+        message: data.message,
+        hasAuth: !!auth,
+        hasToken: hasToken
+      });
+
       // Tránh redirect vòng lặp: chỉ redirect nếu chưa redirect gần đây (trong 3 giây)
       const now = Date.now();
       const timeSinceLastRedirect = now - window.__LAST_REDIRECT_TIME;
@@ -274,7 +285,7 @@ async function apiRequest(endpoint, options = {}) {
         return {
           ok: false,
           status: 401,
-          data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+          data: data
         };
       }
 
@@ -286,28 +297,41 @@ async function apiRequest(endpoint, options = {}) {
         return {
           ok: false,
           status: 401,
-          data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+          data: data
         };
       }
 
-      console.warn('⚠️ Unauthorized (401) - redirecting to login');
-      window.__REDIRECT_TO_LOGIN_IN_PROGRESS = true;
-      window.__LAST_REDIRECT_TIME = now;
+      // Chỉ redirect nếu chắc chắn session đã hết hạn (TOKEN_EXPIRED, TOKEN_INVALID)
+      // Không redirect nếu chỉ là "Thiếu token" (đã xử lý ở trên)
+      if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'TOKEN_INVALID' || errorCode === 'AUTH_ERROR') {
+        console.warn('⚠️ Session expired or invalid - redirecting to login');
+        window.__REDIRECT_TO_LOGIN_IN_PROGRESS = true;
+        window.__LAST_REDIRECT_TIME = now;
 
-      const loginPath = window.location.pathname.includes('frontend')
-        ? 'login.html'
-        : '../frontend/login.html';
+        const loginPath = window.location.pathname.includes('frontend')
+          ? 'login.html'
+          : '../frontend/login.html';
 
-      // Reset flag sau 5 giây (safety measure)
-      setTimeout(() => {
-        window.__REDIRECT_TO_LOGIN_IN_PROGRESS = false;
-      }, 5000);
+        // Reset flag sau 5 giây (safety measure)
+        setTimeout(() => {
+          window.__REDIRECT_TO_LOGIN_IN_PROGRESS = false;
+        }, 5000);
 
-      window.location.href = loginPath;
+        // Hiển thị alert trước khi redirect
+        alert(data.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        window.location.href = loginPath;
+        return {
+          ok: false,
+          status: 401,
+          data: data
+        };
+      }
+
+      // Nếu không phải TOKEN_EXPIRED/TOKEN_INVALID, chỉ trả về error (không redirect)
       return {
         ok: false,
         status: 401,
-        data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
+        data: data
       };
     }
 
