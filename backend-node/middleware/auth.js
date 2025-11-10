@@ -50,10 +50,16 @@ function generateFingerprint(deviceInfo) {
 
 // Auth middleware
 async function authRequired(req, res, next) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : null;
+  // Priority 1: Try to get token from httpOnly cookie (most secure)
+  let token = req.cookies?.auth_token;
+
+  // Priority 2: Fallback to Authorization header (for compatibility)
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    token = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : null;
+  }
 
   if (!token) {
     return res.status(401).json({ message: 'Thiếu token' });

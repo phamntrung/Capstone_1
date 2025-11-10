@@ -4,7 +4,7 @@
  */
 
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
-// Flask backend runs on port 5000
+// Node.js backend runs on port 5000
 const API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
 window.API_BASE = API_BASE; // Make it globally accessible
 

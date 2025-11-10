@@ -340,6 +340,15 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    // Set httpOnly cookie với token (bảo mật hơn)
+    const isSecure = process.env.NODE_ENV === 'production';
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isSecure, // Chỉ dùng HTTPS trong production
+      sameSite: 'lax', // CSRF protection
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
     res.json({
       user: {
         id: user.id,
@@ -347,11 +356,16 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role || 'user'
       },
-      token
+      token // Vẫn trả về token trong body để backward compatibility
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Lỗi đăng nhập' });
+    console.error('❌ Login error:', error);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({
+      message: 'Lỗi đăng nhập: ' + (error.message || 'Lỗi không xác định'),
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -360,29 +374,54 @@ router.post('/google', async (req, res) => {
   try {
     const { credential } = req.body;
 
+    console.log('🔵 Google login request received');
+    console.log('   Has credential:', !!credential);
+    console.log('   Credential length:', credential ? credential.length : 0);
+    console.log('   GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set');
+
     if (!credential) {
+      console.error('❌ Missing credential in request');
       return res.status(400).json({ message: 'Thiếu idToken' });
     }
 
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error('❌ GOOGLE_CLIENT_ID not configured');
+      return res.status(500).json({ message: 'Google OAuth chưa được cấu hình. Vui lòng kiểm tra GOOGLE_CLIENT_ID trong .env' });
+    }
+
+    console.log('🔵 Verifying Google token...');
     const ticket = await client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID
     });
 
     const payload = ticket.getPayload();
-    const email = payload.email.toLowerCase();
-    const name = payload.name || email.split('@')[0];
+    const email = payload.email?.toLowerCase();
+    const name = payload.name || email?.split('@')[0] || 'User';
     const googleId = payload.sub;
     const avatarUrl = payload.picture;
 
+    console.log('✅ Google token verified successfully');
+    console.log('   Email:', email);
+    console.log('   Name:', name);
+    console.log('   Google ID:', googleId);
+    console.log('   Avatar URL:', avatarUrl ? 'Present' : 'Not present');
+
+
+    if (!email) {
+      console.error('❌ No email in Google token payload');
+      return res.status(400).json({ message: 'Không lấy được email từ Google token' });
+    }
 
     // Get user from database or in-memory
     let user;
     if (db) {
       try {
+        console.log('🔵 Checking database for user with email:', email);
         user = await db.getUserByEmail(email);
 
         if (!user) {
+          console.log('🆕 User not found, creating new user...');
           // Create new user in database
           const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10); // Random password
           user = await db.createUser({
@@ -395,7 +434,9 @@ router.post('/google', async (req, res) => {
             avatar_url: avatarUrl,
             email_verified: payload.email_verified || false
           });
+          console.log('✅ New user created:', user.id, user.email);
         } else {
+          console.log('🔄 User exists, updating info...');
           // Update existing user info
           await db.updateUser(user.id, {
             last_login_at: new Date(),
@@ -405,12 +446,16 @@ router.post('/google', async (req, res) => {
             email_verified: payload.email_verified || false
           });
           user = await db.getUserByEmail(email);
+          console.log('✅ User updated:', user.id, user.email);
         }
       } catch (error) {
         console.error('❌ Google login database error:', error);
+        console.error('   Error message:', error.message);
+        console.error('   Error stack:', error.stack);
         return res.status(500).json({ message: 'Đăng nhập Google thất bại: ' + error.message });
       }
     } else {
+      console.log('⚠️ Database not available, using in-memory storage');
       user = usersByEmail.get(email);
 
       if (!user) {
@@ -423,6 +468,7 @@ router.post('/google', async (req, res) => {
           login_method: 'google'
         };
         usersByEmail.set(email, user);
+        console.log('✅ New user created in-memory:', user.id, user.email);
       }
     }
 
@@ -504,18 +550,49 @@ router.post('/google', async (req, res) => {
       }
     }
 
+    // Set httpOnly cookie với token (bảo mật hơn)
+    const isSecure = process.env.NODE_ENV === 'production';
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isSecure, // Chỉ dùng HTTPS trong production
+      sameSite: 'lax', // CSRF protection
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
     res.json({
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role || 'user'
+        role: user.role || 'user',
+        avatar_url: user.avatar_url || null,
+        login_method: user.login_method || 'google'
       },
-      token
+      token // Vẫn trả về token trong body để backward compatibility
     });
   } catch (error) {
-    console.error('Google login error:', error);
-    res.status(401).json({ message: 'Đăng nhập Google thất bại' });
+    console.error('❌ Google login error:', error);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+
+    // Xử lý các loại lỗi khác nhau
+    if (error.message && error.message.includes('Token used too early')) {
+      return res.status(401).json({ message: 'Token Google chưa hợp lệ. Vui lòng thử lại.' });
+    }
+    if (error.message && error.message.includes('Token expired')) {
+      return res.status(401).json({ message: 'Token Google đã hết hạn. Vui lòng thử lại.' });
+    }
+    if (error.message && error.message.includes('Invalid token')) {
+      return res.status(401).json({ message: 'Token Google không hợp lệ.' });
+    }
+    if (error.message && error.message.includes('Invalid audience')) {
+      return res.status(401).json({ message: 'Google Client ID không đúng. Vui lòng kiểm tra cấu hình.' });
+    }
+
+    res.status(401).json({
+      message: 'Đăng nhập Google thất bại: ' + (error.message || 'Lỗi không xác định'),
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -1025,13 +1102,44 @@ router.post('/verify-2fa', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', authRequired, (req, res) => {
-  res.json({
-    userId: req.user.id,
-    email: req.user.email,
-    name: req.user.name,
-    role: req.user.role
-  });
+router.get('/me', authRequired, async (req, res) => {
+  try {
+    // Load full user data from database if available
+    let userData = {
+      userId: req.user.id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    };
+
+    if (db) {
+      try {
+        const fullUser = await db.getUserById(req.user.id);
+        if (fullUser) {
+          userData = {
+            userId: fullUser.id,
+            email: fullUser.email,
+            name: fullUser.name,
+            role: fullUser.role || 'user',
+            balance: fullUser.balance || 0,
+            gender: fullUser.gender || null,
+            currency: fullUser.currency || 'VND',
+            phone: fullUser.phone || null,
+            avatar_url: fullUser.avatar_url || null,
+            login_method: fullUser.login_method || 'password'
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to load full user data:', error.message);
+        // Continue with basic user data
+      }
+    }
+
+    res.json(userData);
+  } catch (error) {
+    console.error('Error in /api/me:', error);
+    res.status(500).json({ message: 'Lỗi lấy thông tin người dùng' });
+  }
 });
 
 module.exports = router;

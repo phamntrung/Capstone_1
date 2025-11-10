@@ -891,6 +891,8 @@ if (typeof window.onGoogleCredential === 'undefined') {
             }
 
             const user = result.data.user || {};
+            const token = result.data.token; // Backend-node trả về token trong body
+
             console.log('✅ Cuộc gọi API đăng nhập Google thành công!');
             console.log('   Dữ liệu người dùng nhận được:', user);
             console.log('   - ID người dùng:', user.id);
@@ -898,14 +900,13 @@ if (typeof window.onGoogleCredential === 'undefined') {
             console.log('   - Email:', user.email);
             console.log('   - Phương thức đăng nhập:', user.login_method);
             console.log('   - Google ID:', user.google_id);
+            console.log('   - Token received:', !!token);
 
-            // Token is now in httpOnly cookie, not in response body
-            console.log('🍪 Token được lưu trong httpOnly cookie (không có trong response body)');
-
-            // Save user data immediately (don't wait for /api/me)
-            // This ensures we have user data even if /api/me fails
-            await persistSession(user, null); // Token is in cookie, don't store in localStorage
-            console.log('✅ Đã lưu thông tin người dùng cơ bản vào localStorage');
+            // Backend-node set cookie VÀ trả về token trong body
+            // Lưu token vào localStorage để backward compatibility
+            // Cookie sẽ được dùng tự động bởi browser
+            await persistSession(user, token); // Lưu cả user và token
+            console.log('✅ Đã lưu thông tin người dùng và token vào localStorage');
 
             // Load full user profile from /api/me (will use cookie automatically)
             // Don't wait - redirect immediately and let the next page load full profile

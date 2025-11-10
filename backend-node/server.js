@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 // Import email scheduler
@@ -81,6 +82,9 @@ const corsOptions = process.env.NODE_ENV === 'production' ? {
   credentials: true
 };
 app.use(cors(corsOptions));
+
+// Cookie parser middleware (phải đặt trước routes)
+app.use(cookieParser());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
