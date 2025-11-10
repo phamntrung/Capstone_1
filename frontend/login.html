@@ -1,139 +1,655 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SmartExpense Đăng nhập</title>
-<style>
-  :root{
-    --bg:#e6f2ff;
-    --blue:#0066ff;
-    --blue-700:#004ecc;
-    --border:#cfd8e3;
-    --h:44px;          /* chiều cao đồng bộ cho input + button */
-    --radius:10px;     /* bo góc đồng bộ */
-    --fs:16px;         /* cỡ chữ đồng bộ */
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:#111827;
-  }
-  .login-container{
-    width:100%;max-width:380px;background:#fff;padding:28px 24px;border-radius:12px;
-    box-shadow:0 8px 24px rgba(15,23,42,.08);text-align:center
-  }
-  .login-container img{width:80px;height:80px;margin-bottom:14px}
-  .login-container h2{font-size:22px;margin:0 0 18px}
-  form{display:flex;flex-direction:column;gap:10px}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartExpense Đăng nhập</title>
+    <style>
+      :root {
+        --bg: #e6f2ff;
+        --blue: #0066ff;
+        --blue-700: #004ecc;
+        --border: #cfd8e3;
+        --h: 44px; /* chiều cao đồng bộ cho input + button */
+        --radius: 10px; /* bo góc đồng bộ */
+        --fs: 16px; /* cỡ chữ đồng bộ */
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111827;
+      }
+      .login-container {
+        width: 100%;
+        max-width: 380px;
+        background: #fff;
+        padding: 28px 24px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        text-align: center;
+      }
+      .login-container img {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 14px;
+      }
+      .login-container h2 {
+        font-size: 22px;
+        margin: 0 0 18px;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
-  /* —— ĐỒNG BỘ Ô —— */
-  .login-container input,
-  .login-container button{
-    width:100%;height:var(--h);border-radius:var(--radius);font-size:var(--fs);
-    padding:0 14px;
-  }
-  .login-container input{
-    border:1px solid var(--border);background:#fff;
-  }
-  .login-container input:focus{
-    border-color:#3399ff;outline:none;box-shadow:0 0 0 3px rgba(51,153,255,.15);
-  }
-  .login-container button{
-    border:0;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;
-    transition:background .2s ease;
-  }
-  .login-container button:hover{background:var(--blue-700)}
+      /* —— ĐỒNG BỘ Ô —— */
+      .login-container input,
+      .login-container button {
+        width: 100%;
+        height: var(--h);
+        border-radius: var(--radius);
+        font-size: var(--fs);
+        padding: 0 14px;
+      }
+      .login-container input {
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .login-container input:focus {
+        border-color: #3399ff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(51, 153, 255, 0.15);
+      }
+      .login-container button {
+        border: 0;
+        background: var(--blue);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+      .login-container button:hover {
+        background: var(--blue-700);
+      }
 
-  .forgot{display:flex;justify-content:flex-end;margin:-4px 0 6px}
-  .forgot a{font-size:13px;color:#3399ff;text-decoration:none}
-  .forgot a:hover{text-decoration:underline}
+      .forgot {
+        display: flex;
+        justify-content: flex-end;
+        margin: -4px 0 6px;
+      }
+      .forgot a {
+        font-size: 13px;
+        color: #3399ff;
+        text-decoration: none;
+      }
+      .forgot a:hover {
+        text-decoration: underline;
+      }
 
-  .signup{margin-top:12px;font-size:14px}
-  .signup a{color:#3399ff;text-decoration:none;font-weight:700}
-  .signup a:hover{text-decoration:underline}
+      .signup {
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      .signup a {
+        color: #3399ff;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .signup a:hover {
+        text-decoration: underline;
+      }
 
-  /* Google OAuth Error Warning */
-  .oauth-warning{
-    background:#fff3cd;border:1px solid #ffc107;border-radius:8px;
-    padding:12px;margin:12px 0;font-size:13px;text-align:left;
-    display:none;
-  }
-  .oauth-warning.show{display:block}
-  .oauth-warning strong{color:#856404;display:block;margin-bottom:8px}
-  .oauth-warning code{background:#fff;padding:2px 6px;border-radius:3px;font-size:12px;word-break:break-all;display:block;margin:4px 0}
-  .oauth-warning a{color:#0066ff;text-decoration:none;font-weight:700}
-  .oauth-warning a:hover{text-decoration:underline}
-</style>
-</head>
-<body>
+      /* Cảnh báo lỗi Google OAuth */
+      .oauth-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+        font-size: 13px;
+        text-align: left;
+        display: none;
+      }
+      .oauth-warning.show {
+        display: block;
+      }
+      .oauth-warning strong {
+        color: #856404;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .oauth-warning code {
+        background: #fff;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        word-break: break-all;
+        display: block;
+        margin: 4px 0;
+      }
+      .oauth-warning a {
+        color: #0066ff;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .oauth-warning a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <img
+        src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+        alt="logo"
+      />
+      <h2>SmartExpense Đăng nhập</h2>
 
-  <div class="login-container">
-    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="logo">
-    <h2>SmartExpense Đăng nhập</h2>
+      <form id="loginForm">
+        <input type="email" id="email" placeholder="Email" required />
+        <input
+          type="password"
+          id="password"
+          placeholder="Nhập mật khẩu"
+          required
+        />
+        <div class="forgot"><a href="quenmatkhau.html">Quên Mật khẩu</a></div>
+        <button type="submit">Đăng nhập</button>
+      </form>
 
-    <form id="loginForm">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="password" id="password" placeholder="Nhập mật khẩu" required />
-      <div class="forgot"><a href="quenmatkhau.html">Quên Mật khẩu</a></div>
-      <button type="submit">Đăng nhập</button>
-    </form>
+      <!-- 2FA Form (ẩn ban đầu) -->
+      <form id="twoFAForm" style="display: none; margin-top: 16px">
+        <div
+          style="
+            text-align: left;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #6b7280;
+          "
+        >
+          Vui lòng nhập mã 6 số từ ứng dụng Authenticator:
+        </div>
+        <input
+          type="text"
+          id="twoFACode"
+          placeholder="000000"
+          maxlength="7"
+          inputmode="numeric"
+          pattern="[0-9]{6}"
+          required
+        />
+        <button type="submit">Xác thực</button>
+        <button
+          type="button"
+          id="cancel2FA"
+          style="background: #6b7280; margin-top: 8px"
+        >
+          Hủy
+        </button>
+      </form>
 
-    <!-- 2FA Form (ẩn ban đầu) -->
-    <form id="twoFAForm" style="display:none; margin-top:16px;">
-      <div style="text-align:left; margin-bottom:8px; font-size:14px; color:#6b7280;">
-        Vui lòng nhập mã 6 số từ ứng dụng Authenticator:
+      <div style="margin: 12px 0; font-size: 12px; color: #6b7280">hoặc</div>
+
+      <!-- Google OAuth Error Warning -->
+
+      <!-- Cảnh báo lỗi Google OAuth -->
+      <div id="oauthWarning" class="oauth-warning">
+        <strong>⚠️ Google đăng nhập không khả dụng</strong>
+        <div id="oauthWarningContent"></div>
+        <div style="margin-top: 8px">
+          <a href="../check-origin.html" target="_blank"
+            >🔍 Kiểm tra Origin và hướng dẫn sửa lỗi</a
+          >
+        </div>
       </div>
-      <input type="text" id="twoFACode" placeholder="000000" maxlength="7" inputmode="numeric" pattern="[0-9]{6}" required />
-      <button type="submit">Xác thực</button>
-      <button type="button" id="cancel2FA" style="background:#6b7280; margin-top:8px;">Hủy</button>
-    </form>
 
-    <div style="margin:12px 0; font-size:12px; color:#6b7280;">hoặc</div>
+      <div id="googleSignInButton"></div>
 
-    <!-- Google OAuth Error Warning -->
-    <div id="oauthWarning" class="oauth-warning">
-      <strong>⚠️ Google đăng nhập không khả dụng</strong>
-      <div id="oauthWarningContent"></div>
-      <div style="margin-top:8px;">
-        <a href="../check-origin.html" target="_blank">🔍 Kiểm tra Origin và hướng dẫn sửa lỗi</a>
+      <div class="signup">
+        Chưa có tài khoản? <a href="dangki.html">Đăng kí ngay</a>
       </div>
     </div>
 
-    <div id="g_id_onload"
-         data-client_id="60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com"
-         data-context="signin"
-         data-ux_mode="popup"
-         data-callback="onGoogleCredential"
-         data-auto_prompt="false">
-    </div>
-    <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
+    <!-- Tiện ích - tải trước login.js để apiRequest có sẵn -->
+    <script src="js/utils.js"></script>
+    <!-- JavaScript đăng nhập - phải tải trước Google script để định nghĩa callback -->
+    <script src="js/login.js"></script>
+    <!-- Google Sign-In SDK - tải sau khi callback đã được định nghĩa -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      // Đảm bảo Google SDK được khởi tạo sau khi load
+      (function () {
+        const GOOGLE_CLIENT_ID =
+          "60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com";
 
-    <div class="signup">
-      Chưa có tài khoản? <a href="dangki.html">Đăng kí ngay</a>
-    </div>
-  </div>
+        // Flag để đảm bảo chỉ khởi tạo một lần
+        let isInitialized = false;
+        let isInitializing = false;
 
-<!-- Utilities - load before login.js so apiRequest is available -->
-<script src="../chucnang/js/utils.js"></script>
-<!-- Login JavaScript - must load before Google script to define callback -->
-<script src="../chucnang/js/login.js"></script>
-<!-- Google Sign-In SDK - load after callback is defined -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+        // Flag để tránh hiển thị cảnh báo nhiều lần
+        let hasDetected403Error = false;
 
-<script>
-// Detect Google OAuth errors and show helpful message
-(function() {
-  const origin = window.location.origin;
-  const protocol = window.location.protocol;
-  const host = window.location.host;
-  const port = window.location.port;
+        // Hàm hiển thị lỗi origin không được phép
+        function showOriginError(currentOrigin) {
+          // Tránh hiển thị nhiều lần
+          if (
+            hasDetected403Error &&
+            document.getElementById("oauthWarning")?.classList.contains("show")
+          ) {
+            return;
+          }
+          hasDetected403Error = true;
 
-  // Check if using file:// protocol (won't work with Google OAuth)
-  if (protocol === 'file:') {
-    const warningDiv = document.getElementById('oauthWarning');
-    const warningContent = document.getElementById('oauthWarningContent');
-    warningContent.innerHTML = `
+          const warningDiv = document.getElementById("oauthWarning");
+          const warningContent = document.getElementById("oauthWarningContent");
+          if (!warningDiv || !warningContent) {
+            console.error("⚠️ Không tìm thấy warning div");
+            alert(
+              "Lỗi 403: Origin không được phép.\n\nOrigin hiện tại: " +
+                currentOrigin +
+                "\n\nVui lòng thêm origin này vào Google Console."
+            );
+            return;
+          }
+
+          // Lấy thông tin chi tiết về origin
+          const fullUrl = window.location.href;
+          const protocol = window.location.protocol;
+          const host = window.location.host;
+          const hostname = window.location.hostname;
+          const port = window.location.port;
+
+          // Tạo danh sách các origin có thể cần thêm
+          const possibleOrigins = [];
+          if (hostname === "localhost") {
+            possibleOrigins.push(
+              `${protocol}//localhost${port ? ":" + port : ""}`
+            );
+            possibleOrigins.push(
+              `${protocol}//127.0.0.1${port ? ":" + port : ""}`
+            );
+          } else if (hostname === "127.0.0.1") {
+            possibleOrigins.push(
+              `${protocol}//127.0.0.1${port ? ":" + port : ""}`
+            );
+            possibleOrigins.push(
+              `${protocol}//localhost${port ? ":" + port : ""}`
+            );
+          } else {
+            possibleOrigins.push(currentOrigin);
+          }
+
+          warningContent.innerHTML = `
+      <div style="margin-bottom:8px; color:#dc2626; font-weight:600;">❌ Lỗi 403: Origin không được phép</div>
+      <div style="margin-bottom:8px; padding:8px; background:#fef2f2; border-left:3px solid #dc2626; border-radius:4px;">
+        <div style="margin-bottom:4px;"><strong>📍 Origin hiện tại (từ window.location.origin):</strong></div>
+        <code style="color:#dc2626; font-size:13px; word-break:break-all; display:block; padding:4px; background:#fff; border-radius:3px; margin:4px 0;">${currentOrigin}</code>
+        <div style="margin-top:8px; font-size:12px; color:#6b7280;">
+          <div><strong>URL đầy đủ:</strong> ${fullUrl}</div>
+          <div><strong>Protocol:</strong> ${protocol}</div>
+          <div><strong>Host:</strong> ${host}</div>
+          <div><strong>Hostname:</strong> ${hostname}</div>
+          <div><strong>Port:</strong> ${port || "(mặc định)"}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px; margin-bottom:8px; padding:8px; background:#eff6ff; border-left:3px solid #2563eb; border-radius:4px;">
+        <div style="margin-bottom:6px;"><strong>💡 Các origin có thể cần thêm vào Google Console:</strong></div>
+        ${possibleOrigins
+          .map(
+            (origin) => `
+          <code style="background:#fff; padding:4px 8px; border-radius:3px; display:block; margin:4px 0; font-size:12px; color:#1e40af;">${origin}</code>
+        `
+          )
+          .join("")}
+        <div style="margin-top:8px; font-size:11px; color:#6b7280;">
+          ⚠️ Nếu bạn đã thêm origin nhưng vẫn lỗi, hãy thử thêm TẤT CẢ các origin ở trên.
+        </div>
+      </div>
+      <div style="margin-top:12px; margin-bottom:8px;"><strong>📋 Cách sửa:</strong></div>
+      <ol style="margin:8px 0; padding-left:20px; line-height:1.8;">
+        <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#2563eb; text-decoration:underline;">Google Console → Credentials</a></li>
+        <li>Tìm Client ID: <code style="background:#f3f4f6; padding:2px 6px; border-radius:3px;">60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com</code></li>
+        <li>Click vào Client ID → Scroll xuống phần "Authorized JavaScript origins"</li>
+        <li>Click "+ Add a URI" và thêm <strong>TẤT CẢ</strong> các origin ở trên (đặc biệt là origin đầu tiên)</li>
+        <li>Click "SAVE" và <strong>đợi 10 phút</strong> để Google cập nhật</li>
+        <li>Refresh trang này (Ctrl + Shift + R để xóa cache)</li>
+      </ol>
+      <div style="margin-top:12px; padding:8px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:4px;">
+        <div style="font-weight:600; margin-bottom:4px;">⏰ Quan trọng:</div>
+        <div style="font-size:12px; line-height:1.6;">
+          • Google cần <strong>10 phút</strong> để cập nhật cấu hình<br>
+          • Sau khi Save, đợi 10 phút rồi mới refresh trang<br>
+          • Nếu vẫn lỗi, thử thêm cả <code>http://localhost:8080</code> và <code>http://127.0.0.1:8080</code>
+        </div>
+      </div>
+    `;
+          warningDiv.classList.add("show");
+          console.error("❌ Origin không được phép:", currentOrigin);
+          console.log(
+            "💡 Hãy thêm origin này vào Google Console:",
+            currentOrigin
+          );
+        }
+
+        // Hàm khởi tạo Google Sign-In
+        function initGoogleSignIn() {
+          // Tránh khởi tạo nhiều lần
+          if (isInitialized || isInitializing) {
+            console.log(
+              "⚠️ Google Sign-In đã được khởi tạo hoặc đang khởi tạo, bỏ qua..."
+            );
+            return;
+          }
+
+          if (
+            typeof window.google !== "undefined" &&
+            typeof window.google.accounts !== "undefined"
+          ) {
+            isInitializing = true;
+            const currentOrigin = window.location.origin;
+            console.log("✅ Google SDK đã load, đang khởi tạo...");
+            console.log("📍 Origin hiện tại:", currentOrigin);
+            console.log(
+              '💡 Nếu gặp lỗi "origin is not allowed", hãy thêm origin này vào Google Console:'
+            );
+            console.log("   👉", currentOrigin);
+            console.log(
+              "   🔗 https://console.cloud.google.com/apis/credentials"
+            );
+
+            try {
+              // BƯỚC 1: Khởi tạo Google Sign-In với callback (PHẢI GỌI TRƯỚC)
+              window.google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: function (response) {
+                  console.log("🔔 Google callback được gọi từ initialize");
+                  console.log("   Response type:", typeof response);
+                  console.log(
+                    "   Response có credential?",
+                    !!response?.credential
+                  );
+                  console.log("   Response:", response);
+
+                  // Đảm bảo callback được gọi với đúng format
+                  if (typeof window.onGoogleCredential === "function") {
+                    try {
+                      window.onGoogleCredential(response);
+                    } catch (error) {
+                      console.error(
+                        "❌ Lỗi khi gọi onGoogleCredential:",
+                        error
+                      );
+                      alert("Lỗi xử lý đăng nhập Google. Vui lòng thử lại.");
+                    }
+                  } else {
+                    console.error(
+                      "❌ onGoogleCredential không được định nghĩa!"
+                    );
+                    console.error(
+                      "   Kiểm tra xem js/login.js đã được load chưa"
+                    );
+                    alert(
+                      "Lỗi: Hàm xử lý đăng nhập Google chưa được tải. Vui lòng refresh trang."
+                    );
+                  }
+                },
+                error_callback: function (error) {
+                  console.error("❌ Lỗi Google Sign-In:", error);
+                  const currentOrigin = window.location.origin;
+
+                  if (error.type === "popup_closed") {
+                    console.log("Người dùng đã đóng popup");
+                  } else {
+                    // Kiểm tra nếu là lỗi 403 (origin not allowed)
+                    const errorMessage = (error.message || "").toLowerCase();
+                    if (
+                      errorMessage.includes("origin") ||
+                      errorMessage.includes("403") ||
+                      errorMessage.includes("not allowed")
+                    ) {
+                      showOriginError(currentOrigin);
+                    } else {
+                      alert(
+                        "Lỗi đăng nhập Google: " +
+                          (error.message || "Vui lòng thử lại")
+                      );
+                    }
+                  }
+                },
+              });
+
+              // BƯỚC 2: Sau khi initialize xong, mới render button
+              // Đợi một chút để đảm bảo initialize đã hoàn tất
+              setTimeout(function () {
+                const signInButton =
+                  document.getElementById("googleSignInButton");
+                if (signInButton && !signInButton.querySelector("iframe")) {
+                  console.log("🔄 Đang render Google Sign-In button...");
+                  try {
+                    window.google.accounts.id.renderButton(signInButton, {
+                      type: "standard",
+                      shape: "rectangular",
+                      theme: "outline",
+                      text: "signin_with",
+                      size: "large",
+                      logo_alignment: "left",
+                    });
+                    console.log("✅ Button đã được render thành công");
+
+                    // Kiểm tra sau 1.5 giây xem button có thực sự được render không
+                    setTimeout(function () {
+                      const buttonIframe = signInButton.querySelector("iframe");
+                      if (!buttonIframe) {
+                        const currentOrigin = window.location.origin;
+                        console.error(
+                          "❌ Button không được render sau 1.5 giây. Có thể là lỗi 403 (origin không được phép)."
+                        );
+                        showOriginError(currentOrigin);
+                      }
+                    }, 1500);
+                  } catch (renderError) {
+                    console.error("❌ Lỗi khi render button:", renderError);
+                    const currentOrigin = window.location.origin;
+                    const errorMessage = (
+                      renderError.message || ""
+                    ).toLowerCase();
+                    if (
+                      errorMessage.includes("origin") ||
+                      errorMessage.includes("403") ||
+                      errorMessage.includes("not allowed")
+                    ) {
+                      showOriginError(currentOrigin);
+                    } else {
+                      // Nếu không rõ lỗi gì, vẫn hiển thị warning về origin
+                      showOriginError(currentOrigin);
+                    }
+                  }
+                } else if (!signInButton) {
+                  console.warn(
+                    "⚠️ Không tìm thấy button container #googleSignInButton"
+                  );
+                } else {
+                  console.log("ℹ️ Button đã được render rồi, bỏ qua...");
+                }
+
+                isInitialized = true;
+                isInitializing = false;
+                console.log("✅ Google Sign-In đã được khởi tạo thành công");
+              }, 100);
+            } catch (error) {
+              console.error("❌ Lỗi khi khởi tạo Google Sign-In:", error);
+              isInitializing = false;
+            }
+          } else {
+            console.warn("⚠️ Google SDK chưa load, sẽ thử lại sau...");
+            // Thử lại sau 500ms
+            setTimeout(initGoogleSignIn, 500);
+          }
+        }
+
+        // Bắt đầu khởi tạo khi DOM sẵn sàng (chỉ một lần)
+        function startInit() {
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", function () {
+              setTimeout(initGoogleSignIn, 100);
+            });
+          } else {
+            setTimeout(initGoogleSignIn, 100);
+          }
+        }
+
+        // Bắt lỗi từ console để tự động phát hiện lỗi 403
+        // Override console.error để bắt lỗi GSI_LOGGER
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        function detect403Error(message) {
+          if (hasDetected403Error) return; // Chỉ hiển thị một lần
+
+          const messageStr = String(message || "").toLowerCase();
+          const is403Error =
+            messageStr.includes("403") ||
+            messageStr.includes("origin is not allowed") ||
+            messageStr.includes("gsi_logger") ||
+            messageStr.includes("the given origin is not allowed");
+
+          if (is403Error) {
+            hasDetected403Error = true;
+            const currentOrigin = window.location.origin;
+            console.error("❌ Đã phát hiện lỗi 403 từ console:", message);
+            // Đợi một chút để đảm bảo DOM đã sẵn sàng
+            setTimeout(function () {
+              showOriginError(currentOrigin);
+            }, 500);
+          }
+        }
+
+        // Wrap console.error
+        console.error = function (...args) {
+          originalConsoleError.apply(console, args);
+          args.forEach((arg) => detect403Error(arg));
+        };
+
+        // Wrap console.warn (GSI_LOGGER có thể dùng warn)
+        console.warn = function (...args) {
+          originalConsoleWarn.apply(console, args);
+          args.forEach((arg) => detect403Error(arg));
+        };
+
+        // Bắt network errors (403) từ window error events
+        window.addEventListener(
+          "error",
+          function (event) {
+            if (hasDetected403Error) return;
+
+            const errorMessage = String(event.message || "").toLowerCase();
+            const errorSource = String(
+              event.filename || event.source || ""
+            ).toLowerCase();
+
+            // Kiểm tra nếu là lỗi từ Google resources
+            const isGoogleError =
+              errorSource.includes("accounts.google.com") ||
+              errorSource.includes("gstatic.com") ||
+              errorSource.includes("credential_button_library");
+
+            if (
+              isGoogleError &&
+              (errorMessage.includes("403") ||
+                errorMessage.includes("failed to load"))
+            ) {
+              hasDetected403Error = true;
+              const currentOrigin = window.location.origin;
+              console.error("❌ Đã phát hiện lỗi 403 từ network:", event);
+              setTimeout(function () {
+                showOriginError(currentOrigin);
+              }, 500);
+            }
+          },
+          true
+        ); // Use capture phase
+
+        // Sử dụng Performance Observer để bắt lỗi 403 từ network requests
+        if ("PerformanceObserver" in window) {
+          try {
+            const observer = new PerformanceObserver(function (list) {
+              if (hasDetected403Error) return;
+
+              const entries = list.getEntries();
+              entries.forEach(function (entry) {
+                const name = String(entry.name || "").toLowerCase();
+                const isGoogleResource =
+                  name.includes("accounts.google.com") ||
+                  name.includes("gstatic.com") ||
+                  name.includes("button?type=standard") ||
+                  name.includes("credential_button_library");
+
+                // Kiểm tra responseStatus nếu có (một số browser hỗ trợ)
+                if (isGoogleResource) {
+                  // Kiểm tra transferSize = 0 có thể là dấu hiệu của lỗi
+                  if (
+                    entry.transferSize === 0 &&
+                    entry.decodedBodySize === 0 &&
+                    name.includes("button")
+                  ) {
+                    // Có thể là lỗi 403, kiểm tra lại sau một chút
+                    setTimeout(function () {
+                      if (!hasDetected403Error) {
+                        const buttonIframe = document.querySelector(
+                          "#googleSignInButton iframe"
+                        );
+                        if (!buttonIframe) {
+                          hasDetected403Error = true;
+                          const currentOrigin = window.location.origin;
+                          console.error(
+                            "❌ Đã phát hiện lỗi 403 từ Performance Observer (button không render)"
+                          );
+                          showOriginError(currentOrigin);
+                        }
+                      }
+                    }, 2000);
+                  }
+                }
+              });
+            });
+
+            // Quan sát resource timing
+            observer.observe({ entryTypes: ["resource"] });
+          } catch (e) {
+            console.warn("Không thể tạo Performance Observer:", e);
+          }
+        }
+
+        // Chỉ khởi tạo một lần
+        if (!window.__GOOGLE_SIGNIN_STARTED) {
+          window.__GOOGLE_SIGNIN_STARTED = true;
+          startInit();
+        }
+      })();
+    </script>
+
+    <script>
+      // Phát hiện lỗi Google OAuth và hiển thị thông báo hữu ích
+      (function () {
+        const origin = window.location.origin;
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const port = window.location.port;
+
+        // Kiểm tra nếu đang dùng protocol file:// (sẽ không hoạt động với Google OAuth)
+        if (protocol === "file:") {
+          const warningDiv = document.getElementById("oauthWarning");
+          const warningContent = document.getElementById("oauthWarningContent");
+          warningContent.innerHTML = `
       <div style="margin-bottom:8px;">Bạn đang mở file trực tiếp từ ổ đĩa (<code>file://</code>). Google OAuth không hoạt động với protocol này.</div>
       <div><strong>Giải pháp:</strong> Chạy qua HTTP server:</div>
       <ul style="margin:8px 0; padding-left:20px;">
@@ -142,60 +658,154 @@
         <li>Truy cập: <code>http://localhost:8080/login.html</code></li>
       </ul>
     `;
-    warningDiv.classList.add('show');
-    return;
-  }
+          warningDiv.classList.add("show");
+          return;
+        }
 
-  // Monitor for Google SDK load errors
-  let googleSDKLoaded = false;
-  const checkGoogleSDK = setInterval(function() {
-    if (typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
-      googleSDKLoaded = true;
-      clearInterval(checkGoogleSDK);
-    }
-  }, 500);
+        // Theo dõi lỗi tải Google SDK - chỉ kiểm tra một lần
+        let googleSDKLoaded = false;
+        let checkGoogleSDK = null;
+        let timeoutId = null;
 
-  // After 3 seconds, if Google SDK hasn't loaded, show warning
-  setTimeout(function() {
-    clearInterval(checkGoogleSDK);
-    if (!googleSDKLoaded) {
-      const warningDiv = document.getElementById('oauthWarning');
-      const warningContent = document.getElementById('oauthWarningContent');
-      const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
+        // Kiểm tra Google SDK với giới hạn thời gian
+        const maxCheckTime = 5000; // Tối đa 5 giây
+        const checkInterval = 500;
+        let checkCount = 0;
+        const maxChecks = Math.floor(maxCheckTime / checkInterval); // Tối đa 10 lần kiểm tra
 
-      warningContent.innerHTML = `
-        <div style="margin-bottom:8px;">Origin hiện tại chưa được phép trong Google Console:</div>
-        <code>${currentOrigin}</code>
-        <div style="margin-top:8px;"><strong>Giải pháp:</strong></div>
-        <ol style="margin:8px 0; padding-left:20px;">
-          <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Console → Credentials</a></li>
-          <li>Tìm Client ID: <code>60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com</code></li>
-          <li>Click vào Client ID → Thêm vào "Authorized JavaScript origins":</li>
-          <li><code>${currentOrigin}</code></li>
-          <li>Lưu và đợi 5-10 phút để Google cập nhật</li>
-          <li>Refresh trang (Ctrl + Shift + R)</li>
-        </ol>
-      `;
-      warningDiv.classList.add('show');
-    }
-  }, 3000);
+        checkGoogleSDK = setInterval(function () {
+          checkCount++;
+          if (
+            typeof window.google !== "undefined" &&
+            typeof window.google.accounts !== "undefined"
+          ) {
+            googleSDKLoaded = true;
+            if (checkGoogleSDK) {
+              clearInterval(checkGoogleSDK);
+              checkGoogleSDK = null;
+            }
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            return;
+          }
 
-  // Listen for Google SDK errors
-  window.addEventListener('error', function(e) {
-    if (e.message && e.message.includes('client') && e.message.includes('403')) {
-      const warningDiv = document.getElementById('oauthWarning');
-      const warningContent = document.getElementById('oauthWarningContent');
-      const currentOrigin = origin || `${protocol}//${host}${port ? ':' + port : ''}`;
+          // Dừng kiểm tra sau khi đạt giới hạn
+          if (checkCount >= maxChecks) {
+            if (checkGoogleSDK) {
+              clearInterval(checkGoogleSDK);
+              checkGoogleSDK = null;
+            }
+            if (!googleSDKLoaded) {
+              showSDKWarning();
+            }
+          }
+        }, checkInterval);
 
-      warningContent.innerHTML = `
-        <div style="margin-bottom:8px;">Lỗi 403: Origin không được phép</div>
-        <code>${currentOrigin}</code>
-        <div style="margin-top:8px;">Vui lòng thêm origin này vào Google Console và đợi vài phút.</div>
-      `;
-      warningDiv.classList.add('show');
-    }
-  }, true);
-})();
-</script>
-</body>
+        // Hàm hiển thị cảnh báo SDK
+        function showSDKWarning() {
+          const warningDiv = document.getElementById("oauthWarning");
+          const warningContent = document.getElementById("oauthWarningContent");
+          if (!warningDiv || !warningContent) return;
+
+          const currentOrigin =
+            origin || `${protocol}//${host}${port ? ":" + port : ""}`;
+
+          warningContent.innerHTML = `
+      <div style="margin-bottom:8px;">Origin hiện tại chưa được phép trong Google Console:</div>
+      <code>${currentOrigin}</code>
+      <div style="margin-top:8px;"><strong>Giải pháp:</strong></div>
+      <ol style="margin:8px 0; padding-left:20px;">
+        <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Console → Credentials</a></li>
+        <li>Tìm Client ID: <code>60974853277-a0jg39ps7b4too995e58rvmehte0e16a.apps.googleusercontent.com</code></li>
+        <li>Click vào Client ID → Thêm vào "Authorized JavaScript origins":</li>
+        <li><code>${currentOrigin}</code></li>
+        <li>Lưu và đợi 5-10 phút để Google cập nhật</li>
+        <li>Refresh trang (Ctrl + Shift + R)</li>
+      </ol>
+    `;
+          warningDiv.classList.add("show");
+        }
+
+        // Sau 5 giây, nếu Google SDK chưa tải, hiển thị cảnh báo (backup)
+        timeoutId = setTimeout(function () {
+          if (checkGoogleSDK) {
+            clearInterval(checkGoogleSDK);
+            checkGoogleSDK = null;
+          }
+          if (!googleSDKLoaded) {
+            showSDKWarning();
+          }
+        }, maxCheckTime);
+
+        // Lắng nghe lỗi Google SDK từ console và network
+        window.addEventListener(
+          "error",
+          function (e) {
+            const errorMessage = (e.message || "").toLowerCase();
+            const errorSource = (e.filename || "").toLowerCase();
+
+            // Bắt lỗi 403 từ Google SDK
+            if (
+              (errorMessage.includes("403") ||
+                errorMessage.includes("origin") ||
+                errorMessage.includes("not allowed")) &&
+              (errorSource.includes("google") ||
+                errorSource.includes("gsi") ||
+                errorSource.includes("accounts"))
+            ) {
+              const currentOrigin = window.location.origin;
+              showOriginError(currentOrigin);
+            }
+          },
+          true
+        );
+
+        // Lắng nghe lỗi từ fetch/XMLHttpRequest (network errors)
+        const originalFetch = window.fetch;
+        window.fetch = function (...args) {
+          return originalFetch.apply(this, args).catch(function (error) {
+            const url = args[0] || "";
+            if (
+              typeof url === "string" &&
+              (url.includes("google") ||
+                url.includes("accounts") ||
+                url.includes("gsi"))
+            ) {
+              const currentOrigin = window.location.origin;
+              // Kiểm tra sau một chút để xem có phải lỗi 403 không
+              setTimeout(function () {
+                const buttonContainer =
+                  document.getElementById("googleSignInButton");
+                if (
+                  buttonContainer &&
+                  !buttonContainer.querySelector("iframe")
+                ) {
+                  showOriginError(currentOrigin);
+                }
+              }, 1000);
+            }
+            throw error;
+          });
+        };
+
+        // Kiểm tra sau khi render button xem có lỗi 403 không
+        setTimeout(function () {
+          const buttonContainer = document.getElementById("googleSignInButton");
+          if (buttonContainer && !buttonContainer.querySelector("iframe")) {
+            // Nếu sau 2 giây mà button vẫn chưa render, có thể là lỗi 403
+            const currentOrigin = window.location.origin;
+            console.warn(
+              "⚠️ Google Sign-In button chưa được render sau 2 giây. Có thể là lỗi 403."
+            );
+            console.log("📍 Origin hiện tại:", currentOrigin);
+            console.log(
+              "💡 Kiểm tra xem origin này đã được thêm vào Google Console chưa."
+            );
+          }
+        }, 2000);
+      })();
+    </script>
+  </body>
 </html>

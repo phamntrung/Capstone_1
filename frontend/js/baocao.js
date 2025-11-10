@@ -188,6 +188,21 @@ class BaoCaoManager {
     
     dailyContainer.innerHTML = '';
     
+    // Kiểm tra xem có dữ liệu nào không
+    const hasAnyData = this.dailyData.some(d => d.amount > 0);
+    if (!hasAnyData) {
+      // Hiển thị thông báo khi chưa có dữ liệu
+      const emptyMessage = document.createElement('div');
+      emptyMessage.style.cssText = 'text-align: center; padding: 40px 20px; color: #94a3b8;';
+      emptyMessage.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #64748b;">Chưa có dữ liệu chi tiêu</div>
+        <div style="font-size: 14px;">Bạn chưa có giao dịch nào. Hãy thêm giao dịch đầu tiên của bạn!</div>
+      `;
+      dailyContainer.appendChild(emptyMessage);
+      return;
+    }
+    
     // Hiển thị TẤT CẢ các ngày (kể cả khi amount = 0) để giống giao diện 2
     // Sort by date (newest first) - mới nhất lên trên
     const sortedDays = [...this.dailyData].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -339,6 +354,21 @@ class BaoCaoManager {
     if (!monthlyContainer) return;
 
     monthlyContainer.innerHTML = '';
+    
+    // Kiểm tra xem có dữ liệu nào không
+    const hasAnyData = this.monthlyData.some(m => m.amount > 0);
+    if (!hasAnyData) {
+      // Hiển thị thông báo khi chưa có dữ liệu
+      const emptyMessage = document.createElement('div');
+      emptyMessage.style.cssText = 'text-align: center; padding: 40px 20px; color: #94a3b8;';
+      emptyMessage.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #64748b;">Chưa có dữ liệu theo tháng</div>
+        <div style="font-size: 14px;">Bạn chưa có giao dịch nào. Hãy thêm giao dịch đầu tiên của bạn!</div>
+      `;
+      monthlyContainer.appendChild(emptyMessage);
+      return;
+    }
     
     // Hiển thị TẤT CẢ các tháng (kể cả khi amount = 0) để giống giao diện 2
     // Sort by month (newest first) - mới nhất lên trên

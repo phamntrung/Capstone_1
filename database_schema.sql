@@ -55,9 +55,6 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL COMMENT 'ID người dùng sở hữu danh mục',
     name VARCHAR(100) NOT NULL COMMENT 'Tên danh mục (ví dụ: Ăn uống, Mua sắm)',
-    color VARCHAR(7) DEFAULT '#3b82f6' COMMENT 'Màu sắc hiển thị (hex, ví dụ: #3b82f6)',
-    note TEXT NULL COMMENT 'Ghi chú mô tả cho danh mục',
-    is_active BOOLEAN DEFAULT TRUE COMMENT 'Trạng thái hoạt động: TRUE = BẬT, FALSE = TẮT',
 
     -- Timestamps
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -218,6 +215,33 @@ CREATE TABLE IF NOT EXISTS user_settings (
 COMMENT='Bảng lưu trữ cài đặt cá nhân của người dùng';
 
 -- ============================================
+-- BẢNG 8: notifications - Thông báo cho người dùng
+-- ============================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL COMMENT 'ID người dùng nhận thông báo',
+    title VARCHAR(200) NOT NULL COMMENT 'Tiêu đề thông báo',
+    message TEXT NOT NULL COMMENT 'Nội dung thông báo',
+    type VARCHAR(50) NOT NULL DEFAULT 'info' COMMENT 'Loại thông báo: info, warning, error, success',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Trạng thái đã đọc: TRUE/FALSE',
+
+    -- Timestamps
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời gian tạo thông báo',
+
+    -- Foreign key
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Indexes để query nhanh
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_type (type),
+    INDEX idx_is_read (is_read),
+    INDEX idx_user_created (user_id, created_at) COMMENT 'Composite index cho query notifications của user theo thời gian',
+    INDEX idx_user_type_created (user_id, type, created_at) COMMENT 'Composite index cho filter theo type và thời gian'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Bảng lưu trữ thông báo cho người dùng (vượt ngân sách, tóm tắt hàng ngày, báo cáo...)';
+
+-- ============================================
 -- STORED PROCEDURES - Thủ tục hữu ích
 -- ============================================
 
@@ -260,54 +284,6 @@ BEGIN
     GROUP BY b.id, b.amount;
 END //
 DELIMITER ;
-
--- ============================================
--- BẢNG 8: devices - Quản lý thiết bị đăng nhập
--- ============================================
--- Migration: create_devices_table.sql
--- Ngày tạo: 2025
--- Mục đích: Lưu trữ thông tin các thiết bị/phiên đăng nhập của người dùng
--- ============================================
-CREATE TABLE IF NOT EXISTS devices (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL COMMENT 'ID người dùng sở hữu thiết bị',
-
-    -- Thông tin thiết bị
-    device_name VARCHAR(100) NULL COMMENT 'Tên thiết bị (ví dụ: iPhone 15, MacBook Pro)',
-    platform VARCHAR(50) NULL COMMENT 'Hệ điều hành (iOS, macOS, Windows, Android, Linux)',
-    browser VARCHAR(50) NULL COMMENT 'Trình duyệt (Safari, Chrome, Edge, Firefox)',
-
-    -- Thông tin mạng và vị trí
-    ip_address VARCHAR(45) NULL COMMENT 'Địa chỉ IP (IPv4 hoặc IPv6)',
-    city VARCHAR(100) NULL COMMENT 'Thành phố (ước tính từ IP)',
-    country VARCHAR(10) NULL COMMENT 'Quốc gia (mã 2 chữ, ví dụ: VN, US)',
-
-    -- Bảo mật
-    fingerprint VARCHAR(100) NULL COMMENT 'Fingerprint duy nhất của thiết bị/trình duyệt',
-    session_token VARCHAR(255) NULL COMMENT 'Token phiên đăng nhập (JWT hoặc refresh token)',
-
-    -- Trạng thái
-    is_trusted BOOLEAN DEFAULT FALSE COMMENT 'Trạng thái tin cậy: TRUE = Tin cậy, FALSE = Không tin cậy',
-    is_blocked BOOLEAN DEFAULT FALSE COMMENT 'Trạng thái bị chặn: TRUE = Bị chặn, FALSE = Không bị chặn',
-    is_current BOOLEAN DEFAULT FALSE COMMENT 'Thiết bị hiện tại: TRUE = Đang sử dụng, FALSE = Khác',
-
-    -- Thời gian
-    last_activity_at DATETIME NULL COMMENT 'Thời gian hoạt động gần nhất',
-    expires_at DATETIME NULL COMMENT 'Thời gian hết hạn của phiên (nếu có)',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    -- Foreign key
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-
-    -- Indexes
-    INDEX idx_user_id (user_id),
-    INDEX idx_fingerprint (fingerprint),
-    INDEX idx_session_token (session_token),
-    INDEX idx_last_activity (last_activity_at),
-    INDEX idx_user_activity (user_id, last_activity_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Bảng quản lý thiết bị và phiên đăng nhập của người dùng';
 
 -- ============================================
 -- VIEWS - Các view hữu ích

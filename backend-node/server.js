@@ -30,7 +30,7 @@ const deviceRoutes = require('./routes/devices');
 const twofaRoutes = require('./routes/twofa');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Trust proxy để lấy IP đúng từ reverse proxy/load balancer

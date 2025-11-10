@@ -596,70 +596,6 @@
     }, 3000);
   }
 
-  // ===== Test Email Function =====
-  async function testEmail() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      showToastMessage('Vui lòng đăng nhập để test email', 'error');
-      return;
-    }
-
-    // Check if user has email
-    if (!currentUser.email) {
-      showToastMessage('Vui lòng cập nhật email trong hồ sơ trước khi test email', 'error');
-      return;
-    }
-
-    const token = localStorage.getItem('smartexpense_token');
-    if (!token) {
-      // Try to get token from cookie (for Google OAuth users)
-      const auth = typeof checkAuth === 'function' ? checkAuth() : null;
-      if (!auth || !auth.token) {
-        showToastMessage('Không tìm thấy token đăng nhập', 'error');
-        return;
-      }
-    }
-
-    const btn = document.getElementById('testEmailBtn');
-    if (!btn) {
-      showToastMessage('Không tìm thấy nút Test Email', 'error');
-      return;
-    }
-
-    try {
-      // Show loading
-      const originalText = btn.textContent;
-      btn.textContent = 'Đang gửi...';
-      btn.disabled = true;
-
-      // Get token (from localStorage or cookie)
-      const authToken = token || (typeof checkAuth === 'function' ? checkAuth()?.token : null);
-      
-      if (!authToken) {
-        showToastMessage('❌ Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.', 'error');
-        return;
-      }
-      
-      // Flask backend không có email endpoints - hiển thị thông báo
-      showToastMessage('⚠️ Tính năng email hiện chỉ có trên Backend Node.js. Flask backend không hỗ trợ email endpoints.\n\nĐể sử dụng tính năng email:\n1. Chạy Backend Node.js tại port 5001\n2. Hoặc sử dụng Backend Flask cho các tính năng khác', 'error');
-      return;
-
-    } catch (error) {
-      console.error('Email test error:', error);
-      const errorMsg = error.message || 'Lỗi khi gửi email test';
-      showToastMessage(`❌ ${errorMsg}`, 'error');
-    } finally {
-      // Restore button
-      const btn = document.getElementById('testEmailBtn');
-      if (btn) {
-        btn.textContent = 'Test Email';
-        btn.disabled = false;
-      }
-    }
-  }
-
-  // Export testEmail to window for onclick handler
-  window.testEmail = testEmail;
 
   // ===== Google Sign-In (client-side) =====
   function initGoogleSignIn() {
@@ -915,7 +851,223 @@
     // Initialize other event listeners when DOM is ready
     runWhenReady(() => {
       setupEventListeners();
+      // Initialize avatar functionality
+      initAvatarUpload();
+      // Initialize notifications
+      initNotifications();
     });
+  }
+
+  // ===== Avatar Upload Functionality =====
+  function initAvatarUpload() {
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarImage = document.getElementById('avatarImage');
+    const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+    const avatarUploadBtn = document.getElementById('avatarUploadBtn');
+    const btnRemoveAvatar = document.getElementById('btnRemoveAvatar');
+    
+    // Load saved avatar from localStorage
+    loadAvatar();
+    
+    // Function to trigger file input
+    function triggerFileInput() {
+      if (avatarInput) {
+        avatarInput.click();
+      }
+    }
+    
+    // Handle file input change
+    if (avatarInput) {
+      avatarInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          // Validate file type
+          if (!file.type.startsWith('image/')) {
+            alert('Vui lòng chọn file ảnh hợp lệ!');
+            return;
+          }
+          
+          // Validate file size (max 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            alert('Kích thước file không được vượt quá 5MB!');
+            return;
+          }
+          
+          // Read file as data URL
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const imageDataUrl = e.target.result;
+            
+            // Save to localStorage
+            saveAvatar(imageDataUrl);
+            
+            // Display avatar
+            displayAvatar(imageDataUrl);
+            
+            // Show remove button
+            if (btnRemoveAvatar) {
+              btnRemoveAvatar.style.display = 'inline-flex';
+            }
+            
+            // Update avatar on home page via storage event
+            updateAvatarOnHomePage(imageDataUrl);
+            
+            console.log('✅ Avatar đã được tải lên và lưu');
+          };
+          reader.onerror = function() {
+            alert('Lỗi khi đọc file!');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+    
+    // Handle remove avatar
+    if (btnRemoveAvatar) {
+      btnRemoveAvatar.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent triggering file input
+        if (confirm('Bạn có chắc chắn muốn xóa ảnh đại diện?')) {
+          removeAvatar();
+        }
+      });
+    }
+    
+    // Click on preview to trigger file input
+    if (avatarPreview) {
+      avatarPreview.addEventListener('click', function(e) {
+        // Don't trigger if clicking on the upload button (it will handle it)
+        if (e.target !== avatarUploadBtn && !avatarUploadBtn.contains(e.target)) {
+          triggerFileInput();
+        }
+      });
+    }
+    
+    // Click on upload button to trigger file input
+    if (avatarUploadBtn) {
+      avatarUploadBtn.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent triggering parent click
+        triggerFileInput();
+      });
+    }
+  }
+  
+  function loadAvatar() {
+    try {
+      const userData = localStorage.getItem('smartexpense_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        if (user.avatar) {
+          displayAvatar(user.avatar);
+          const btnRemoveAvatar = document.getElementById('btnRemoveAvatar');
+          if (btnRemoveAvatar) {
+            btnRemoveAvatar.style.display = 'inline-flex';
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Lỗi khi tải avatar:', error);
+    }
+  }
+  
+  function displayAvatar(imageDataUrl) {
+    const avatarImage = document.getElementById('avatarImage');
+    const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+    
+    if (avatarImage && avatarPlaceholder) {
+      if (imageDataUrl) {
+        avatarImage.src = imageDataUrl;
+        avatarImage.style.display = 'block';
+        avatarPlaceholder.style.display = 'none';
+      } else {
+        avatarImage.src = '';
+        avatarImage.style.display = 'none';
+        avatarPlaceholder.style.display = 'grid';
+      }
+    }
+  }
+  
+  function saveAvatar(imageDataUrl) {
+    try {
+      const userData = localStorage.getItem('smartexpense_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        user.avatar = imageDataUrl;
+        localStorage.setItem('smartexpense_user', JSON.stringify(user));
+        console.log('✅ Avatar đã được lưu vào localStorage');
+      } else {
+        // Create new user object if not exists
+        const newUser = {
+          avatar: imageDataUrl
+        };
+        localStorage.setItem('smartexpense_user', JSON.stringify(newUser));
+      }
+    } catch (error) {
+      console.error('Lỗi khi lưu avatar:', error);
+    }
+  }
+  
+  function removeAvatar() {
+    try {
+      const userData = localStorage.getItem('smartexpense_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        delete user.avatar;
+        localStorage.setItem('smartexpense_user', JSON.stringify(user));
+      }
+      
+      // Reset display
+      const avatarImage = document.getElementById('avatarImage');
+      const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+      const btnRemoveAvatar = document.getElementById('btnRemoveAvatar');
+      
+      if (avatarImage) {
+        avatarImage.src = '';
+        avatarImage.style.display = 'none';
+      }
+      if (avatarPlaceholder) {
+        avatarPlaceholder.style.display = 'grid';
+      }
+      if (btnRemoveAvatar) {
+        btnRemoveAvatar.style.display = 'none';
+      }
+      
+      // Update avatar on home page
+      updateAvatarOnHomePage(null);
+      
+      console.log('✅ Avatar đã được xóa');
+    } catch (error) {
+      console.error('Lỗi khi xóa avatar:', error);
+    }
+  }
+  
+  function updateAvatarOnHomePage(imageDataUrl) {
+    // Trigger custom event for same-tab updates
+    const customEvent = new CustomEvent('avatarUpdated', {
+      detail: { avatar: imageDataUrl }
+    });
+    window.dispatchEvent(customEvent);
+    
+    // Also use BroadcastChannel if available (for cross-tab updates)
+    if (typeof BroadcastChannel !== 'undefined') {
+      if (!window.avatarBroadcastChannel) {
+        window.avatarBroadcastChannel = new BroadcastChannel('smartexpense_avatar_channel');
+      }
+      window.avatarBroadcastChannel.postMessage({
+        type: 'avatarUpdated',
+        avatar: imageDataUrl
+      });
+    }
+    
+    // Trigger storage event for cross-tab sync (if needed)
+    try {
+      localStorage.setItem('smartexpense_avatar_updated', Date.now().toString());
+      setTimeout(() => {
+        localStorage.removeItem('smartexpense_avatar_updated');
+      }, 100);
+    } catch (e) {
+      console.warn('Could not trigger storage event:', e);
+    }
   }
 
   function setupEventListeners() {
@@ -978,6 +1130,215 @@
     } catch (e) {
       console.warn('Init profile failed:', e);
     }
+  }
+
+  // ===== Notifications Functions =====
+  async function loadNotifications() {
+    const container = document.getElementById('notificationsContainer');
+    const unreadBadge = document.getElementById('unreadCountBadge');
+    const markAllReadBtn = document.getElementById('markAllReadBtn');
+    const deleteAllBtn = document.getElementById('deleteAllNotificationsBtn');
+    
+    if (!container) return;
+    
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest('/api/notifications?limit=50');
+        if (result && result.ok && result.data) {
+          const { items, unreadCount } = result.data;
+          renderNotifications(items, unreadCount);
+          
+          // Update unread badge
+          if (unreadBadge) {
+            if (unreadCount > 0) {
+              unreadBadge.textContent = unreadCount;
+              unreadBadge.style.display = 'inline-block';
+            } else {
+              unreadBadge.style.display = 'none';
+            }
+          }
+          
+          // Show/hide mark all read button
+          if (markAllReadBtn) {
+            markAllReadBtn.style.display = unreadCount > 0 ? 'block' : 'none';
+          }
+          
+          // Show/hide delete all button (show when there are any notifications)
+          if (deleteAllBtn) {
+            deleteAllBtn.style.display = items && items.length > 0 ? 'block' : 'none';
+          }
+        } else {
+          container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Không có thông báo nào</div>';
+          // Hide delete all button when no notifications
+          if (deleteAllBtn) {
+            deleteAllBtn.style.display = 'none';
+          }
+        }
+      } else {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Không thể tải thông báo</div>';
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Lỗi khi tải thông báo</div>';
+    }
+  }
+  
+  function renderNotifications(notifications, unreadCount) {
+    const container = document.getElementById('notificationsContainer');
+    if (!container) return;
+    
+    if (!notifications || notifications.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Không có thông báo nào</div>';
+      return;
+    }
+    
+    const icons = {
+      info: 'ℹ️',
+      success: '✅',
+      warning: '⚠️',
+      error: '❌'
+    };
+    
+    container.innerHTML = notifications.map(notif => {
+      const isUnread = !notif.isRead;
+      const icon = icons[notif.type] || 'ℹ️';
+      // Parse UTC time correctly - ensure it's treated as UTC
+      let dateStr = notif.createdAt;
+      if (dateStr && !dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+        // If no timezone info, assume it's UTC and add Z
+        dateStr = dateStr + 'Z';
+      }
+      const date = new Date(dateStr);
+      const timeStr = date.toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
+      
+      return `
+        <div class="notification-item ${isUnread ? 'unread' : ''}" data-id="${notif.id}">
+          <div class="notification-icon ${notif.type}">${icon}</div>
+          <div class="notification-content">
+            <div class="notification-title">${escapeHtml(notif.title)}</div>
+            <div class="notification-message">${escapeHtml(notif.message)}</div>
+            <div class="notification-time">${timeStr}</div>
+          </div>
+          <div class="notification-actions">
+            ${isUnread ? `<button onclick="markNotificationRead(${notif.id})">Đã đọc</button>` : ''}
+            <button onclick="deleteNotification(${notif.id})">Xóa</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  async function markNotificationRead(notificationId) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest(`/api/notifications/${notificationId}/read`, {
+          method: 'PATCH'
+        });
+        if (result && result.ok) {
+          loadNotifications(); // Reload notifications
+        }
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }
+  
+  async function markAllNotificationsRead() {
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest('/api/notifications/read-all', {
+          method: 'PATCH'
+        });
+        if (result && result.ok) {
+          loadNotifications(); // Reload notifications
+          showToastMessage('Đã đánh dấu tất cả thông báo đã đọc', 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      showToastMessage('Lỗi khi đánh dấu thông báo', 'error');
+    }
+  }
+  
+  async function deleteNotification(notificationId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa thông báo này?')) {
+      return;
+    }
+    
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest(`/api/notifications/${notificationId}`, {
+          method: 'DELETE'
+        });
+        if (result && result.ok) {
+          loadNotifications(); // Reload notifications
+          showToastMessage('Đã xóa thông báo', 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      showToastMessage('Lỗi khi xóa thông báo', 'error');
+    }
+  }
+  
+  async function deleteAllNotifications() {
+    if (!confirm('Bạn có chắc chắn muốn xóa tất cả thông báo? Hành động này không thể hoàn tác.')) {
+      return;
+    }
+    
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const result = await window.apiRequest('/api/notifications/all', {
+          method: 'DELETE'
+        });
+        if (result && result.ok) {
+          loadNotifications(); // Reload notifications
+          const deletedCount = result.data?.deleted || 0;
+          showToastMessage(`Đã xóa ${deletedCount} thông báo`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      showToastMessage('Lỗi khi xóa thông báo', 'error');
+    }
+  }
+  
+  // Export functions to window for onclick handlers
+  window.markNotificationRead = markNotificationRead;
+  window.deleteNotification = deleteNotification;
+  window.markAllNotificationsRead = markAllNotificationsRead;
+  window.deleteAllNotifications = deleteAllNotifications;
+  
+  // Initialize notifications when DOM is ready
+  function initNotifications() {
+    const markAllReadBtn = document.getElementById('markAllReadBtn');
+    const deleteAllBtn = document.getElementById('deleteAllNotificationsBtn');
+    
+    if (markAllReadBtn) {
+      markAllReadBtn.addEventListener('click', markAllNotificationsRead);
+    }
+    
+    if (deleteAllBtn) {
+      deleteAllBtn.addEventListener('click', deleteAllNotifications);
+    }
+    
+    loadNotifications();
+    
+    // Auto refresh notifications every 30 seconds
+    setInterval(loadNotifications, 30000);
   }
 
   // Start initialization
