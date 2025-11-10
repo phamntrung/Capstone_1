@@ -14,9 +14,9 @@ async function loadUserData() {
     // Tránh redirect vòng lặp
     return;
   }
-  
+
   let user = auth.user;
-  
+
   // Load đầy đủ thông tin user từ API nếu có
   if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
     try {
@@ -28,7 +28,7 @@ async function loadUserData() {
         const apiBalance = profile.balance !== undefined && profile.balance !== null
           ? profile.balance
           : (user.balance !== undefined && user.balance !== null ? user.balance : 0);
-        
+
         user = {
           ...user,
           balance: apiBalance,
@@ -45,14 +45,14 @@ async function loadUserData() {
       console.warn('Không thể tải thông tin user từ API:', error);
     }
   }
-  
+
   const userNameElement = document.getElementById('userName');
   const welcomeTitleElement = document.getElementById('welcomeTitle');
-  
+
   if (userNameElement) {
     userNameElement.textContent = user.name || 'Người dùng';
   }
-  
+
   if (welcomeTitleElement) {
     welcomeTitleElement.textContent = `Chào mừng, ${user.name || 'Người dùng'}!`;
   }
@@ -79,10 +79,10 @@ async function updateSummaryStats(data) {
   try {
     const meResult = await apiRequest('/api/me');
     if (meResult && meResult.ok && meResult.data) {
-      const apiBalance = meResult.data.balance !== undefined && meResult.data.balance !== null 
-        ? meResult.data.balance 
+      const apiBalance = meResult.data.balance !== undefined && meResult.data.balance !== null
+        ? meResult.data.balance
         : null;
-      
+
       // Nếu API trả về balance (kể cả 0), sử dụng giá trị từ API
       // Balance = 0 là giá trị hợp lệ cho account mới, không cần fallback
       if (apiBalance !== null) {
@@ -94,12 +94,12 @@ async function updateSummaryStats(data) {
         console.warn('⚠️ API balance is null/undefined, using 0 as default');
         userBalance = 0;
       }
-      
+
       // Calculate expenses from allExpenses (more accurate)
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0]; // yyyy-mm-dd
       const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-      
+
       // Monthly expense - tính từ allExpenses
       let monthlyExpense = 0;
       if (allExpenses.length > 0) {
@@ -113,7 +113,7 @@ async function updateSummaryStats(data) {
       if (monthlyExpense === 0 && data.monthly && data.monthly[0]) {
         monthlyExpense = data.monthly[0].amount || 0;
       }
-      
+
       // Today expense - tính từ allExpenses
       let todayExpense = 0;
       if (allExpenses.length > 0) {
@@ -122,7 +122,7 @@ async function updateSummaryStats(data) {
         });
         todayExpense = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Calculate monthly income from expenses
       let monthlyIncome = 0;
       if (allExpenses.length > 0) {
@@ -132,14 +132,14 @@ async function updateSummaryStats(data) {
         });
         monthlyIncome = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Update balance (hiển thị số dư gốc - số tiền đã nhập ở phần "số dư tháng")
       const balanceAmount = document.getElementById('balanceAmount');
       if (balanceAmount) {
         // Hiển thị số dư gốc (số tiền user đã nhập), không trừ chi tiêu
         balanceAmount.textContent = formatCurrency(userBalance);
         balanceAmount.style.color = '#10b981';
-        
+
         // Update localStorage to keep it in sync
         const currentUser = checkAuth();
         if (currentUser && currentUser.user) {
@@ -149,42 +149,42 @@ async function updateSummaryStats(data) {
           localStorage.setItem('monthly_budget', String(userBalance));
         }
       }
-      
+
       // Monthly expense display
       const monthlyExpenseElement = document.getElementById('monthlyExpense');
       if (monthlyExpenseElement) {
         monthlyExpenseElement.textContent = formatCurrency(monthlyExpense);
       }
-      
+
       // Calculate remaining (Số tiền còn lại = Số dư - Chi tiêu THÁNG)
       // Allow negative to show when budget is exceeded
       const remaining = userBalance - monthlyExpense;
-      
+
       // Update monthly expense input (Tổng chi tiêu tháng này) - hiển thị tổng số tiền đã chi trong tháng
       const monthlyExpenseInput = document.getElementById('monthlyExpenseInput');
       if (monthlyExpenseInput) {
         monthlyExpenseInput.value = formatCurrency(monthlyExpense);
       }
-      
+
       // Update today expense input (Tổng chi tiêu hôm nay)
       const todayExpenseInput = document.getElementById('todayExpenseInput');
       if (todayExpenseInput) {
         todayExpenseInput.value = formatCurrency(todayExpense);
       }
-      
+
       // Monthly income
       const monthlyIncomeElement = document.getElementById('monthlyIncome');
       if (monthlyIncomeElement) {
         monthlyIncomeElement.textContent = formatCurrency(monthlyIncome);
       }
-      
+
       // Monthly budget
       const monthlyBudget = data.monthly && data.monthly[0] ? data.monthly[0].budget : 0;
       const monthlyBudgetElement = document.getElementById('monthlyBudget');
       if (monthlyBudgetElement) {
         monthlyBudgetElement.textContent = formatCurrency(monthlyBudget);
       }
-      
+
       // Remaining budget (Số tiền còn lại = Số dư - Chi tiêu THÁNG)
       const remainingBudgetInput = document.getElementById('remainingBudgetInput');
       if (remainingBudgetInput) {
@@ -197,19 +197,19 @@ async function updateSummaryStats(data) {
         } else {
           remainingBudgetInput.style.color = '#10b981'; // Green if OK
         }
-        console.log('✅ Updated remainingBudgetInput:', formatCurrency(remaining), 
-                    '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
+        console.log('✅ Updated remainingBudgetInput:', formatCurrency(remaining),
+          '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
       }
     }
   } catch (error) {
     console.error('Error loading user balance:', error);
   }
-  
+
   // Fallback: load balance from localStorage if API fails
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  
+
   // Calculate monthly expense from allExpenses
   let monthlyExpense = 0;
   if (allExpenses.length > 0) {
@@ -223,7 +223,7 @@ async function updateSummaryStats(data) {
   if (monthlyExpense === 0 && data.monthly && data.monthly[0]) {
     monthlyExpense = data.monthly[0].amount || 0;
   }
-  
+
   // Calculate today expense from allExpenses
   let todayExpense = 0;
   if (allExpenses.length > 0) {
@@ -232,7 +232,7 @@ async function updateSummaryStats(data) {
     });
     todayExpense = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   }
-  
+
   let monthlyIncome = 0;
   if (allExpenses.length > 0) {
     const monthExpenses = allExpenses.filter(e => {
@@ -241,7 +241,7 @@ async function updateSummaryStats(data) {
     });
     monthlyIncome = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   }
-  
+
   // Fallback: try to get balance from localStorage (always update if balanceAmount exists)
   const balanceAmount = document.getElementById('balanceAmount');
   if (balanceAmount) {
@@ -291,18 +291,18 @@ async function updateSummaryStats(data) {
       balanceAmount.style.color = balance >= 0 ? '#10b981' : '#ef4444';
     }
   }
-  
+
   // Monthly budget
   const monthlyBudget = data.monthly && data.monthly[0] ? data.monthly[0].budget : 0;
   const monthlyBudgetElement = document.getElementById('monthlyBudget');
   if (monthlyBudgetElement) {
     monthlyBudgetElement.textContent = formatCurrency(monthlyBudget);
   }
-  
+
   // Budget status and progress
   const budgetStatusElement = document.getElementById('budgetStatus');
   const budgetProgressElement = document.getElementById('budgetProgress');
-  
+
   if (monthlyBudget > 0) {
     const usagePercent = Math.min((monthlyExpense / monthlyBudget) * 100, 100);
     if (budgetStatusElement) {
@@ -316,7 +316,7 @@ async function updateSummaryStats(data) {
       budgetProgressElement.style.width = `${usagePercent}%`;
       budgetProgressElement.style.background = usagePercent >= 100 ? '#ef4444' : (usagePercent >= 80 ? '#f59e0b' : '#60a5fa');
     }
-    
+
     // Remaining budget (using monthly budget for progress bar, but remaining input shows balance - today expense)
     // Note: This is handled above in the main section
   } else {
@@ -328,19 +328,19 @@ async function updateSummaryStats(data) {
     }
     // Remaining budget still shows balance - today expense (handled in main section above)
   }
-  
+
   // Ensure today expense and remaining budget are updated even in fallback
   const todayExpenseInput = document.getElementById('todayExpenseInput');
   if (todayExpenseInput) {
     todayExpenseInput.value = formatCurrency(todayExpense);
   }
-  
+
   // Update monthly expense input (Tổng chi tiêu tháng này) - hiển thị tổng số tiền đã chi trong tháng
   const monthlyExpenseInput = document.getElementById('monthlyExpenseInput');
   if (monthlyExpenseInput) {
     monthlyExpenseInput.value = formatCurrency(monthlyExpense);
   }
-  
+
   // Update remaining budget with balance - monthly expense
   const remainingBudgetInput = document.getElementById('remainingBudgetInput');
   if (remainingBudgetInput) {
@@ -371,10 +371,10 @@ async function updateSummaryStats(data) {
     } else {
       remainingBudgetInput.style.color = '#10b981'; // Green if OK
     }
-    console.log('✅ Updated remainingBudgetInput (fallback):', formatCurrency(remaining), 
-                '(balance:', fallbackBalance, '- monthly expense:', monthlyExpense, ')');
+    console.log('✅ Updated remainingBudgetInput (fallback):', formatCurrency(remaining),
+      '(balance:', fallbackBalance, '- monthly expense:', monthlyExpense, ')');
   }
-  
+
   // Calculate expense change (compare with previous month)
   // Calculate from allExpenses for accurate comparison
   const expenseChangeElement = document.getElementById('expenseChange');
@@ -383,7 +383,7 @@ async function updateSummaryStats(data) {
       const today = new Date();
       const currentYear = today.getFullYear();
       const currentMonth = today.getMonth() + 1; // 1-12
-      
+
       // Calculate current month expense
       const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
       let currentMonthExpense = 0;
@@ -394,7 +394,7 @@ async function updateSummaryStats(data) {
         });
         currentMonthExpense = currentMonthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Calculate previous month expense
       let previousMonth = currentMonth - 1;
       let previousYear = currentYear;
@@ -411,7 +411,7 @@ async function updateSummaryStats(data) {
         });
         previousMonthExpense = previousMonthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Calculate percentage change
       if (previousMonthExpense > 0) {
         const change = ((currentMonthExpense - previousMonthExpense) / previousMonthExpense) * 100;
@@ -431,7 +431,7 @@ async function updateSummaryStats(data) {
       expenseChangeElement.innerHTML = `<span class="up">0%</span> so với tháng trước`;
     }
   }
-  
+
   // Calculate income change (compare with previous month)
   const incomeChangeElement = document.getElementById('incomeChange');
   if (incomeChangeElement) {
@@ -439,7 +439,7 @@ async function updateSummaryStats(data) {
       const today = new Date();
       const currentYear = today.getFullYear();
       const currentMonth = today.getMonth() + 1; // 1-12
-      
+
       // Calculate current month income
       const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
       let currentMonthIncome = 0;
@@ -450,7 +450,7 @@ async function updateSummaryStats(data) {
         });
         currentMonthIncome = currentMonthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Calculate previous month income
       let previousMonth = currentMonth - 1;
       let previousYear = currentYear;
@@ -467,7 +467,7 @@ async function updateSummaryStats(data) {
         });
         previousMonthIncome = previousMonthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
-      
+
       // Calculate percentage change
       if (previousMonthIncome > 0) {
         const change = ((currentMonthIncome - previousMonthIncome) / previousMonthIncome) * 100;
@@ -487,7 +487,7 @@ async function updateSummaryStats(data) {
       incomeChangeElement.innerHTML = `<span class="up">0%</span> so với tháng trước`;
     }
   }
-  
+
   // Check budget warning after updating stats
   setTimeout(() => {
     checkBudgetWarning();
@@ -497,7 +497,7 @@ async function updateSummaryStats(data) {
 // Filter expenses based on current filter and search
 function filterExpenses(expenses) {
   let filtered = [...expenses];
-  
+
   // Apply search filter
   if (currentSearchQuery) {
     const query = currentSearchQuery.toLowerCase();
@@ -507,7 +507,7 @@ function filterExpenses(expenses) {
       return categoryName.includes(query) || note.includes(query);
     });
   }
-  
+
   // Apply filter (time or category)
   if (currentFilter && currentFilter !== 'all') {
     // Check if it's a category filter (format: "category:1")
@@ -525,10 +525,10 @@ function filterExpenses(expenses) {
       // Apply time filter
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       // Helper: format local date to yyyy-mm-dd (avoid UTC shift from toISOString)
       const toLocalYmd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      
+
       if (currentFilter === 'today') {
         const todayStr = toLocalYmd(today);
         filtered = filtered.filter(e => e.date === todayStr);
@@ -545,7 +545,7 @@ function filterExpenses(expenses) {
     }
   }
   // 'all' filter - no additional filtering needed
-  
+
   return filtered;
 }
 
@@ -555,14 +555,14 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     console.warn('⚠️ quickUpdateUIWithNewExpense: newExpense is null/undefined');
     return;
   }
-  
+
   console.log('📊 Quick update started with expense:', newExpense);
-  
+
   // Initialize allExpenses if not exists
   if (!Array.isArray(allExpenses)) {
     allExpenses = [];
   }
-  
+
   // Nếu allExpenses rỗng hoặc chưa được load, reload từ API trước để đảm bảo tính toán chính xác
   if (allExpenses.length === 0) {
     console.log('⚠️ allExpenses is empty, reloading from API first...');
@@ -576,7 +576,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
       console.warn('⚠️ Error reloading expenses, will use existing data:', e);
     }
   }
-  
+
   // Normalize expense data before adding
   // Ensure date is in yyyy-mm-dd format
   let normalizedExpense = { ...newExpense };
@@ -598,10 +598,10 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   if (!normalizedExpense.type) {
     normalizedExpense.type = 'expense';
   }
-  
+
   // Store new expense ID for debugging
   const newExpenseId = normalizedExpense.id;
-  
+
   // Check if expense already exists (avoid duplicates)
   const existingIndex = allExpenses.findIndex(e => e.id === normalizedExpense.id);
   if (existingIndex >= 0) {
@@ -613,7 +613,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     allExpenses.push(normalizedExpense);
     console.log('➕ Added new expense, total count:', allExpenses.length, normalizedExpense);
   }
-  
+
   // Calculate current values
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0]; // yyyy-mm-dd
@@ -621,7 +621,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   console.log('📅 Current month:', currentMonth, 'Today:', todayStr);
   console.log('📦 allExpenses count before filter:', allExpenses.length);
   console.log('📦 Sample expenses:', allExpenses.slice(-3).map(e => ({ id: e.id, date: e.date, amount: e.amount, type: e.type })));
-  
+
   // Calculate monthly expense - tính tổng tất cả chi tiêu trong tháng
   const monthExpenses = allExpenses.filter(e => {
     if (!e || e.type !== 'expense') {
@@ -649,7 +649,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   });
   const monthlyExpense = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   console.log('💰 Monthly expense calculated:', monthlyExpense, 'from', monthExpenses.length, 'expenses');
-  
+
   // Calculate today expense - tính tổng chi tiêu hôm nay
   const todayExpenses = allExpenses.filter(e => {
     if (!e || e.type !== 'expense') {
@@ -676,12 +676,12 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     } else {
       // Log why it doesn't match (for debugging)
       if (e.id === newExpenseId) {
-        console.warn('⚠️⚠️⚠️ New expense date mismatch!', { 
-          expenseId: e.id, 
-          expenseDate: e.date, 
-          expDate, 
-          todayStr, 
-          match: expDate === todayStr 
+        console.warn('⚠️⚠️⚠️ New expense date mismatch!', {
+          expenseId: e.id,
+          expenseDate: e.date,
+          expDate,
+          todayStr,
+          match: expDate === todayStr
         });
       }
     }
@@ -694,16 +694,16 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   }, 0);
   console.log('📅📅📅 Today expense calculated:', todayExpense, 'from', todayExpenses.length, 'expenses');
   console.log('📅 Today expenses breakdown:', todayExpenses.map(e => ({ id: e.id, date: e.date, amount: e.amount, note: e.note })));
-  
+
   // Get user balance from API (always fetch from database, not localStorage)
   let userBalance = 0;
   try {
     const meResult = await apiRequest('/api/me');
     if (meResult && meResult.ok && meResult.data) {
-      const apiBalance = meResult.data.balance !== undefined && meResult.data.balance !== null 
-        ? meResult.data.balance 
+      const apiBalance = meResult.data.balance !== undefined && meResult.data.balance !== null
+        ? meResult.data.balance
         : null;
-      
+
       // Nếu API trả về balance (kể cả 0), sử dụng giá trị từ API
       // Balance = 0 là giá trị hợp lệ cho account mới, không cần fallback
       if (apiBalance !== null) {
@@ -725,19 +725,19 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     userBalance = 0;
   }
   console.log('💵 Final user balance:', userBalance);
-  
+
   // Calculate remaining - Số tiền còn lại = Số dư - Chi tiêu THÁNG
   // Allow negative to show when budget is exceeded
   const remaining = userBalance - monthlyExpense;
-  console.log('✅✅✅ Remaining calculated:', remaining, 
-              '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
+  console.log('✅✅✅ Remaining calculated:', remaining,
+    '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
   console.log('📊 Summary:', {
     userBalance,
     monthlyExpense,
     remaining,
     formula: `${userBalance} - ${monthlyExpense} = ${remaining}`
   });
-  
+
   // Update UI immediately - check each element
   const monthlyExpenseInput = document.getElementById('monthlyExpenseInput');
   if (monthlyExpenseInput) {
@@ -746,7 +746,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   } else {
     console.warn('⚠️ monthlyExpenseInput element not found');
   }
-  
+
   const monthlyExpenseElement = document.getElementById('monthlyExpense');
   if (monthlyExpenseElement) {
     monthlyExpenseElement.textContent = formatCurrency(monthlyExpense);
@@ -754,7 +754,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   } else {
     console.warn('⚠️ monthlyExpense element not found');
   }
-  
+
   const todayExpenseInput = document.getElementById('todayExpenseInput');
   if (todayExpenseInput) {
     todayExpenseInput.value = formatCurrency(todayExpense);
@@ -762,7 +762,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   } else {
     console.warn('⚠️ todayExpenseInput element not found');
   }
-  
+
   // Update remaining budget (Số tiền còn lại) - ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT
   console.log('🔍🔍🔍 Attempting to update remainingBudgetInput...');
   console.log('🔍 Values:', { userBalance, monthlyExpense, remaining, formula: `${userBalance} - ${monthlyExpense} = ${remaining}` });
@@ -778,10 +778,10 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     } else {
       remainingBudgetInput.style.color = '#10b981'; // Green if OK
     }
-    console.log('✅✅✅ Updated remainingBudgetInput:', 
-                'old:', oldValue, 
-                'new:', formatCurrency(remaining), 
-                '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
+    console.log('✅✅✅ Updated remainingBudgetInput:',
+      'old:', oldValue,
+      'new:', formatCurrency(remaining),
+      '(balance:', userBalance, '- monthly expense:', monthlyExpense, ')');
     console.log('✅✅✅ Element after update:', {
       value: remainingBudgetInput.value,
       color: remainingBudgetInput.style.color,
@@ -796,7 +796,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     const allInputs = document.querySelectorAll('input');
     console.log('All inputs on page:', Array.from(allInputs).map(i => ({ id: i.id, value: i.value, placeholder: i.placeholder })));
   }
-  
+
   // Update recent expenses list
   try {
     updateRecentExpenses(allExpenses);
@@ -804,7 +804,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   } catch (e) {
     console.error('Error updating recent expenses:', e);
   }
-  
+
   // Update category list
   try {
     updateCategoryList(allExpenses);
@@ -812,7 +812,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   } catch (e) {
     console.error('Error updating category list:', e);
   }
-  
+
   console.log('✅ UI updated instantly with new expense');
 }
 
@@ -820,25 +820,25 @@ async function quickUpdateUIWithNewExpense(newExpense) {
 function updateRecentExpenses(expenses) {
   // Store all expenses globally
   allExpenses = expenses;
-  
+
   // Apply filters
   const filtered = filterExpenses(expenses);
-  
+
   // Calculate pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   // Reset to page 1 if current page is out of bounds
   if (currentPage > totalPages) {
     currentPage = 1;
   }
-  
+
   // Calculate pagination slice
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedExpenses = filtered.slice(startIndex, endIndex);
-  
+
   const container = document.getElementById('recentExpenses');
   const tableBody = document.getElementById('recentExpensesTable');
-  
+
   // Update table view
   if (tableBody) {
     if (filtered.length === 0) {
@@ -867,7 +867,7 @@ function updateRecentExpenses(expenses) {
       // Hide empty state
       const emptyRow = tableBody.querySelector('.empty-state');
       if (emptyRow) emptyRow.style.display = 'none';
-      
+
       // Show paginated expenses
       tableBody.innerHTML = paginatedExpenses.map(expense => {
         const categoryName = expense.categoryId ? (expense.categoryName || 'Danh mục') : 'Khác';
@@ -876,7 +876,7 @@ function updateRecentExpenses(expenses) {
         const date = expense.date || '';
         const typeClass = expense.type === 'income' ? 'income' : 'expense';
         const sign = expense.type === 'income' ? '+' : '-';
-        
+
         return `
           <tr>
             <td class="category-clickable" data-expense-id="${expense.id}" style="cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">${categoryName}</td>
@@ -886,10 +886,10 @@ function updateRecentExpenses(expenses) {
           </tr>
         `;
       }).join('');
-      
+
       // Add click listeners to category cells
       tableBody.querySelectorAll('.category-clickable').forEach(cell => {
-        cell.addEventListener('click', function(e) {
+        cell.addEventListener('click', function (e) {
           e.stopPropagation();
           const expenseId = this.getAttribute('data-expense-id');
           if (expenseId) {
@@ -897,12 +897,12 @@ function updateRecentExpenses(expenses) {
           }
         });
       });
-      
+
       // Update pagination
       updatePagination(filtered.length, totalPages);
     }
   }
-  
+
   // Update container view (if exists)
   if (container) {
     if (expenses.length === 0) {
@@ -924,7 +924,7 @@ function updateRecentExpenses(expenses) {
 
     container.innerHTML = expensesHTML;
   }
-  
+
   // Calculate today's expenses
   const today = new Date().toISOString().split('T')[0];
   const todayExpenses = expenses.filter(e => e.date === today && e.type === 'expense');
@@ -933,7 +933,7 @@ function updateRecentExpenses(expenses) {
   if (todayExpenseInput) {
     todayExpenseInput.value = formatCurrency(todayTotal);
   }
-  
+
   // Defensive: also refresh remaining = balance - MONTHLY expense (avoid any accidental today-only calc)
   try {
     const now = new Date();
@@ -943,7 +943,7 @@ function updateRecentExpenses(expenses) {
       return expDate === currentMonth && e.type === 'expense';
     });
     const monthlyTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
-    
+
     // Get balance from stored profile/UI
     let balanceForUI = 0;
     try {
@@ -955,8 +955,8 @@ function updateRecentExpenses(expenses) {
         const monthlyBudget = localStorage.getItem('monthly_budget');
         if (monthlyBudget) balanceForUI = Number(monthlyBudget) || 0;
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     const remainingEl = document.getElementById('remainingBudgetInput');
     if (remainingEl) {
       const remainingCalc = balanceForUI - monthlyTotal;
@@ -969,8 +969,8 @@ function updateRecentExpenses(expenses) {
         remainingEl.style.color = '#10b981';
       }
     }
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // Update category list after updating expenses
   updateCategoryList(expenses);
 }
@@ -979,80 +979,80 @@ function updateRecentExpenses(expenses) {
 function updatePagination(totalItems, totalPages) {
   const paginationContainer = document.getElementById('paginationContainer');
   if (!paginationContainer) return;
-  
+
   if (totalItems === 0 || totalPages <= 1) {
     paginationContainer.style.display = 'none';
     return;
   }
-  
+
   paginationContainer.style.display = 'flex';
-  
+
   // Calculate display range
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
-  
+
   // Build pagination HTML
   let paginationHTML = `
     <div class="pagination-info" style="color:#64748b;font-size:14px">
       Hiển thị ${startItem}-${endItem} của ${totalItems} giao dịch
     </div>
     <div class="pagination-controls" style="display:flex;align-items:center;gap:8px">
-      <button id="prevPageBtn" class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''} 
+      <button id="prevPageBtn" class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''}
               style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-weight:600;color:#475569;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed' : ''}">
         Trước
       </button>
       <div class="pagination-pages" style="display:flex;align-items:center;gap:4px">
   `;
-  
+
   // Show page numbers (max 5 pages visible)
   const maxVisiblePages = 5;
   let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
   let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-  
+
   if (endPage - startPage < maxVisiblePages - 1) {
     startPage = Math.max(1, endPage - maxVisiblePages + 1);
   }
-  
+
   if (startPage > 1) {
     paginationHTML += `<button class="pagination-page" data-page="1" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-weight:600;color:#475569">1</button>`;
     if (startPage > 2) {
       paginationHTML += `<span style="color:#94a3b8">...</span>`;
     }
   }
-  
+
   for (let i = startPage; i <= endPage; i++) {
     const isActive = i === currentPage;
     paginationHTML += `
-      <button class="pagination-page ${isActive ? 'active' : ''}" data-page="${i}" 
+      <button class="pagination-page ${isActive ? 'active' : ''}" data-page="${i}"
               style="padding:6px 10px;border:1px solid ${isActive ? 'var(--blue)' : 'var(--border)'};border-radius:6px;background:${isActive ? 'var(--blue)' : '#fff'};cursor:pointer;font-weight:600;color:${isActive ? '#fff' : '#475569'}">
         ${i}
       </button>
     `;
   }
-  
+
   if (endPage < totalPages) {
     if (endPage < totalPages - 1) {
       paginationHTML += `<span style="color:#94a3b8">...</span>`;
     }
     paginationHTML += `<button class="pagination-page" data-page="${totalPages}" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-weight:600;color:#475569">${totalPages}</button>`;
   }
-  
+
   paginationHTML += `
       </div>
-      <button id="nextPageBtn" class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} 
+      <button id="nextPageBtn" class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''}
               style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-weight:600;color:#475569;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed' : ''}">
         Sau
       </button>
     </div>
   `;
-  
+
   paginationContainer.innerHTML = paginationHTML;
-  
+
   // Add event listeners
   const prevBtn = document.getElementById('prevPageBtn');
   const nextBtn = document.getElementById('nextPageBtn');
   const pageBtns = document.querySelectorAll('.pagination-page');
-  
+
   if (prevBtn) {
     prevBtn.addEventListener('click', () => {
       if (currentPage > 1) {
@@ -1066,7 +1066,7 @@ function updatePagination(totalItems, totalPages) {
       }
     });
   }
-  
+
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
       if (currentPage < totalPages) {
@@ -1080,7 +1080,7 @@ function updatePagination(totalItems, totalPages) {
       }
     });
   }
-  
+
   pageBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const page = parseInt(btn.getAttribute('data-page'));
@@ -1108,17 +1108,17 @@ async function loadDashboardData() {
 
   try {
     console.log('🔄 Loading dashboard data from API...');
-    
+
     // Load all expenses first (needed for accurate calculations)
     const expensesResult = await apiRequest('/api/expenses');
     if (expensesResult && expensesResult.ok) {
       // Update global allExpenses array with API data
       allExpenses = expensesResult.data.items || [];
       console.log(`✅ Loaded ${allExpenses.length} expenses from API`);
-      
+
       // Update recent expenses display
       updateRecentExpenses(allExpenses);
-      
+
       // Also update dataManager cache for offline support
       if (window.dataManager) {
         window.dataManager.data.expenses = allExpenses;
@@ -1131,20 +1131,20 @@ async function loadDashboardData() {
     if (summaryResult && summaryResult.ok) {
       updateSummaryStats(summaryResult.data);
     }
-    
+
     // Load categories for filter dropdown
     const categoriesResult = await apiRequest('/api/categories');
     if (categoriesResult && categoriesResult.ok) {
       allCategories = categoriesResult.data.items || [];
       updateFilterDropdown();
-      
+
       // Also update dataManager cache
       if (window.dataManager) {
         window.dataManager.data.categories = allCategories;
         window.dataManager.saveData();
       }
     }
-    
+
     // Load chart data
     loadChartData();
 
@@ -1153,7 +1153,7 @@ async function loadDashboardData() {
     console.error('Error loading dashboard data:', error);
     const recentExpensesElement = document.getElementById('recentExpenses');
     if (recentExpensesElement) {
-      recentExpensesElement.innerHTML = 
+      recentExpensesElement.innerHTML =
         '<div class="error">Lỗi tải dữ liệu. Vui lòng thử lại.</div>';
     }
   }
@@ -1166,18 +1166,18 @@ async function reloadDashboardData(immediate = false) {
     console.log('⏭️ Reload đang chạy, bỏ qua request mới');
     return;
   }
-  
+
   // Debounce: đợi 500ms trước khi reload (trừ khi immediate = true)
   if (!immediate && reloadDebounceTimer) {
     clearTimeout(reloadDebounceTimer);
   }
-  
+
   const doReload = async () => {
     if (isReloading) {
       console.log('⏭️ Reload đang chạy, bỏ qua');
       return;
     }
-    
+
     isReloading = true;
     try {
       await loadDashboardData();
@@ -1190,7 +1190,7 @@ async function reloadDashboardData(immediate = false) {
       }, 1000);
     }
   };
-  
+
   if (immediate) {
     await doReload();
   } else {
@@ -1211,7 +1211,7 @@ function initSearchAndFilter() {
       updateRecentExpenses(allExpenses);
     });
   }
-  
+
   // Filter dropdown (time filter)
   const filterSelect = document.getElementById('expenseFilterSelect');
   if (filterSelect) {
@@ -1227,7 +1227,7 @@ function initSearchAndFilter() {
 function updateFilterDropdown() {
   const filterSelect = document.getElementById('expenseFilterSelect');
   if (!filterSelect) return;
-  
+
   // Keep existing options but update category options
   const currentValue = filterSelect.value;
   const baseOptions = [
@@ -1236,11 +1236,11 @@ function updateFilterDropdown() {
     { value: 'week', text: 'Tuần này' },
     { value: 'month', text: 'Tháng này' }
   ];
-  
-  let html = baseOptions.map(opt => 
+
+  let html = baseOptions.map(opt =>
     `<option value="${opt.value}">${opt.text}</option>`
   ).join('');
-  
+
   // Add category options
   if (allCategories.length > 0) {
     html += '<optgroup label="Theo danh mục">';
@@ -1249,9 +1249,9 @@ function updateFilterDropdown() {
     });
     html += '</optgroup>';
   }
-  
+
   filterSelect.innerHTML = html;
-  
+
   // Restore selected value if still valid
   if (currentValue && Array.from(filterSelect.options).some(opt => opt.value === currentValue)) {
     filterSelect.value = currentValue;
@@ -1262,24 +1262,24 @@ function updateFilterDropdown() {
 function updateCategoryList(expenses) {
   const categoryList = document.getElementById('categoryList');
   if (!categoryList) return;
-  
+
   // Calculate expenses by category
   const categoryTotals = {};
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  
+
   // Filter expenses for current month only
   const monthExpenses = expenses.filter(e => {
     const expDate = e.date ? e.date.substring(0, 7) : '';
     return expDate === currentMonth && e.type === 'expense';
   });
-  
+
   monthExpenses.forEach(expense => {
     const catId = expense.categoryId;
     const catName = expense.categoryName || 'Khác';
     // Use categoryId as key, or 'other' if no category
     const key = catId !== null && catId !== undefined ? catId : 'other';
-    
+
     if (!categoryTotals[key]) {
       categoryTotals[key] = {
         id: catId,
@@ -1289,10 +1289,10 @@ function updateCategoryList(expenses) {
     }
     categoryTotals[key].total += Math.abs(expense.amount || 0);
   });
-  
+
   const categories = Object.values(categoryTotals);
   categories.sort((a, b) => b.total - a.total);
-  
+
   if (categories.length === 0) {
     const emptyState = categoryList.querySelector('.empty-state');
     if (emptyState) {
@@ -1302,14 +1302,14 @@ function updateCategoryList(expenses) {
     }
     return;
   }
-  
+
   // Hide empty state
   const emptyState = categoryList.querySelector('.empty-state');
   if (emptyState) emptyState.style.display = 'none';
-  
+
   // Calculate max amount for percentage
   const maxAmount = Math.max(...categories.map(c => c.total), 1);
-  
+
   categoryList.innerHTML = categories.slice(0, 5).map(cat => {
     const percentage = Math.round((cat.total / maxAmount) * 100);
     const categoryColor = getCategoryColorByName(cat.name);
@@ -1332,10 +1332,10 @@ function parseExpenseInput(inputText) {
   // Parse input like "Cà phê 10000" or "Cà phê 10,000" or "10000 Cà phê"
   inputText = inputText.trim();
   if (!inputText) return null;
-  
+
   // Remove commas and spaces, then extract number
   const cleanText = inputText.replace(/,/g, '');
-  
+
   // Try to find number at the end (e.g., "Cà phê 10000")
   let match = cleanText.match(/^(.+?)\s+(\d+)$/);
   if (match) {
@@ -1344,7 +1344,7 @@ function parseExpenseInput(inputText) {
       amount: parseFloat(match[2])
     };
   }
-  
+
   // Try to find number at the beginning (e.g., "10000 Cà phê")
   match = cleanText.match(/^(\d+)\s+(.+)$/);
   if (match) {
@@ -1353,7 +1353,7 @@ function parseExpenseInput(inputText) {
       amount: parseFloat(match[1])
     };
   }
-  
+
   // If only number, use default note
   const onlyNumber = parseFloat(cleanText);
   if (!isNaN(onlyNumber) && onlyNumber > 0) {
@@ -1362,16 +1362,16 @@ function parseExpenseInput(inputText) {
       amount: onlyNumber
     };
   }
-  
+
   return null;
 }
 
 async function handleQuickAddExpense() {
   const input = document.getElementById('quickExpenseInput');
   const btn = document.getElementById('quickExpenseBtn');
-  
+
   if (!input || !btn) return;
-  
+
   const inputText = input.value.trim();
   if (!inputText) {
     // Show error message
@@ -1384,7 +1384,7 @@ async function handleQuickAddExpense() {
     }, 2000);
     return;
   }
-  
+
   // Parse input
   const parsed = parseExpenseInput(inputText);
   if (!parsed || !parsed.amount || parsed.amount <= 0) {
@@ -1397,18 +1397,18 @@ async function handleQuickAddExpense() {
     }, 2000);
     return;
   }
-  
+
   // Disable button and show loading
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Đang thêm...';
-  
+
   try {
     const auth = checkAuth();
     if (!auth) {
       throw new Error('Vui lòng đăng nhập lại');
     }
-    
+
     // Lấy ngày từ server để đảm bảo đúng ngày
     let today;
     if (typeof window.getCurrentDateFromServer === 'function') {
@@ -1417,7 +1417,7 @@ async function handleQuickAddExpense() {
       // Fallback nếu helper không có
       today = new Date().toISOString().split('T')[0];
     }
-    
+
     // Create expense data
     const expenseData = {
       date: today,
@@ -1426,30 +1426,30 @@ async function handleQuickAddExpense() {
       categoryId: null,
       note: parsed.note
     };
-    
+
     // Send to API
     const result = await apiRequest('/api/expenses', {
       method: 'POST',
       body: JSON.stringify(expenseData)
     });
-    
+
     if (!result || !result.ok) {
       const errorMsg = result?.data?.message || 'Lỗi khi thêm chi tiêu';
       throw new Error(errorMsg);
     }
-    
+
     // Clear input
     input.value = '';
-    
+
     // Show success
     btn.textContent = '✓ Đã thêm!';
     btn.style.backgroundColor = '#10b981';
-    
+
     // Quick update UI immediately (real-time)
     // Use API response if available, otherwise use parsed data
     const expenseResponse = result.data;
     let displayExpense;
-    
+
     if (expenseResponse && expenseResponse.id) {
       // Use API response (preferred) - ensure amount is positive for display
       displayExpense = {
@@ -1477,22 +1477,22 @@ async function handleQuickAddExpense() {
       };
       console.warn('⚠️ Using fallback expense data, API response:', expenseResponse);
     }
-    
+
     console.log('🔄 Quick updating UI with expense:', displayExpense);
     await quickUpdateUIWithNewExpense(displayExpense);
-    
+
     // Notify expense added (this handles cross-tab sync via localStorage)
     notifyExpenseAdded();
-    
+
     // Dispatch event for same-page updates (works in same tab)
     // Note: quickUpdated flag tells listeners that UI was already updated, no need to reload
     window.dispatchEvent(new CustomEvent('expenseAdded', {
-      detail: { 
+      detail: {
         expense: displayExpense,
         quickUpdated: true  // Flag để listeners biết UI đã được update rồi
       }
     }));
-    
+
     // Also broadcast via BroadcastChannel for same-origin cross-tab communication (faster than storage events)
     // This is mainly for OTHER tabs, not the current tab (which already got quick update)
     if (window.expenseBroadcastChannel) {
@@ -1507,7 +1507,7 @@ async function handleQuickAddExpense() {
         console.warn('BroadcastChannel not available:', e);
       }
     }
-    
+
     // Reload dashboard data in background to sync with server (after quick update)
     // Delay longer to ensure server has processed the new expense and avoid duplicate reloads
     setTimeout(() => {
@@ -1515,27 +1515,27 @@ async function handleQuickAddExpense() {
         console.warn('Background reload error (non-critical):', err);
       });
     }, 1500);
-    
+
     // Reset button after delay
     setTimeout(() => {
       btn.textContent = originalText;
       btn.style.backgroundColor = '';
       btn.disabled = false;
     }, 1500);
-    
+
   } catch (error) {
     console.error('Error adding expense:', error);
-    
+
     // Show error
     btn.textContent = 'Lỗi!';
     btn.style.backgroundColor = '#ef4444';
-    
+
     setTimeout(() => {
       btn.textContent = originalText;
       btn.style.backgroundColor = '';
       btn.disabled = false;
     }, 2000);
-    
+
     // Show error message (optional - you can use toast if available)
     alert('Lỗi: ' + (error.message || 'Không thể thêm chi tiêu. Vui lòng thử lại.'));
   }
@@ -1544,12 +1544,12 @@ async function handleQuickAddExpense() {
 function initQuickExpenseInput() {
   const input = document.getElementById('quickExpenseInput');
   const btn = document.getElementById('quickExpenseBtn');
-  
+
   if (!input || !btn) return;
-  
+
   // Handle button click
   btn.addEventListener('click', handleQuickAddExpense);
-  
+
   // Handle Enter key
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -1578,7 +1578,7 @@ async function loadChartData() {
 function renderChart() {
   const chartContainer = document.getElementById('expenseChart');
   if (!chartContainer) return;
-  
+
   if (chartData.length === 0) {
     const emptyState = chartContainer.querySelector('.empty-state');
     if (emptyState) {
@@ -1588,14 +1588,14 @@ function renderChart() {
     }
     return;
   }
-  
+
   // Hide empty state
   const emptyState = chartContainer.querySelector('.empty-state');
   if (emptyState) emptyState.style.display = 'none';
-  
+
   // Find max amount for scaling
   const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
-  
+
   // Render bars
   chartContainer.innerHTML = chartData.map(item => {
     const heightPercent = maxAmount > 0 ? Math.max((item.amount / maxAmount) * 100, 5) : 5;
@@ -1731,11 +1731,11 @@ function initChatbox() {
 
 // ===== Logout Link Handler =====
 function initLogoutHandler() {
-  document.addEventListener('click', async function(e) {
+  document.addEventListener('click', async function (e) {
     const link = e.target && e.target.closest && e.target.closest('a[href="login.html"]');
     if (!link) return;
     e.preventDefault();
-    
+
     // Use global logout function which handles sync properly
     if (typeof window.logout === 'function') {
       await window.logout();
@@ -1753,11 +1753,11 @@ function initLogoutHandler() {
           console.error('❌ Error syncing before logout:', error);
         }
       }
-      
+
       try {
         localStorage.removeItem('smartexpense_user');
         localStorage.removeItem('smartexpense_token');
-      } catch (_) {}
+      } catch (_) { }
       window.location.href = 'login.html';
     }
   });
@@ -1776,68 +1776,68 @@ function initDateChangeDetector() {
   const today = new Date();
   currentTrackedDate = today.toISOString().split('T')[0];
   console.log('📅 Tracking date:', currentTrackedDate);
-  
+
   // Hàm kiểm tra ngày thay đổi
   function checkDateChange() {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    
+
     // Nếu ngày đã thay đổi (qua nửa đêm)
     if (todayStr !== currentTrackedDate) {
       console.log('🔄 Date changed detected!', currentTrackedDate, '->', todayStr);
       currentTrackedDate = todayStr;
-      
+
       // Reload toàn bộ dữ liệu để cập nhật UI
       reloadDashboardData();
-      
+
       // Cập nhật filter nếu đang chọn "Hôm nay"
       const filterSelect = document.getElementById('expenseFilterSelect');
       if (filterSelect && filterSelect.value === 'today') {
         // Trigger filter update để refresh danh sách giao dịch
         updateRecentExpenses(allExpenses);
       }
-      
+
       // Hiển thị thông báo nhẹ nhàng (tùy chọn)
       console.log('✅ Dashboard updated for new day:', todayStr);
     }
   }
-  
+
   // Tính toán thời gian đến nửa đêm tiếp theo và set timeout chính xác
   function scheduleNextMidnightCheck() {
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-    
+
     const msUntilMidnight = tomorrow.getTime() - now.getTime();
-    
+
     // Set timeout để check ngay khi đến nửa đêm
     setTimeout(() => {
       checkDateChange();
       // Sau khi check xong, schedule lại cho nửa đêm tiếp theo
       scheduleNextMidnightCheck();
     }, msUntilMidnight);
-    
+
     console.log(`⏰ Scheduled next date check at midnight (in ${Math.round(msUntilMidnight / 1000 / 60)} minutes)`);
   }
-  
+
   // Schedule check đầu tiên
   scheduleNextMidnightCheck();
-  
+
   // Kiểm tra mỗi phút để phát hiện khi ngày thay đổi (backup, phòng khi timeout bị miss)
   // (Kiểm tra mỗi phút đủ để catch khi qua nửa đêm)
   dateChangeDetector = setInterval(checkDateChange, 60000); // 60 giây
-  
+
   // Kiểm tra ngay lập tức khi trang được focus lại (khi user quay lại tab)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       checkDateChange();
     }
   });
-  
+
   // Kiểm tra khi window được focus
   window.addEventListener('focus', checkDateChange);
-  
+
   console.log('✅ Date change detector initialized');
 }
 
@@ -1853,14 +1853,14 @@ function stopDateChangeDetector() {
 async function initDashboard() {
   await loadUserData();
   loadDashboardData();
-  
+
   // Load and display avatar
   await loadHomeAvatar();
   setupAvatarUpdateListener();
-  
+
   // Initialize date change detector
   initDateChangeDetector();
-  
+
   // Initialize BroadcastChannel for fast cross-tab communication
   try {
     if (typeof BroadcastChannel !== 'undefined') {
@@ -1882,7 +1882,7 @@ async function initDashboard() {
   } catch (e) {
     console.warn('BroadcastChannel not available:', e);
   }
-  
+
   // Initialize additional features
   initTableFilter();
   initSearchAndFilter();
@@ -1892,10 +1892,10 @@ async function initDashboard() {
   initQuickExpenseInput();
   initCategoryModal();
   initIncomeAndBudgetModals();
-  
+
   // Make logout function globally available
   window.logout = logout;
-  
+
   // Listen for expense updates from other pages
   window.addEventListener('storage', async (e) => {
     if (e.key === 'smartexpense_expense_added') {
@@ -1905,13 +1905,13 @@ async function initDashboard() {
     // Listen for profile updates (balance changes) from other pages
     if (e.key === 'smartexpense_profile_updated') {
       console.log('Profile updated (storage event), reloading dashboard...');
-      
+
       // Lấy balance từ localStorage nếu có
       const balanceUpdated = localStorage.getItem('smartexpense_balance_updated');
       if (balanceUpdated) {
         const balanceValue = parseFloat(balanceUpdated);
         console.log('💰 Updating balance from storage:', balanceValue);
-        
+
         // Cập nhật localStorage
         const currentUser = checkAuth();
         if (currentUser && currentUser.user) {
@@ -1920,7 +1920,7 @@ async function initDashboard() {
           localStorage.setItem('smartexpense_user', JSON.stringify(currentUser.user));
           localStorage.setItem('monthly_budget', String(balanceValue));
         }
-        
+
         // Cập nhật UI ngay lập tức
         const balanceAmount = document.getElementById('balanceAmount');
         if (balanceAmount) {
@@ -1928,12 +1928,12 @@ async function initDashboard() {
           balanceAmount.style.color = '#10b981';
         }
       }
-      
+
       // Reload toàn bộ dữ liệu từ API (sử dụng debounced reload)
       reloadDashboardData();
     }
   });
-  
+
   // Listen for custom events (for same-page updates)
   // Skip reload if expense was already quick-updated (to avoid duplicate reloads)
   window.addEventListener('expenseAdded', (event) => {
@@ -1946,11 +1946,11 @@ async function initDashboard() {
     // Sử dụng debounced reload
     reloadDashboardData();
   });
-  
+
   // Listen for profile updates (for same-page updates)
   window.addEventListener('profileUpdated', async (event) => {
     console.log('Profile updated event received, updating dashboard...', event);
-    
+
     // Lấy balance từ event detail nếu có
     const balanceFromEvent = event.detail?.balance;
     if (balanceFromEvent !== undefined) {
@@ -1963,14 +1963,14 @@ async function initDashboard() {
         localStorage.setItem('smartexpense_user', JSON.stringify(currentUser.user));
         localStorage.setItem('monthly_budget', String(balanceFromEvent));
       }
-      
+
       // Cập nhật UI ngay lập tức
       const balanceAmount = document.getElementById('balanceAmount');
       if (balanceAmount) {
         balanceAmount.textContent = formatCurrency(balanceFromEvent);
         balanceAmount.style.color = '#10b981';
       }
-      
+
       // Tính lại số tiền còn lại = balance - chi tiêu THÁNG
       let monthlyExpenseForEvent = 0;
       if (allExpenses.length > 0) {
@@ -1989,12 +1989,12 @@ async function initDashboard() {
           monthlyExpenseForEvent = parseFloat(monthlyExpenseStr) || 0;
         }
       }
-      
+
       // Tính remaining = balance - monthlyExpense
       // Allow negative to show when budget is exceeded
       const remaining = balanceFromEvent - monthlyExpenseForEvent;
       console.log('💰 Calculating remaining:', balanceFromEvent, '-', monthlyExpenseForEvent, '=', remaining);
-      
+
       // Cập nhật remainingBudgetInput (số tiền còn lại)
       const remainingBudgetInput = document.getElementById('remainingBudgetInput');
       if (remainingBudgetInput) {
@@ -2012,11 +2012,11 @@ async function initDashboard() {
         console.warn('⚠️ remainingBudgetInput element not found!');
       }
     }
-    
+
     // Reload toàn bộ dữ liệu từ API để đảm bảo đồng bộ
     reloadDashboardData();
   });
-  
+
   console.log('Dashboard initialized with all features');
 }
 
@@ -2029,22 +2029,22 @@ async function loadHomeAvatar() {
       hideHomeAvatar();
       return;
     }
-    
+
     const user = JSON.parse(userData);
-    
+
     // Ưu tiên 1: Avatar từ localStorage (đã upload)
     if (user.avatar) {
       displayHomeAvatar(user.avatar);
       return;
     }
-    
+
     // Ưu tiên 2: Avatar từ API (avatar_url từ Google hoặc đã lưu)
     if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
       try {
         const meResult = await window.apiRequest('/api/me');
         if (meResult && meResult.ok && meResult.data) {
           const profile = meResult.data;
-          
+
           // Nếu có avatar_url từ API (Google avatar hoặc đã upload lên server)
           if (profile.avatar_url) {
             // Load avatar từ URL
@@ -2065,10 +2065,10 @@ async function loadHomeAvatar() {
         console.warn('Không thể tải avatar từ API:', error);
       }
     }
-    
+
     // Nếu không có avatar nào (chưa upload), ẩn avatar
     hideHomeAvatar();
-    
+
   } catch (error) {
     console.warn('Lỗi khi tải avatar trên trang chủ:', error);
     // Nếu có lỗi, ẩn avatar
@@ -2081,17 +2081,17 @@ function hideHomeAvatar() {
   const avatarImage = document.getElementById('homeAvatarImage');
   const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
   const avatarContainer = document.getElementById('homeAvatar');
-  
+
   if (avatarImage) {
     avatarImage.src = '';
     avatarImage.style.display = 'none';
   }
-  
+
   if (avatarPlaceholder) {
     avatarPlaceholder.textContent = '';
     avatarPlaceholder.style.display = 'none';
   }
-  
+
   // Ẩn toàn bộ container avatar khi chưa có avatar
   if (avatarContainer) {
     avatarContainer.style.display = 'none';
@@ -2103,12 +2103,12 @@ function displayHomeAvatar(imageDataUrl) {
   const avatarImage = document.getElementById('homeAvatarImage');
   const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
   const avatarContainer = document.getElementById('homeAvatar');
-  
+
   // Hiển thị container avatar
   if (avatarContainer) {
     avatarContainer.style.display = '';
   }
-  
+
   if (avatarImage && avatarPlaceholder) {
     avatarImage.src = imageDataUrl;
     avatarImage.style.display = 'block';
@@ -2119,18 +2119,18 @@ function displayHomeAvatar(imageDataUrl) {
 // Setup listener for avatar updates
 function setupAvatarUpdateListener() {
   // Listen for storage events
-  window.addEventListener('storage', function(e) {
+  window.addEventListener('storage', function (e) {
     if (e.key === 'smartexpense_user' || e.key === 'smartexpense_avatar_updated') {
       loadHomeAvatar();
     }
   });
-  
+
   // Listen for BroadcastChannel messages
   if (typeof BroadcastChannel !== 'undefined') {
     if (!window.avatarBroadcastChannel) {
       window.avatarBroadcastChannel = new BroadcastChannel('smartexpense_avatar_channel');
     }
-    window.avatarBroadcastChannel.addEventListener('message', function(e) {
+    window.avatarBroadcastChannel.addEventListener('message', function (e) {
       if (e.data && e.data.type === 'avatarUpdated') {
         if (e.data.avatar) {
           displayHomeAvatar(e.data.avatar);
@@ -2141,9 +2141,9 @@ function setupAvatarUpdateListener() {
       }
     });
   }
-  
+
   // Also listen for custom events (for same-tab updates)
-  window.addEventListener('avatarUpdated', function(e) {
+  window.addEventListener('avatarUpdated', function (e) {
     if (e.detail && e.detail.avatar) {
       displayHomeAvatar(e.detail.avatar);
     } else {
@@ -2169,7 +2169,7 @@ function openCategoryModal(expenseId) {
   const modal = document.getElementById('categoryModal');
   if (modal) {
     modal.classList.add('open');
-    
+
     // Find current category for this expense
     const expense = allExpenses.find(e => e.id == expenseId);
     if (expense && expense.categoryName) {
@@ -2198,7 +2198,7 @@ function closeCategoryModal() {
 // Handle category selection
 async function selectCategory(categoryKey, categoryName) {
   if (!currentExpenseId) return;
-  
+
   try {
     // Find expense in allExpenses
     const expense = allExpenses.find(e => e.id == currentExpenseId);
@@ -2206,7 +2206,7 @@ async function selectCategory(categoryKey, categoryName) {
       console.error('Expense not found:', currentExpenseId);
       return;
     }
-    
+
     // First, check if category exists in database, if not create it
     let categoryId = null;
     try {
@@ -2237,7 +2237,7 @@ async function selectCategory(categoryKey, categoryName) {
     } catch (error) {
       console.warn('Error handling category:', error);
     }
-    
+
     // Update expense with category
     const updateResult = await apiRequest(`/api/expenses/${currentExpenseId}`, {
       method: 'PUT',
@@ -2246,7 +2246,7 @@ async function selectCategory(categoryKey, categoryName) {
         categoryName: categoryName
       })
     });
-    
+
     if (updateResult && updateResult.ok) {
       // Update expense in allExpenses array
       const expenseIndex = allExpenses.findIndex(e => e.id == currentExpenseId);
@@ -2254,11 +2254,11 @@ async function selectCategory(categoryKey, categoryName) {
         allExpenses[expenseIndex].categoryId = categoryId;
         allExpenses[expenseIndex].categoryName = categoryName;
       }
-      
+
       // Update UI
       updateRecentExpenses(allExpenses);
       updateCategoryList(allExpenses);
-      
+
       // Close modal
       closeCategoryModal();
     } else {
@@ -2296,26 +2296,26 @@ function getCategoryColorByName(categoryName) {
 function initCategoryModal() {
   const modal = document.getElementById('categoryModal');
   if (!modal) return;
-  
+
   // Close modal when clicking outside
-  modal.addEventListener('click', function(e) {
+  modal.addEventListener('click', function (e) {
     if (e.target === modal) {
       closeCategoryModal();
     }
   });
-  
+
   // Handle category option clicks
   const categoryOptions = modal.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
-    option.addEventListener('click', function() {
+    option.addEventListener('click', function () {
       const categoryKey = this.getAttribute('data-category');
       const categoryName = this.getAttribute('data-name');
       selectCategory(categoryKey, categoryName);
     });
   });
-  
+
   // Close on Escape key
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && modal.classList.contains('open')) {
       closeCategoryModal();
     }
@@ -2329,7 +2329,7 @@ function openIncomeDetailModal() {
     console.error('Income detail modal not found');
     return;
   }
-  
+
   modal.classList.add('open');
   loadIncomeDetailData();
 }
@@ -2370,7 +2370,7 @@ async function loadIncomeDetailData() {
 
     // Get all expenses (including income) using apiRequest
     let allExpenses = [];
-    
+
     // Try API first (with cookie authentication for Google login)
     if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
       try {
@@ -2412,13 +2412,13 @@ async function loadIncomeDetailData() {
         }
       }
     }
-    
+
     // If still no data, show empty state
     if (!Array.isArray(allExpenses) || allExpenses.length === 0) {
       console.log('No expenses data available, showing empty state');
       allExpenses = [];
     }
-    
+
     // Filter income for current month
     const currentMonthIncomes = allExpenses.filter(e => {
       const expDate = e.date ? e.date.substring(0, 7) : '';
@@ -2435,12 +2435,12 @@ async function loadIncomeDetailData() {
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-      
+
       const monthIncomes = allExpenses.filter(e => {
         const expDate = e.date ? e.date.substring(0, 7) : '';
         return expDate === monthStr && e.type === 'income';
       });
-      
+
       const monthTotal = monthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       last6Months.push({
         month: monthStr,
@@ -2487,15 +2487,15 @@ async function loadIncomeDetailData() {
     const totalElement = document.getElementById('incomeDetailTotal');
     const listElement = document.getElementById('incomeDetailList');
     const chartElement = document.getElementById('incomeTrendChart');
-    
+
     if (totalElement) {
       totalElement.textContent = formatCurrency(0);
     }
-    
+
     if (listElement) {
       listElement.innerHTML = '<li class="empty-state" style="text-align:center;padding:20px;color:#94a3b8">Không thể tải dữ liệu. Vui lòng thử lại sau.</li>';
     }
-    
+
     if (chartElement) {
       chartElement.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Không thể tải biểu đồ</div>';
     }
@@ -2515,8 +2515,8 @@ function drawIncomeTrendChart(container, data) {
   container.innerHTML = `
     <div style="display:flex;align-items:flex-end;gap:8px;height:${chartHeight}px;padding:20px;justify-content:center">
       ${data.map((item, index) => {
-        const height = maxAmount > 0 ? (item.amount / maxAmount) * (chartHeight - 40) : 0;
-        return `
+    const height = maxAmount > 0 ? (item.amount / maxAmount) * (chartHeight - 40) : 0;
+    return `
           <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:${barWidth}px">
             <div style="width:100%;height:${chartHeight - 40}px;display:flex;align-items:flex-end;justify-content:center">
               <div style="width:80%;height:${height}px;background:linear-gradient(to top, #10b981, #34d399);border-radius:8px 8px 0 0;transition:height 0.3s;min-height:${height > 0 ? '4px' : '0'}" title="${formatCurrency(item.amount)}"></div>
@@ -2525,7 +2525,7 @@ function drawIncomeTrendChart(container, data) {
             <div style="font-size:12px;font-weight:600;color:#10b981;margin-top:4px">${formatCurrency(item.amount)}</div>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 }
@@ -2537,7 +2537,7 @@ function openBudgetSetModal() {
     console.error('Budget set modal not found');
     return;
   }
-  
+
   loadBudgetSetData();
   modal.classList.add('open');
 }
@@ -2581,12 +2581,12 @@ async function loadBudgetSetData() {
         const year = date.getFullYear();
         const month = date.getMonth() + 1;
         const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-        
+
         const monthExpenses = allExpenses.filter(e => {
           const expDate = e.date ? e.date.substring(0, 7) : '';
           return expDate === monthStr && e.type === 'expense';
         });
-        
+
         const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
         last3MonthsExpenses.push(monthTotal);
       }
@@ -2787,7 +2787,7 @@ function checkBudgetWarning() {
     if (usagePercent >= 90 && usagePercent < 100) {
       const warningMessage = `⚠️ Cảnh báo: Bạn đã sử dụng ${usagePercent.toFixed(0)}% ngân sách. Còn lại ${formatCurrency(remaining)}.`;
       console.warn(warningMessage);
-      
+
       // You can show a toast notification here if you have a toast system
       // For now, we'll just update the status text
       if (budgetStatusElement) {
@@ -2814,7 +2814,7 @@ async function autoSetBudgetForNextMonth() {
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
-    
+
     // Calculate next month (format: YYYYMM)
     const nextMonthDate = new Date(currentYear, currentMonth, 1);
     const nextYear = nextMonthDate.getFullYear();
@@ -2849,18 +2849,18 @@ async function autoSetBudgetForNextMonth() {
       if (expensesResult && expensesResult.ok) {
         const allExpenses = expensesResult.data.items || [];
         const last3MonthsExpenses = [];
-        
+
         for (let i = 2; i >= 0; i--) {
           const date = new Date(currentYear, currentMonth - 1 - i, 1);
           const year = date.getFullYear();
           const month = date.getMonth() + 1;
           const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-          
+
           const monthExpenses = allExpenses.filter(e => {
             const expDate = e.date ? e.date.substring(0, 7) : '';
             return expDate === monthStr && e.type === 'expense';
           });
-          
+
           const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
           last3MonthsExpenses.push(monthTotal);
         }
@@ -2915,7 +2915,7 @@ function initIncomeAndBudgetModals() {
   // Initialize income detail modal
   const incomeModal = document.getElementById('incomeDetailModal');
   if (incomeModal) {
-    incomeModal.addEventListener('click', function(e) {
+    incomeModal.addEventListener('click', function (e) {
       if (e.target === incomeModal) {
         closeIncomeDetailModal();
       }
@@ -2930,7 +2930,7 @@ function initIncomeAndBudgetModals() {
   // Initialize budget set modal
   const budgetModal = document.getElementById('budgetSetModal');
   if (budgetModal) {
-    budgetModal.addEventListener('click', function(e) {
+    budgetModal.addEventListener('click', function (e) {
       if (e.target === budgetModal) {
         closeBudgetSetModal();
       }
@@ -2954,7 +2954,7 @@ function initIncomeAndBudgetModals() {
     // Format budget input
     const budgetInput = document.getElementById('budgetSetNew');
     if (budgetInput) {
-      budgetInput.addEventListener('input', function(e) {
+      budgetInput.addEventListener('input', function (e) {
         let value = e.target.value.replace(/[^\d]/g, '');
         if (value) {
           value = parseInt(value).toLocaleString('vi-VN');
@@ -2965,7 +2965,7 @@ function initIncomeAndBudgetModals() {
   }
 
   // Close modals on Escape key
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       closeIncomeDetailModal();
       closeBudgetSetModal();

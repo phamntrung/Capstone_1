@@ -4,25 +4,25 @@
  */
 
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
-// Flask backend runs on port 5000
+// Node.js backend runs on port 5000
 const API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
 window.API_BASE = API_BASE; // Make it globally accessible
 
 // Show message function (global)
 function showMessage(message, isSuccess = false, containerId = 'message') {
   let messageDiv = document.getElementById(containerId);
-  
+
   if (!messageDiv) {
     messageDiv = document.createElement('div');
     messageDiv.id = containerId;
     messageDiv.style.cssText = 'margin: 10px 0; padding: 10px; border-radius: 5px; font-size: 14px;';
-    
+
     // Try to find a container to insert the message
-    const container = document.querySelector('.login-container') || 
-                     document.querySelector('.register-container') || 
-                     document.querySelector('main') ||
-                     document.body;
-    
+    const container = document.querySelector('.login-container') ||
+      document.querySelector('.register-container') ||
+      document.querySelector('main') ||
+      document.body;
+
     if (container) {
       const form = container.querySelector('form');
       if (form) {
@@ -32,9 +32,9 @@ function showMessage(message, isSuccess = false, containerId = 'message') {
       }
     }
   }
-  
+
   messageDiv.innerHTML = `<div style="padding: 10px; margin: 10px 0; border-radius: 5px; ${isSuccess ? 'background: #d1fae5; color: #065f46;' : 'background: #fee2e2; color: #991b1b;'}">${message}</div>`;
-  
+
   setTimeout(() => {
     if (messageDiv) {
       messageDiv.innerHTML = '';
@@ -54,13 +54,13 @@ function formatCurrency(amount) {
 function checkAuth() {
   const user = localStorage.getItem('smartexpense_user');
   const token = localStorage.getItem('smartexpense_token');
-  
+
   // For Google OAuth: token might be in httpOnly cookie, not localStorage
   // So we only require user info, token is optional (cookie will be used)
   if (!user) {
     return null;
   }
-  
+
   try {
     return {
       user: JSON.parse(user),
@@ -80,7 +80,7 @@ function notifyExpenseAdded() {
   // Dispatch custom event for same-page updates
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('expenseAdded'));
-    
+
     // Update localStorage for cross-page updates
     try {
       localStorage.setItem('smartexpense_expense_added', Date.now().toString());
@@ -105,29 +105,29 @@ if (typeof window.__LAST_REDIRECT_TIME === 'undefined') {
 // Make API request with authentication
 async function apiRequest(endpoint, options = {}) {
   const auth = checkAuth();
-  
-  // Các endpoint công khai không cần xác thực (đăng ký, đăng nhập, Google OAuth)
-  const publicEndpoints = ['/api/auth/register', '/api/auth/login', '/api/auth/google'];
+
+  // Các endpoint công khai không cần xác thực (đăng ký, đăng nhập, Google OAuth, forgot/reset password, verify-2fa)
+  const publicEndpoints = ['/api/auth/register', '/api/auth/login', '/api/auth/google', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/verify-2fa'];
   const isPublicEndpoint = publicEndpoints.some(publicPath => endpoint.includes(publicPath));
-  
+
   // Note: Don't redirect immediately if !auth because:
   // - Google login uses httpOnly cookies (not in localStorage)
   // - Cookie-based auth should be tried first
   // - Only redirect if API returns 401 after trying
-  
+
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include'  // Include cookies (httpOnly cookies) in all requests
   };
-  
+
   // For backward compatibility: if token exists in localStorage, use it in header
   // But cookie (httpOnly) is preferred for Google OAuth
   if (auth && auth.token) {
     defaultOptions.headers['Authorization'] = `Bearer ${auth.token}`;
   }
-  
+
   const finalOptions = {
     ...defaultOptions,
     ...options,
@@ -138,7 +138,7 @@ async function apiRequest(endpoint, options = {}) {
     // Ensure credentials are included even if options override them
     credentials: options.credentials !== undefined ? options.credentials : 'include'
   };
-  
+
   try {
     // Log request details for debugging (especially for Google login)
     const user = auth?.user;
@@ -152,13 +152,35 @@ async function apiRequest(endpoint, options = {}) {
       credentials: finalOptions.credentials,
       hasAuthHeader: !!finalOptions.headers['Authorization']
     });
-    
+
     const response = await fetch(`${API_BASE}${endpoint}`, finalOptions);
-    
+
     // Check if response has content before parsing JSON
     const contentType = response.headers.get('content-type');
     let data = {};
-    
+
+    // Xử lý khi device bị chặn
+    if (response.status === 403) {
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+          if (data.blocked) {
+            // Xóa token và redirect về login
+            localStorage.removeItem('auth');
+            sessionStorage.removeItem('auth');
+            const loginPath = window.location.pathname.includes('frontend')
+              ? 'login.html'
+              : '../frontend/login.html';
+            alert('Thiết bị này đã bị chặn. Vui lòng liên hệ quản trị viên.');
+            window.location.href = loginPath;
+            return null;
+          }
+        } catch (e) {
+          // Ignore JSON parse error
+        }
+      }
+    }
+
     if (contentType && contentType.includes('application/json')) {
       try {
         data = await response.json();
@@ -178,7 +200,7 @@ async function apiRequest(endpoint, options = {}) {
         };
       }
     }
-    
+
     // Handle "Thiếu token" error - might be cookie issue
     // Always verify session via cookie before redirecting, because:
     // - Google login uses httpOnly cookies (not in localStorage)
@@ -191,14 +213,14 @@ async function apiRequest(endpoint, options = {}) {
         isGoogleLogin: isGoogleLogin,
         endpoint: endpoint
       });
-      
+
       // Always try to verify session via cookie before redirecting
       // This handles cases where:
       // - Google login just completed and cookie exists but localStorage is empty
       // - Cookie exists but wasn't sent properly in the request
       // - Token in localStorage expired but cookie is still valid
       console.log('🔄 Verifying session via cookie before redirecting...');
-      
+
       try {
         const verifyResult = await fetch(`${API_BASE}/api/me`, {
           method: 'GET',
@@ -207,11 +229,11 @@ async function apiRequest(endpoint, options = {}) {
           },
           credentials: 'include'
         });
-        
+
         if (verifyResult.ok) {
           const verifyData = await verifyResult.json();
           console.log('✅ Session verified via cookie - retrying original request...');
-          
+
           // Update localStorage with user data if we got it from verification
           if (verifyData && verifyData.user) {
             // Store user data (token is in cookie, not in localStorage)
@@ -219,7 +241,7 @@ async function apiRequest(endpoint, options = {}) {
             localStorage.removeItem('smartexpense_token');
             console.log('✅ Updated localStorage with user data from cookie session');
           }
-          
+
           // Session is valid, retry the original request
           return apiRequest(endpoint, options);
         } else {
@@ -229,13 +251,13 @@ async function apiRequest(endpoint, options = {}) {
         console.error('Error verifying session:', verifyError);
       }
     }
-    
+
     console.log(`📥 API Response: ${endpoint}`, {
       status: response.status,
       ok: response.ok,
       message: data.message
     });
-    
+
     // If API returns 401 (unauthorized), redirect to login
     // This handles cases where:
     // - No auth in localStorage (Google login uses cookies)
@@ -245,7 +267,7 @@ async function apiRequest(endpoint, options = {}) {
       // Tránh redirect vòng lặp: chỉ redirect nếu chưa redirect gần đây (trong 3 giây)
       const now = Date.now();
       const timeSinceLastRedirect = now - window.__LAST_REDIRECT_TIME;
-      
+
       // Nếu đang trong quá trình redirect hoặc vừa redirect gần đây, bỏ qua
       if (window.__REDIRECT_TO_LOGIN_IN_PROGRESS || timeSinceLastRedirect < 3000) {
         console.warn('⏭️ Đang trong quá trình redirect hoặc vừa redirect gần đây, bỏ qua');
@@ -255,10 +277,10 @@ async function apiRequest(endpoint, options = {}) {
           data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
         };
       }
-      
+
       // Kiểm tra xem có đang ở trang login không
-      const isLoginPage = window.location.pathname.includes('login.html') || 
-                          window.location.href.includes('login.html');
+      const isLoginPage = window.location.pathname.includes('login.html') ||
+        window.location.href.includes('login.html');
       if (isLoginPage) {
         console.warn('⏭️ Đã ở trang login, không redirect nữa');
         return {
@@ -267,20 +289,20 @@ async function apiRequest(endpoint, options = {}) {
           data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
         };
       }
-      
+
       console.warn('⚠️ Unauthorized (401) - redirecting to login');
       window.__REDIRECT_TO_LOGIN_IN_PROGRESS = true;
       window.__LAST_REDIRECT_TIME = now;
-      
-      const loginPath = window.location.pathname.includes('frontend') 
-        ? 'login.html' 
+
+      const loginPath = window.location.pathname.includes('frontend')
+        ? 'login.html'
         : '../frontend/login.html';
-      
+
       // Reset flag sau 5 giây (safety measure)
       setTimeout(() => {
         window.__REDIRECT_TO_LOGIN_IN_PROGRESS = false;
       }, 5000);
-      
+
       window.location.href = loginPath;
       return {
         ok: false,
@@ -288,7 +310,7 @@ async function apiRequest(endpoint, options = {}) {
         data: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }
       };
     }
-    
+
     return {
       ok: response.ok,
       status: response.status,
@@ -303,10 +325,10 @@ async function apiRequest(endpoint, options = {}) {
       origin: window.location.origin,
       protocol: window.location.protocol
     });
-    
+
     // Kiểm tra loại lỗi để đưa ra thông báo phù hợp
     let errorMessage = '❌ Lỗi kết nối đến server!\n\n';
-    
+
     // Check if running from file:// protocol (CORS will be blocked)
     const isFileProtocol = window.location.protocol === 'file:';
     if (isFileProtocol) {
@@ -321,21 +343,18 @@ async function apiRequest(endpoint, options = {}) {
       errorMessage += '   (hoặc: python3 -m http.server 8080)\n\n';
       errorMessage += '4. Mở trình duyệt và truy cập:\n';
       errorMessage += '   http://localhost:8080/frontend/login.html\n\n';
-      errorMessage += '5. Đảm bảo Backend Flask đang chạy:\n';
-      errorMessage += '   cd backend\n';
-      errorMessage += '   venv\\Scripts\\activate\n';
-      errorMessage += '   python app.py\n\n';
+      errorMessage += '5. Đảm bảo Backend Node.js đang chạy:\n';
+      errorMessage += '   cd backend-node\n';
+      errorMessage += '   npm run dev\n\n';
       errorMessage += '💡 Backend sẽ chạy tại: http://127.0.0.1:5000';
     } else if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED'))) {
-      errorMessage += '🔴 Backend Flask chưa được khởi động hoặc không thể kết nối.\n\n';
+      errorMessage += '🔴 Backend Node.js chưa được khởi động hoặc không thể kết nối.\n\n';
       errorMessage += '📋 Cách khắc phục:\n';
       errorMessage += '1. Mở terminal/command prompt\n';
-      errorMessage += '2. Di chuyển vào thư mục backend:\n';
-      errorMessage += '   cd backend\n';
-      errorMessage += '3. Kích hoạt virtual environment:\n';
-      errorMessage += '   venv\\Scripts\\activate\n';
-      errorMessage += '4. Khởi động server:\n';
-      errorMessage += '   python app.py\n\n';
+      errorMessage += '2. Di chuyển vào thư mục backend-node:\n';
+      errorMessage += '   cd backend-node\n';
+      errorMessage += '3. Khởi động server:\n';
+      errorMessage += '   npm run dev\n\n';
       errorMessage += '5. Đợi server khởi động xong\n';
       errorMessage += '6. Quay lại trang này và thử lại\n\n';
       errorMessage += '💡 Server sẽ chạy tại: http://127.0.0.1:5000';
@@ -343,24 +362,24 @@ async function apiRequest(endpoint, options = {}) {
     } else if (error.message && error.message.includes('NetworkError')) {
       errorMessage += '🌐 Lỗi mạng. Vui lòng:\n';
       errorMessage += '- Kiểm tra kết nối internet\n';
-      errorMessage += '- Đảm bảo Backend Flask đang chạy tại http://127.0.0.1:5000\n';
+      errorMessage += '- Đảm bảo Backend Node.js đang chạy tại http://127.0.0.1:5000\n';
       errorMessage += '- Kiểm tra firewall/antivirus không chặn kết nối\n';
       errorMessage += '\n📍 Origin hiện tại: ' + window.location.origin;
     } else {
-      errorMessage += '⚠️ Không thể kết nối đến Backend Flask tại ' + API_BASE + '\n\n';
+      errorMessage += '⚠️ Không thể kết nối đến Backend Node.js tại ' + API_BASE + '\n\n';
       errorMessage += 'Vui lòng:\n';
       errorMessage += '1. Kiểm tra server có đang chạy không\n';
       errorMessage += '2. Kiểm tra port 5000 có bị chiếm dụng không\n';
-      errorMessage += '3. Khởi động lại server: cd backend && venv\\Scripts\\activate && python app.py\n';
+      errorMessage += '3. Khởi động lại server: cd backend-node && npm run dev\n';
       errorMessage += '\n📍 Origin hiện tại: ' + (window.location.origin || 'file://');
       errorMessage += '\n📍 Protocol: ' + window.location.protocol;
       errorMessage += '\n📍 API Base: ' + API_BASE;
     }
-    
+
     return {
       ok: false,
       status: 0,
-      data: { 
+      data: {
         message: errorMessage,
         errorType: 'CONNECTION_ERROR',
         apiBase: API_BASE,
@@ -385,7 +404,7 @@ async function logout() {
       color: white; font-size: 18px; flex-direction: column; gap: 20px;
     `;
     loadingModal.innerHTML = `
-      <div style="width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); 
+      <div style="width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3);
                    border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
       <div>Đang lưu dữ liệu trước khi đăng xuất...</div>
       <div style="font-size: 14px; opacity: 0.8;">Vui lòng đợi, không tắt trình duyệt</div>
@@ -400,13 +419,13 @@ async function logout() {
   let syncSuccess = false;
   let syncAttempts = 0;
   const maxSyncAttempts = 3;
-  
+
   if (window.dataManager && typeof window.dataManager.syncAllDataToAPI === 'function') {
     while (syncAttempts < maxSyncAttempts && !syncSuccess) {
       try {
         syncAttempts++;
         console.log(`🔄 Đang đồng bộ TẤT CẢ dữ liệu trước khi đăng xuất... (Lần thử: ${syncAttempts}/${maxSyncAttempts})`);
-        
+
         // Update loading message
         if (loadingModal) {
           const messageDiv = loadingModal.querySelector('div:nth-child(2)');
@@ -414,12 +433,12 @@ async function logout() {
             messageDiv.textContent = `Đang lưu dữ liệu... (Lần thử: ${syncAttempts}/${maxSyncAttempts})`;
           }
         }
-        
+
         // Give it more time (max 15 seconds per attempt) to ensure all data is synced
         const syncPromise = window.dataManager.syncAllDataToAPI();
         const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 15000));
         const result = await Promise.race([syncPromise, timeoutPromise]);
-        
+
         if (result === 'timeout') {
           console.warn(`⚠️ Đồng bộ hết thời gian chờ (lần thử ${syncAttempts}/${maxSyncAttempts})`);
           if (syncAttempts < maxSyncAttempts) {
@@ -444,7 +463,7 @@ async function logout() {
         }
       }
     }
-    
+
     if (!syncSuccess) {
       console.warn('⚠️ Không thể đồng bộ một số dữ liệu, nhưng sẽ tiếp tục đăng xuất. Dữ liệu sẽ được đồng bộ khi đăng nhập lại.');
       // Mark that data needs sync for next login
@@ -455,7 +474,7 @@ async function logout() {
   } else {
     console.warn('⚠️ DataManager không khả dụng, không thể đồng bộ dữ liệu trước khi đăng xuất');
   }
-  
+
   // Final save to localStorage (backup)
   try {
     if (window.dataManager && typeof window.dataManager.saveData === 'function') {
@@ -465,12 +484,12 @@ async function logout() {
   } catch (e) {
     console.warn('Lỗi khi lưu backup vào localStorage:', e);
   }
-  
+
   // Remove loading modal
   if (loadingModal && loadingModal.parentNode) {
     loadingModal.remove();
   }
-  
+
   // Clear session (only after sync is done)
   try {
     // Save avatar before clearing user data (avatar should persist across logout)
@@ -487,7 +506,7 @@ async function logout() {
         console.warn('Lỗi khi lưu avatar:', e);
       }
     }
-    
+
     // Keep smartexpense_data for backup (will be synced on next login)
     // Only clear authentication tokens and flags
     localStorage.removeItem('smartexpense_user');
@@ -500,7 +519,7 @@ async function logout() {
   } catch (e) {
     console.warn('Lỗi khi xóa localStorage:', e);
   }
-  
+
   // Redirect to login
   window.location.href = 'login.html';
 }
@@ -524,7 +543,7 @@ async function getCurrentDateFromServer(useCache = true) {
       return serverDateCache.date;
     }
   }
-  
+
   // Get from server
   try {
     const auth = checkAuth();
@@ -533,11 +552,11 @@ async function getCurrentDateFromServer(useCache = true) {
       console.warn('⚠️ Chưa xác thực, đang sử dụng ngày từ client');
       return new Date().toISOString().split('T')[0];
     }
-    
+
     const result = await window.apiRequest('/api/utils/current-date', {
       method: 'GET'
     });
-    
+
     if (result && result.ok && result.data && result.data.date) {
       serverDateCache.date = result.data.date;
       serverDateCache.timestamp = result.data.timestamp;
@@ -548,7 +567,7 @@ async function getCurrentDateFromServer(useCache = true) {
   } catch (error) {
     console.error('Lỗi khi lấy ngày từ server:', error);
   }
-  
+
   // Fallback to client date
   console.warn('⚠️ Không thể lấy ngày từ server, đang sử dụng ngày từ client');
   return new Date().toISOString().split('T')[0];

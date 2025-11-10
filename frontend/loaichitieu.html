@@ -1,358 +1,847 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SmartExpense — Loại chi tiêu</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
-    --border:#e5e7eb; --blue:#2563eb; --blue-500:#3b82f6;
-    --green:#16a34a; --green-50:#d1fae5; --red:#ef4444;
-    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06);
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--text);
-    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
-  }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SmartExpense — Loại chi tiêu</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #eaf3f9;
+        --card: #fff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e5e7eb;
+        --blue: #2563eb;
+        --blue-500: #3b82f6;
+        --green: #16a34a;
+        --green-50: #d1fae5;
+        --red: #ef4444;
+        --radius: 14px;
+        --shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 100vh;
+      }
 
-  .sidebar{background:#fff;border-right:1px solid var(--border);padding:18px 14px}
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .brand .logo{width:40px;height:40px;border-radius:10px;overflow:hidden;background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)}
-  .brand .logo img{width:100%;height:100%;object-fit:cover}
-  .brand b{font-size:18px}
-  .nav{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;font-weight:700;color:#111827;text-decoration:none}
-  .nav a .i{width:18px;text-align:center}
-  .nav a.active{background:var(--blue);color:#fff}
+      .sidebar {
+        background: #fff;
+        border-right: 1px solid var(--border);
+        padding: 18px 14px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .brand .logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #ffe8e0;
+        display: grid;
+        place-items: center;
+        box-shadow: var(--shadow);
+      }
+      .brand .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .brand b {
+        font-size: 18px;
+      }
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .nav a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        color: #111827;
+        text-decoration: none;
+      }
+      .nav a .i {
+        width: 18px;
+        text-align: center;
+      }
+      .nav a.active {
+        background: var(--blue);
+        color: #fff;
+      }
 
+      .main {
+        padding: 22px 24px 40px;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 700;
+      }
+      .avatar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 8px;
+      }
+      .avatar img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+        font-weight: 800;
+      }
 
-  .main{padding:22px 24px 40px}
-  .topbar{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-bottom:10px}
-  .pill{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-weight:700}
-  .avatar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 8px}
-  .avatar img{width:28px;height:28px;border-radius:50%}
-  h1{margin:0 0 12px;font-size:22px;font-weight:800}
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .search {
+        flex: 1;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .search input {
+        width: min(420px, 46%);
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 14px;
+        background: #f8fafc;
+        outline: none;
+      }
+      .btn {
+        height: 40px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--blue);
+        color: #fff;
+        font-weight: 800;
+        padding: 0 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      .btn:active {
+        transform: translateY(0.5px);
+      }
 
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
-  .head{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:10px}
-  .search{flex:1;display:flex;justify-content:flex-end}
-  .search input{width:min(420px,46%);height:40px;border:1px solid var(--border);border-radius:999px;padding:0 14px;background:#f8fafc;outline:none}
-  .btn{height:40px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:800;padding:0 14px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-  .btn:active{transform:translateY(0.5px)}
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #eef2f7;
+        text-align: left;
+      }
+      th {
+        font-size: 12px;
+        color: #94a3b8;
+        letter-spacing: 0.3px;
+      }
+      td .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--green-50, #dcfce7);
+        color: var(--green);
+        border: 1px solid #bbf7d0;
+        border-radius: 999px;
+        font-weight: 800;
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+      }
+      .icon-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .icon-btn.edit {
+        color: #2563eb;
+      }
+      .icon-btn.del {
+        color: #ef4444;
+      }
 
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:12px;border-bottom:1px solid #eef2f7;text-align:left}
-  th{font-size:12px;color:#94a3b8;letter-spacing:.3px}
-  td .dot{width:14px;height:14px;border-radius:50%;display:inline-block;vertical-align:middle}
-  .status{display:inline-flex;align-items:center;gap:6px;background:var(--green-50,#dcfce7);color:var(--green);border:1px solid #bbf7d0;border-radius:999px;font-weight:800;padding:4px 10px;font-size:12px}
-  .actions{display:flex;gap:10px}
-  .icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:#fff;display:grid;place-items:center;cursor:pointer}
-  .icon-btn.edit{color:#2563eb}
-  .icon-btn.del{color:#ef4444}
+      .table-foot {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 10px;
+        gap: 10px;
+      }
+      .page-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .page-current {
+        background: #3b82f6;
+        color: #fff;
+        border-color: #3b82f6;
+      }
 
-  .table-foot{display:flex;justify-content:flex-end;align-items:center;margin-top:10px;gap:10px}
-  .page-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:#fff;display:grid;place-items:center;cursor:pointer}
-  .page-current{background:#3b82f6;color:#fff;border-color:#3b82f6}
+      .pig-float {
+        position: fixed;
+        right: 32px;
+        bottom: 26px;
+        width: 76px;
+        height: 76px;
+        border-radius: 18px;
+        background: #ffe8e0;
+        display: grid;
+        place-items: center;
+        box-shadow: var(--shadow);
+        font-size: 36px;
+        z-index: 20;
+        cursor: pointer;
+        border: 0;
+      }
+      .pig-float img {
+        width: 64px;
+        height: 64px;
+      }
 
- 
-  .pig-float{
-    position:fixed;right:32px;bottom:26px;width:76px;height:76px;border-radius:18px;
-    background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow);
-    font-size:36px;z-index:20;cursor:pointer;border:0
-  }
-  .pig-float img{width:64px;height:64px}
+      .chatbox {
+        position: fixed;
+        right: 26px;
+        bottom: 112px;
+        width: 340px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: none;
+        z-index: 30;
+        grid-template-rows: 56px 1fr 60px;
+      }
+      .chatbox.open {
+        display: grid;
+      }
+      .chat-head {
+        background: #1da1c9;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        font-weight: 800;
+      }
+      .chat-head img {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: #ffe8e0;
+      }
+      .chat-title {
+        line-height: 1.2;
+      }
+      .chat-sub {
+        font-weight: 600;
+        opacity: 0.95;
+      }
+      .chat-body {
+        background: #f4fbff;
+        overflow: auto;
+        padding: 10px;
+        scroll-behavior: smooth;
+        max-height: 380px;
+      }
+      .msg {
+        display: flex;
+        align-items: flex-end;
+        margin: 8px 0;
+        gap: 8px;
+      }
+      .msg.user {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fff;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+      .msg.bot .bubble {
+        border-radius: 14px 14px 14px 4px;
+      }
+      .msg.user .bubble {
+        border-radius: 14px 14px 4px 14px;
+        background: var(--blue);
+        border: none;
+        color: #fff;
+      }
+      .avatar-s {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #ffe8e0;
+        flex: 0 0 26px;
+        font-size: 14px;
+      }
+      .typing {
+        display: inline-block;
+        min-width: 34px;
+      }
+      .typing span {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        background: #9ca3af;
+        border-radius: 50%;
+        margin: 0 2px;
+        animation: b 1s infinite ease-in-out;
+      }
+      .typing span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes b {
+        0%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-4px);
+        }
+      }
+      .chat-input {
+        background: #fff;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+      }
+      #chatInput {
+        flex: 1;
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 12px;
+        background: #fff;
+        outline: none;
+      }
+      #sendBtn {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        border: 0;
+        background: #2563eb;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
 
-  .chatbox{
-    position:fixed;right:26px;bottom:112px;width:340px;
-    background:#fff;border:1px solid var(--border);border-radius:14px;
-    box-shadow:var(--shadow);overflow:hidden;display:none;z-index:30;
-    grid-template-rows:56px 1fr 60px;
-  }
-  .chatbox.open{display:grid}
-  .chat-head{
-    background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;
-    padding:10px 12px;font-weight:800;
-  }
-  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
-  .chat-title{line-height:1.2}
-  .chat-sub{font-weight:600;opacity:.95}
-  .chat-body{background:#f4fbff;overflow:auto;padding:10px;scroll-behavior:smooth;max-height:380px}
-  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
-  .msg.user{justify-content:flex-end}
-  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:14px;line-height:1.35}
-  .msg.bot .bubble{border-radius:14px 14px 14px 4px}
-  .msg.user .bubble{border-radius:14px 14px 4px 14px;background:var(--blue);border:none;color:#fff}
-  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
-  .typing{display:inline-block;min-width:34px}
-  .typing span{display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;margin:0 2px;animation:b 1s infinite ease-in-out}
-  .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
-  @keyframes b{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
-  .chat-input{background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
-  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;background:#fff;outline:none}
-  #sendBtn{width:38px;height:38px;border-radius:999px;border:0;background:#2563eb;color:#fff;display:grid;place-items:center;cursor:pointer}
+      @media (max-width: 1024px) {
+        body {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+        .search input {
+          width: 100%;
+        }
+        .chatbox {
+          right: 16px;
+          bottom: 96px;
+          width: min(92vw, 360px);
+        }
+        .pig-float {
+          right: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">
+          <img
+            src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+            alt=""
+          />
+        </div>
+        <b>SmartExpense</b>
+      </div>
+      <nav class="nav">
+        <a href="trangchu.html"><span class="i">🏠</span> Trang Chủ</a>
+        <a href="danhsachchitieu.html"
+          ><span class="i">🧾</span> Danh sách chi tiêu</a
+        >
+        <a href="lichsuchitieu.html"
+          ><span class="i">🕘</span> Lịch sử chi tiêu</a
+        >
+        <a href="lenlichchitieu.html"
+          ><span class="i">📅</span> Lên lịch chi tiêu</a
+        >
+        <a href="loaichitieu.html" class="active"
+          ><span class="i">🏷️</span> Loại chi tiêu</a
+        >
+        <a href="baocao.html"><span class="i">📊</span> Báo cáo</a>
+        <a href="hoso.html"><span class="i">👤</span> Hồ sơ</a>
+        <a href="caidat.html"><span class="i">⚙️</span> Cài đặt</a>
+        <a href="login.html"><span class="i">↪️</span> Đăng xuất</a>
+      </nav>
+    </aside>
 
-  @media (max-width:1024px){
-    body{grid-template-columns:1fr}
-    .sidebar{position:sticky;top:0;z-index:10}
-    .search input{width:100%}
-    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
-    .pig-float{right:16px}
-  }
-</style>
-</head>
-<body>
+    <main class="main">
+      <h1>Loại chi tiêu</h1>
 
- 
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt=""></div>
-      <b>SmartExpense</b>
+      <section class="card">
+        <div class="head">
+          <div style="flex: 1"></div>
+          <div class="search">
+            <input id="search" placeholder="Tìm kiếm…" />
+          </div>
+          <button class="btn" id="btnCreate">＋ Tạo</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th style="width: 50px">#</th>
+                <th>Tên</th>
+                <th style="width: 120px">Màu sắc</th>
+                <th>Ghi chú</th>
+                <th style="width: 120px">Trạng thái</th>
+                <th style="width: 120px">Hành động</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="table-foot">
+          <div class="page-btn" title="Trước">‹</div>
+          <div class="page-btn page-current">1</div>
+          <div class="page-btn" title="Sau">›</div>
+        </div>
+      </section>
+    </main>
+
+    <div id="chatbox" class="chatbox" aria-hidden="true">
+      <div class="chat-head">
+        <img
+          src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+          alt=""
+        />
+        <div>
+          <div class="chat-title">Trợ lý thông minh</div>
+          <div class="chat-sub">Xin chào! 👋 Rất vui khi được hỗ trợ bạn</div>
+        </div>
+      </div>
+      <div id="chatBody" class="chat-body"></div>
+      <div class="chat-input">
+        <input id="chatInput" type="text" placeholder="Viết tin nhắn…" />
+        <button id="sendBtn" title="Gửi">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
     </div>
-    <nav class="nav">
-      <a href="trangchu.html"><span class="i">🏠</span> Trang Chủ</a>
-      <a href="danhsachchitieu.html"><span class="i">🧾</span> Danh sách chi tiêu</a>
-      <a href="lichsuchitieu.html"><span class="i">🕘</span> Lịch sử chi tiêu</a>
-      <a href="lenlichchitieu.html"><span class="i">📅</span> Lên lịch chi tiêu</a>
-      <a href="loaichitieu.html" class="active"><span class="i">🏷️</span> Loại chi tiêu</a>
-      <a href="baocao.html"><span class="i">📊</span> Báo cáo</a>
-      <a href="hoso.html"><span class="i">👤</span> Hồ sơ</a>
-      <a href="caidat.html"><span class="i">⚙️</span> Cài đặt</a>
-      <a href="login.html"><span class="i">↪️</span> Đăng xuất</a>
-    </nav>
-  </aside>
 
+    <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý">
+      <img
+        src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+        alt=""
+      />
+    </button>
 
-  <main class="main">
-    <h1>Loại chi tiêu</h1>
+    <script src="js/utils.js"></script>
+    <script>
+      let rows = [];
+      let allRows = []; // Lưu toàn bộ data để search
 
-    <section class="card">
-      <div class="head">
-        <div style="flex:1"></div>
-        <div class="search"><input id="search" placeholder="Tìm kiếm…"></div>
-        <button class="btn" id="btnCreate">＋ Tạo</button>
-      </div>
+      const tbody = document.querySelector("#tbl tbody");
 
-      <div class="table-wrap">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th style="width:50px">#</th>
-              <th>Tên</th>
-              <th style="width:120px">Màu sắc</th>
-              <th>Ghi chú</th>
-              <th style="width:120px">Trạng thái</th>
-              <th style="width:120px">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-          
-          </tbody>
-        </table>
-      </div>
+      // Load categories từ API
+      async function loadCategories() {
+        try {
+          const response = await apiRequest("/api/categories", {
+            method: "GET",
+          });
 
-      <div class="table-foot">
-        <div class="page-btn" title="Trước">‹</div>
-        <div class="page-btn page-current">1</div>
-        <div class="page-btn" title="Sau">›</div>
-      </div>
-    </section>
-  </main>
+          if (response && response.ok) {
+            rows = response.data.items || [];
+            allRows = [...rows];
+            render();
+          } else {
+            alert("Không thể tải danh sách loại chi tiêu");
+          }
+        } catch (error) {
+          console.error("Load categories error:", error);
+          alert("Lỗi kết nối đến server");
+        }
+      }
 
-
-  <div id="chatbox" class="chatbox" aria-hidden="true">
-    <div class="chat-head">
-      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
-      <div>
-        <div class="chat-title">Trợ lý thông minh</div>
-        <div class="chat-sub">Xin chào! 👋 Rất vui khi được hỗ trợ bạn</div>
-      </div>
-    </div>
-    <div id="chatBody" class="chat-body"></div>
-    <div class="chat-input">
-      <input id="chatInput" type="text" placeholder="Viết tin nhắn…">
-      <button id="sendBtn" title="Gửi">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor"/></svg>
-      </button>
-    </div>
-  </div>
-
-
-  <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý">
-    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
-  </button>
-
-<script>
-
-  let rows = [
-    { name:'Ăn uống',    color:'#3b82f6', note:'',      on:true },
-    { name:'Chơi',       color:'#fb923c', note:'',      on:true },
-    { name:'Cố định',    color:'#6b7280', note:'',      on:true },
-    { name:'Đầu tư',     color:'#10b981', note:'',      on:true },
-    { name:'Chi phí khác', color:'#ef4444', note:'',    on:true },
-  ];
-
-  const tbody = document.querySelector('#tbl tbody');
-
-  function render(list = rows){
-    tbody.innerHTML = '';
-    list.forEach((r, idx)=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${idx+1}</td>
+      function render(list = rows) {
+        tbody.innerHTML = "";
+        if (list.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" style="text-align:center;padding:20px;">Chưa có loại chi tiêu nào</td></tr>';
+          return;
+        }
+        list.forEach((r, idx) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+        <td>${idx + 1}</td>
         <td>${r.name}</td>
         <td><span class="dot" style="background:${r.color}"></span></td>
-        <td>${r.note||''}</td>
-        <td><span class="status" data-idx="${idx}">${r.on ? 'BẬT' : 'TẮT'}</span></td>
+        <td>${r.note || ""}</td>
+        <td><span class="status" data-id="${r.id}" data-on="${r.on}">${
+            r.on ? "BẬT" : "TẮT"
+          }</span></td>
         <td>
           <div class="actions">
-            <button class="icon-btn edit" title="Sửa"  data-edit="${idx}">✏️</button>
-            <button class="icon-btn del"  title="Xoá"  data-del="${idx}">🗑️</button>
+            <button class="icon-btn edit" title="Sửa"  data-id="${
+              r.id
+            }">✏️</button>
+            <button class="icon-btn del"  title="Xoá"  data-id="${
+              r.id
+            }">🗑️</button>
           </div>
         </td>
       `;
-      tbody.appendChild(tr);
-    });
-  }
-  render();
+          tbody.appendChild(tr);
+        });
+      }
 
+      // Load dữ liệu khi trang load
+      loadCategories();
 
-  const search = document.getElementById('search');
-  search.addEventListener('input', e=>{
-    const q = e.target.value.toLowerCase();
-    const filtered = rows.filter(r => r.name.toLowerCase().includes(q) || (r.note||'').toLowerCase().includes(q));
-    render(filtered);
-  });
+      const search = document.getElementById("search");
+      search.addEventListener("input", (e) => {
+        const q = e.target.value.toLowerCase();
+        const filtered = allRows.filter(
+          (r) =>
+            r.name.toLowerCase().includes(q) ||
+            (r.note || "").toLowerCase().includes(q)
+        );
+        render(filtered);
+      });
 
+      // Tạo category mới
+      document
+        .getElementById("btnCreate")
+        .addEventListener("click", async () => {
+          const name = prompt("Tên loại chi tiêu:");
+          if (!name || !name.trim()) return;
 
-  document.getElementById('btnCreate').addEventListener('click', ()=>{
-    const name = prompt('Tên loại chi tiêu:');
-    if(!name) return;
-    const color = prompt('Màu (hex, ví dụ #3b82f6):', '#3b82f6') || '#3b82f6';
-    rows.push({name, color, note:'', on:true});
-    render();
-  });
+          const color =
+            prompt("Màu (hex, ví dụ #3b82f6):", "#3b82f6") || "#3b82f6";
+          const note = prompt("Ghi chú (tùy chọn):", "") || "";
 
+          try {
+            const response = await apiRequest("/api/categories", {
+              method: "POST",
+              body: JSON.stringify({ name, color, note, isActive: true }),
+            });
 
-  tbody.addEventListener('click', (e)=>{
-    const editIdx = e.target.getAttribute('data-edit');
-    const delIdx  = e.target.getAttribute('data-del');
-    const stIdx   = e.target.getAttribute('data-idx');
+            if (response && response.ok) {
+              await loadCategories();
+            } else {
+              alert(response.data?.message || "Không thể tạo loại chi tiêu");
+            }
+          } catch (error) {
+            console.error("Create category error:", error);
+            alert("Lỗi kết nối đến server");
+          }
+        });
 
-    if(editIdx !== null){
-      const r = rows[+editIdx];
-      const name = prompt('Sửa tên:', r.name); if(!name) return;
-      const color = prompt('Sửa màu (hex):', r.color) || r.color;
-      const note  = prompt('Ghi chú:', r.note||'') || '';
-      rows[+editIdx] = {...r, name, color, note};
-      render();
-    }
-    if(delIdx !== null){
-      if(confirm('Xoá loại chi tiêu này?')){ rows.splice(+delIdx,1); render(); }
-    }
-    if(stIdx !== null){
-      rows[+stIdx].on = !rows[+stIdx].on;
-      render();
-    }
-  });
+      // Xử lý click events
+      tbody.addEventListener("click", async (e) => {
+        const editId = e.target.getAttribute("data-id");
+        const delId = e.target.getAttribute("data-id");
+        const statusId = e.target.getAttribute("data-id");
+        const isStatus = e.target.classList.contains("status");
 
-  const chatToggle = document.getElementById('chatToggle');
-  const chatbox = document.getElementById('chatbox');
-  const chatBody = document.getElementById('chatBody');
-  const chatInput = document.getElementById('chatInput');
-  const sendBtn  = document.getElementById('sendBtn');
+        // Edit
+        if (e.target.classList.contains("edit") && editId) {
+          const category = rows.find((r) => r.id == editId);
+          if (!category) return;
 
-  let greeted = false;
+          const name = prompt("Sửa tên:", category.name);
+          if (!name || !name.trim()) return;
 
-  function openChat() {
-    chatbox.classList.add('open');
-    chatbox.setAttribute('aria-hidden','false');
-    if (!greeted) {
-      botSay('Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.');
-      greeted = true;
-    }
-    setTimeout(()=> chatInput.focus(), 100);
-  }
-  function closeChat() {
-    chatbox.classList.remove('open');
-    chatbox.setAttribute('aria-hidden','true');
-  }
-  chatToggle.addEventListener('click', ()=>{
-    if (chatbox.classList.contains('open')) closeChat(); else openChat();
-  });
+          const color =
+            prompt("Sửa màu (hex):", category.color) || category.color;
+          const note = prompt("Ghi chú:", category.note || "") || "";
 
-  function scrollBottom(){ chatBody.scrollTop = chatBody.scrollHeight; }
+          try {
+            const response = await apiRequest(`/api/categories/${editId}`, {
+              method: "PUT",
+              body: JSON.stringify({ name, color, note }),
+            });
 
-  function addMsg(text, who='bot'){
-    const wrap = document.createElement('div');
-    wrap.className = `msg ${who}`;
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar-s';
-    avatar.textContent = who==='bot' ? '🐷' : '👤';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.innerText = text;
-    if (who==='bot'){ wrap.append(avatar, bubble); } else { wrap.append(bubble, avatar); }
-    chatBody.appendChild(wrap);
-    scrollBottom();
-  }
+            if (response && response.ok) {
+              await loadCategories();
+            } else {
+              alert(response.data?.message || "Không thể cập nhật");
+            }
+          } catch (error) {
+            console.error("Update category error:", error);
+            alert("Lỗi kết nối đến server");
+          }
+        }
 
-  function addTyping(){
-    const wrap = document.createElement('div');
-    wrap.className = 'msg bot';
-    wrap.dataset.typing = '1';
-    wrap.innerHTML = `<div class="avatar-s">🐷</div>
+        // Delete
+        if (e.target.classList.contains("del") && delId) {
+          if (!confirm("Xoá loại chi tiêu này?")) return;
+
+          try {
+            const response = await apiRequest(`/api/categories/${delId}`, {
+              method: "DELETE",
+            });
+
+            if (response && response.ok) {
+              await loadCategories();
+            } else {
+              alert(response.data?.message || "Không thể xóa");
+            }
+          } catch (error) {
+            console.error("Delete category error:", error);
+            alert("Lỗi kết nối đến server");
+          }
+        }
+
+        // Toggle status
+        if (isStatus && statusId) {
+          const category = rows.find((r) => r.id == statusId);
+          if (!category) return;
+
+          const newStatus = !category.on;
+
+          try {
+            const response = await apiRequest(`/api/categories/${statusId}`, {
+              method: "PUT",
+              body: JSON.stringify({ isActive: newStatus }),
+            });
+
+            if (response && response.ok) {
+              await loadCategories();
+            } else {
+              alert(response.data?.message || "Không thể thay đổi trạng thái");
+            }
+          } catch (error) {
+            console.error("Toggle status error:", error);
+            alert("Lỗi kết nối đến server");
+          }
+        }
+      });
+
+      const chatToggle = document.getElementById("chatToggle");
+      const chatbox = document.getElementById("chatbox");
+      const chatBody = document.getElementById("chatBody");
+      const chatInput = document.getElementById("chatInput");
+      const sendBtn = document.getElementById("sendBtn");
+
+      let greeted = false;
+
+      function openChat() {
+        chatbox.classList.add("open");
+        chatbox.setAttribute("aria-hidden", "false");
+        if (!greeted) {
+          botSay(
+            "Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng."
+          );
+          greeted = true;
+        }
+        setTimeout(() => chatInput.focus(), 100);
+      }
+      function closeChat() {
+        chatbox.classList.remove("open");
+        chatbox.setAttribute("aria-hidden", "true");
+      }
+      chatToggle.addEventListener("click", () => {
+        if (chatbox.classList.contains("open")) closeChat();
+        else openChat();
+      });
+
+      function scrollBottom() {
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+
+      function addMsg(text, who = "bot") {
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${who}`;
+        const avatar = document.createElement("div");
+        avatar.className = "avatar-s";
+        avatar.textContent = who === "bot" ? "🐷" : "👤";
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.innerText = text;
+        if (who === "bot") {
+          wrap.append(avatar, bubble);
+        } else {
+          wrap.append(bubble, avatar);
+        }
+        chatBody.appendChild(wrap);
+        scrollBottom();
+      }
+
+      function addTyping() {
+        const wrap = document.createElement("div");
+        wrap.className = "msg bot";
+        wrap.dataset.typing = "1";
+        wrap.innerHTML = `<div class="avatar-s">🐷</div>
       <div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
-    chatBody.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
+        chatBody.appendChild(wrap);
+        scrollBottom();
+        return wrap;
+      }
 
-  function botSay(text, delay=0){
-    const t = addTyping();
-    setTimeout(()=>{
-      t.remove();
-      addMsg(text,'bot');
-    }, Math.max(300, delay));
-  }
+      function botSay(text, delay = 0) {
+        const t = addTyping();
+        setTimeout(() => {
+          t.remove();
+          addMsg(text, "bot");
+        }, Math.max(300, delay));
+      }
 
-  function handleSend(){
-    const txt = chatInput.value.trim();
-    if (!txt) return;
-    addMsg(txt,'user');
-    chatInput.value = '';
-    const say = txt.toLowerCase();
-    if (say.includes('tạo') && (say.includes('tháng') || say.includes('thang'))) {
-      botSay('Đang tạo câu trả lời dựa theo yêu cầu…', 900);
-      setTimeout(()=> botSay('Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Hãy kiểm tra ở mục Danh sách chi tiêu.', 1200), 1100);
-    } else {
-      botSay('Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?');
-    }
-  }
+      function handleSend() {
+        const txt = chatInput.value.trim();
+        if (!txt) return;
+        addMsg(txt, "user");
+        chatInput.value = "";
+        const say = txt.toLowerCase();
+        if (
+          say.includes("tạo") &&
+          (say.includes("tháng") || say.includes("thang"))
+        ) {
+          botSay("Đang tạo câu trả lời dựa theo yêu cầu…", 900);
+          setTimeout(
+            () =>
+              botSay(
+                "Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Hãy kiểm tra ở mục Danh sách chi tiêu.",
+                1200
+              ),
+            1100
+          );
+        } else {
+          botSay("Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?");
+        }
+      }
 
-  sendBtn.addEventListener('click', handleSend);
-  chatInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') handleSend(); });
-</script>
-<script>
-  (function initTheme(){
-    try{
-      var saved = localStorage.getItem('theme');
-      document.documentElement.classList.toggle('dark', saved === 'dark');
-    }catch(_){/* ignore */}
-  })();
-  window.addEventListener('storage', function(e){
-    if(e.key === 'theme'){
-      document.documentElement.classList.toggle('dark', e.newValue === 'dark');
-    }
-  });
-  window.addEventListener('themechange', function(e){
-    var theme = (e && e.detail && e.detail.theme) || localStorage.getItem('theme');
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  });
-</script>
-</body>
+      sendBtn.addEventListener("click", handleSend);
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleSend();
+      });
+    </script>
+    <script>
+      (function initTheme() {
+        try {
+          var saved = localStorage.getItem("theme");
+          document.documentElement.classList.toggle("dark", saved === "dark");
+        } catch (_) {
+          /* ignore */
+        }
+      })();
+      window.addEventListener("storage", function (e) {
+        if (e.key === "theme") {
+          document.documentElement.classList.toggle(
+            "dark",
+            e.newValue === "dark"
+          );
+        }
+      });
+      window.addEventListener("themechange", function (e) {
+        var theme =
+          (e && e.detail && e.detail.theme) || localStorage.getItem("theme");
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      });
+    </script>
+  </body>
 </html>

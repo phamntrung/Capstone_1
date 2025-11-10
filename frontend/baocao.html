@@ -1,807 +1,1500 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SmartExpense — Báo cáo</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#eaf3f9; --card:#fff; --text:#0f172a; --muted:#64748b;
-    --border:#e5e7eb; --blue:#2563eb; --blue-600:#1f4fd1;
-    --green:#22c55e; --green-700:#15803d; --green-200:#bbf7d0;
-    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06);
-  }
-  /* Dark theme variables */
-  html.dark{
-    --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2;
-    --border:#1f2a44; --blue:#3b82f6;
-    --green:#22c55e; --green-700:#16a34a; --green-200:#14532d;
-  }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SmartExpense — Báo cáo</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #eaf3f9;
+        --card: #fff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e5e7eb;
+        --blue: #2563eb;
+        --blue-600: #1f4fd1;
+        --green: #22c55e;
+        --green-700: #15803d;
+        --green-200: #bbf7d0;
+        --radius: 14px;
+        --shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+      }
+      /* Dark theme variables */
+      html.dark {
+        --bg: #0b1220;
+        --card: #0f172a;
+        --text: #e5e7eb;
+        --muted: #9aa4b2;
+        --border: #1f2a44;
+        --blue: #3b82f6;
+        --green: #22c55e;
+        --green-700: #16a34a;
+        --green-200: #14532d;
+      }
 
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--text);
-    font-family:'Noto Sans',Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
-  }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Noto Sans", Inter, system-ui, -apple-system, Segoe UI,
+          Roboto, Arial, sans-serif;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 100vh;
+      }
 
-  /* ===== Sidebar (dark-mode friendly) ===== */
-  .sidebar{
-    background:var(--card);
-    border-right:1px solid var(--border);
-    padding:18px 14px;
-    color:var(--text);
-  }
-  .brand{
-    display:flex;align-items:center;gap:12px;margin-bottom:12px;
-    padding-bottom:6px;border-bottom:1px solid var(--border);
-    position:relative;z-index:1;
-  }
-  .brand .logo{
-    width:44px;height:44px;border-radius:10px;overflow:hidden;
-    background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)
-  }
-  .brand .logo img{width:100%;height:100%;object-fit:cover;display:block}
-  .brand b{
-    font-size:18px;color:var(--text);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .nav{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-  .nav a{
-    display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
-    color:var(--text);font-weight:700;text-decoration:none
-  }
-  .nav a .i{width:18px;text-align:center}
-  .nav a:hover{background:rgba(37,99,235,.12)}
-  .nav a.active{background:var(--blue);color:#fff}
+      /* ===== Sidebar (dark-mode friendly) ===== */
+      .sidebar {
+        background: var(--card);
+        border-right: 1px solid var(--border);
+        padding: 18px 14px;
+        color: var(--text);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+        position: relative;
+        z-index: 1;
+      }
+      .brand .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #ffe8e0;
+        display: grid;
+        place-items: center;
+        box-shadow: var(--shadow);
+      }
+      .brand .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .brand b {
+        font-size: 18px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .nav a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: var(--text);
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .nav a .i {
+        width: 18px;
+        text-align: center;
+      }
+      .nav a:hover {
+        background: rgba(37, 99, 235, 0.12);
+      }
+      .nav a.active {
+        background: var(--blue);
+        color: #fff;
+      }
 
-  /* ===== Main ===== */
-  .main{padding:22px 24px 40px}
-  .top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-  .top h1{margin:0;font-size:22px;font-weight:800}
-  .top .sp{flex:1}
-  .btn{height:38px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:800;padding:0 14px;cursor:pointer}
+      /* ===== Main ===== */
+      .main {
+        padding: 22px 24px 40px;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .top h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 800;
+      }
+      .top .sp {
+        flex: 1;
+      }
+      .btn {
+        height: 38px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--blue);
+        color: #fff;
+        font-weight: 800;
+        padding: 0 14px;
+        cursor: pointer;
+      }
 
-  .grid{display:grid;grid-template-columns:1.25fr .9fr;gap:16px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
+      .grid {
+        display: grid;
+        grid-template-columns: 1.25fr 0.9fr;
+        gap: 16px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 14px;
+      }
 
-  .daily .row{display:grid;grid-template-columns:20px 1fr 200px 80px;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px dashed #eef2f7}
-  html.dark .daily .row{border-bottom:1px dashed #1f2a44}
-  .daily .row:last-child{border-bottom:0}
-  .arrow{color:#94a3b8}
-  .date{color:var(--text)}
-  .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
-  html.dark .bar{background:#1f2a44}
-  .bar>i{display:block;height:100%;background:#cbd5e1}
-  .bar>i.green{background:var(--green)}
-  .amount{text-align:right;color:var(--text);font-weight:700}
+      .daily .row {
+        display: grid;
+        grid-template-columns: 20px 1fr 200px 80px;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 6px;
+        border-bottom: 1px dashed #eef2f7;
+      }
+      html.dark .daily .row {
+        border-bottom: 1px dashed #1f2a44;
+      }
+      .daily .row:last-child {
+        border-bottom: 0;
+      }
+      .arrow {
+        color: #94a3b8;
+      }
+      .date {
+        color: var(--text);
+      }
+      .bar {
+        height: 10px;
+        background: #e5e7eb;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      html.dark .bar {
+        background: #1f2a44;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: #cbd5e1;
+      }
+      .bar > i.green {
+        background: var(--green);
+      }
+      .amount {
+        text-align: right;
+        color: var(--text);
+        font-weight: 700;
+      }
 
-  .chart{display:flex;flex-direction:column;gap:12px}
-  .chart .panel{
-    background:#0b1220;border-radius:12px;padding:10px;height:320px;
-    display:grid;place-items:center;border:1px solid #162033;
-    cursor:pointer;transition:transform 0.3s ease, box-shadow 0.3s ease;
-    overflow:hidden;position:relative;
-  }
-  .chart .panel:hover{
-    transform:scale(1.05);box-shadow:0 8px 24px rgba(34,197,94,0.25);
-    z-index:10;
-  }
-  .chart svg{width:100%;height:100%;transition:transform 0.3s ease}
-  .chart .panel:hover svg{transform:scale(1.1)}
-  
-  /* Tooltip for data points */
-  .chart-tooltip{
-    position:absolute;background:rgba(15,23,42,0.95);color:#e2e8f0;
-    padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;
-    pointer-events:none;z-index:100;display:none;
-    border:1px solid rgba(34,197,94,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.3);
-    line-height:1.5;text-align:center;min-width:120px;
-  }
-  .chart-tooltip.show{display:block}
-  .chart-tooltip .date{display:block;font-size:11px;opacity:0.9;margin-bottom:4px}
-  .chart-tooltip .amount{display:block;font-size:14px;color:#22c55e;font-weight:700}
+      .chart {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .chart .panel {
+        background: #0b1220;
+        border-radius: 12px;
+        padding: 10px;
+        height: 320px;
+        display: grid;
+        place-items: center;
+        border: 1px solid #162033;
+        cursor: pointer;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
+        position: relative;
+      }
+      .chart .panel:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 24px rgba(34, 197, 94, 0.25);
+        z-index: 10;
+      }
+      .chart svg {
+        width: 100%;
+        height: 100%;
+        transition: transform 0.3s ease;
+      }
+      .chart .panel:hover svg {
+        transform: scale(1.1);
+      }
 
-  /* Chart Modal */
-  /* Chart type selector */
-  .chart-type-selector{
-    display:flex;gap:10px;margin-bottom:16px;justify-content:flex-end;
-    background:rgba(15,23,42,0.3);padding:4px;border-radius:12px;
-    backdrop-filter:blur(10px);
-  }
-  .chart-type-btn{
-    padding:8px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);
-    background:transparent;color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;
-    cursor:pointer;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position:relative;overflow:hidden;
-  }
-  .chart-type-btn::before{
-    content:'';position:absolute;top:0;left:0;right:0;bottom:0;
-    background:linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(34,197,94,0.1) 100%);
-    opacity:0;transition:opacity 0.3s ease;
-  }
-  .chart-type-btn:hover{
-    color:#fff;border-color:rgba(34,197,94,0.4);
-    transform:translateY(-2px);
-    box-shadow:0 4px 12px rgba(34,197,94,0.2);
-  }
-  .chart-type-btn:hover::before{opacity:1}
-  .chart-type-btn.active{
-    background:linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    color:#fff;border-color:#22c55e;
-    box-shadow:0 4px 16px rgba(34,197,94,0.4),
-               0 0 0 1px rgba(34,197,94,0.3);
-    transform:translateY(-2px);
-  }
-  .chart-type-btn.active::before{opacity:0}
+      /* Tooltip for data points */
+      .chart-tooltip {
+        position: absolute;
+        background: rgba(15, 23, 42, 0.95);
+        color: #e2e8f0;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        pointer-events: none;
+        z-index: 100;
+        display: none;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        line-height: 1.5;
+        text-align: center;
+        min-width: 120px;
+      }
+      .chart-tooltip.show {
+        display: block;
+      }
+      .chart-tooltip .date {
+        display: block;
+        font-size: 11px;
+        opacity: 0.9;
+        margin-bottom: 4px;
+      }
+      .chart-tooltip .amount {
+        display: block;
+        font-size: 14px;
+        color: #22c55e;
+        font-weight: 700;
+      }
 
-  .chart-modal{
-    position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;
-    display:none;align-items:center;justify-content:center;
-    opacity:0;transition:opacity 0.3s ease;
-  }
-  .chart-modal.show{display:flex;opacity:1}
-  .chart-modal-overlay{
-    position:absolute;top:0;left:0;right:0;bottom:0;
-    background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
-  }
-  .chart-modal-content{
-    position:relative;background:var(--card);border-radius:16px;
-    width:90vw;max-width:1200px;max-height:90vh;
-    display:flex;flex-direction:column;
-    box-shadow:0 20px 60px rgba(0,0,0,0.5);
-    border:1px solid var(--border);
-    transform:scale(0.9);transition:transform 0.3s ease;
-  }
-  .chart-modal.show .chart-modal-content{transform:scale(1)}
-  .chart-modal-header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:20px 24px;border-bottom:1px solid var(--border);
-  }
-  .chart-modal-header h2{
-    margin:0;font-size:20px;font-weight:700;color:var(--text);
-  }
-  .chart-modal-close{
-    width:36px;height:36px;border-radius:8px;
-    border:none;background:transparent;color:var(--text);
-    font-size:28px;line-height:1;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    transition:background 0.2s ease;
-  }
-  .chart-modal-close:hover{background:var(--border)}
-  .chart-modal-body{
-    flex:1;overflow:auto;padding:24px;
-  }
-  .chart-modal-chart{
-    width:100%;min-height:500px;
-    background:#0b1220;border-radius:12px;padding:20px;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .chart-modal-chart svg{width:100%;height:100%;max-height:600px}
+      /* Chart Modal */
+      /* Chart type selector */
+      .chart-type-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+        justify-content: flex-end;
+        background: rgba(15, 23, 42, 0.3);
+        padding: 4px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+      }
+      .chart-type-btn {
+        padding: 8px 16px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+      .chart-type-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(34, 197, 94, 0.2) 0%,
+          rgba(34, 197, 94, 0.1) 100%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .chart-type-btn:hover {
+        color: #fff;
+        border-color: rgba(34, 197, 94, 0.4);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+      }
+      .chart-type-btn:hover::before {
+        opacity: 1;
+      }
+      .chart-type-btn.active {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: #fff;
+        border-color: #22c55e;
+        box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4),
+          0 0 0 1px rgba(34, 197, 94, 0.3);
+        transform: translateY(-2px);
+      }
+      .chart-type-btn.active::before {
+        opacity: 0;
+      }
 
-  .month .row{display:grid;grid-template-columns:80px 1fr 110px;align-items:center;gap:10px;padding:10px 6px}
-  .mbar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
-  html.dark .mbar{background:#1f2a44}
-  .mbar>i{display:block;height:100%;background:var(--green)}
-  .mamount{text-align:right;font-weight:700;color:var(--text)}
+      .chart-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .chart-modal.show {
+        display: flex;
+        opacity: 1;
+      }
+      .chart-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(4px);
+      }
+      .chart-modal-content {
+        position: relative;
+        background: var(--card);
+        border-radius: 16px;
+        width: 90vw;
+        max-width: 1200px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--border);
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+      }
+      .chart-modal.show .chart-modal-content {
+        transform: scale(1);
+      }
+      .chart-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .chart-modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .chart-modal-close {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-size: 28px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease;
+      }
+      .chart-modal-close:hover {
+        background: var(--border);
+      }
+      .chart-modal-body {
+        flex: 1;
+        overflow: auto;
+        padding: 24px;
+      }
+      .chart-modal-chart {
+        width: 100%;
+        min-height: 500px;
+        background: #0b1220;
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .chart-modal-chart svg {
+        width: 100%;
+        height: 100%;
+        max-height: 600px;
+      }
 
-  /* ===== Chatbox ===== */
-  .pig-float{
-    position:fixed;right:26px;bottom:26px;width:76px;height:76px;border-radius:18px;
-    background:#ffe8e0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.12);
-    z-index:30;border:0;cursor:pointer
-  }
-  .pig-float img{width:64px;height:64px}
+      .month .row {
+        display: grid;
+        grid-template-columns: 80px 1fr 110px;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 6px;
+      }
+      .mbar {
+        height: 10px;
+        background: #e5e7eb;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      html.dark .mbar {
+        background: #1f2a44;
+      }
+      .mbar > i {
+        display: block;
+        height: 100%;
+        background: var(--green);
+      }
+      .mamount {
+        text-align: right;
+        font-weight: 700;
+        color: var(--text);
+      }
 
-  .chatbox{
-    position:fixed;right:26px;bottom:112px;width:340px;
-    background:var(--card);border:1px solid var(--border);border-radius:14px;
-    box-shadow:var(--shadow);overflow:hidden;display:none;z-index:40;
-    grid-template-rows:56px 1fr 60px;
-  }
-  .chatbox.open{display:grid}
-  .chat-head{
-    background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;
-    padding:10px 12px;font-weight:800;
-  }
-  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
-  .chat-title{line-height:1.2}
-  .chat-sub{font-weight:600;opacity:.95}
-  .chat-body{background:#f4fbff;overflow:auto;padding:10px;scroll-behavior:smooth;max-height:380px}
-  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
-  .msg.user{justify-content:flex-end}
-  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:14px;line-height:1.35}
-  html.dark .bubble{background:var(--card);color:var(--text)}
-  .msg.bot .bubble{border-radius:14px 14px 14px 4px}
-  .msg.user .bubble{border-radius:14px 14px 4px 14px;background:var(--blue);border:none;color:#fff}
-  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
-  .typing{display:inline-block;min-width:34px}
-  .typing span{display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;margin:0 2px;animation:b 1s infinite ease-in-out}
-  .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
-  @keyframes b{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
-  .chat-input{background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
-  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;background:#fff;outline:none}
-  html.dark #chatInput{background:transparent;color:var(--text)}
+      /* ===== Chatbox ===== */
+      .pig-float {
+        position: fixed;
+        right: 26px;
+        bottom: 26px;
+        width: 76px;
+        height: 76px;
+        border-radius: 18px;
+        background: #ffe8e0;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        z-index: 30;
+        border: 0;
+        cursor: pointer;
+      }
+      .pig-float img {
+        width: 64px;
+        height: 64px;
+      }
 
-  /* ===== FAB ===== */
-  .fab{position:fixed;right:26px;bottom:112px;width:46px;height:46px;border-radius:999px;background:#f43f5e;color:#fff;display:grid;place-items:center;font-size:22px;box-shadow:0 6px 14px rgba(244,63,94,.35);cursor:pointer;z-index:20}
+      .chatbox {
+        position: fixed;
+        right: 26px;
+        bottom: 112px;
+        width: 340px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: none;
+        z-index: 40;
+        grid-template-rows: 56px 1fr 60px;
+      }
+      .chatbox.open {
+        display: grid;
+      }
+      .chat-head {
+        background: #1da1c9;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        font-weight: 800;
+      }
+      .chat-head img {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: #ffe8e0;
+      }
+      .chat-title {
+        line-height: 1.2;
+      }
+      .chat-sub {
+        font-weight: 600;
+        opacity: 0.95;
+      }
+      .chat-body {
+        background: #f4fbff;
+        overflow: auto;
+        padding: 10px;
+        scroll-behavior: smooth;
+        max-height: 380px;
+      }
+      .msg {
+        display: flex;
+        align-items: flex-end;
+        margin: 8px 0;
+        gap: 8px;
+      }
+      .msg.user {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fff;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+      html.dark .bubble {
+        background: var(--card);
+        color: var(--text);
+      }
+      .msg.bot .bubble {
+        border-radius: 14px 14px 14px 4px;
+      }
+      .msg.user .bubble {
+        border-radius: 14px 14px 4px 14px;
+        background: var(--blue);
+        border: none;
+        color: #fff;
+      }
+      .avatar-s {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #ffe8e0;
+        flex: 0 0 26px;
+        font-size: 14px;
+      }
+      .typing {
+        display: inline-block;
+        min-width: 34px;
+      }
+      .typing span {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        background: #9ca3af;
+        border-radius: 50%;
+        margin: 0 2px;
+        animation: b 1s infinite ease-in-out;
+      }
+      .typing span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes b {
+        0%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-4px);
+        }
+      }
+      .chat-input {
+        background: var(--card);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+      }
+      #chatInput {
+        flex: 1;
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 12px;
+        background: #fff;
+        outline: none;
+      }
+      html.dark #chatInput {
+        background: transparent;
+        color: var(--text);
+      }
 
-  @media (max-width:1100px){
-    body{grid-template-columns:1fr}
-    .sidebar{position:sticky;top:0;z-index:20}
-    .grid{grid-template-columns:1fr}
-    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
-    .pig-float{right:16px;bottom:20px}
-    .fab{right:16px;bottom:96px}
-  }
-</style>
-</head>
-<body>
-  <script src="/frontend/js/ai.js"></script>
+      /* ===== FAB ===== */
+      .fab {
+        position: fixed;
+        right: 26px;
+        bottom: 112px;
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        background: #f43f5e;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        box-shadow: 0 6px 14px rgba(244, 63, 94, 0.35);
+        cursor: pointer;
+        z-index: 20;
+      }
 
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo"><img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt=""></div>
-      <b>SmartExpense</b>
-    </div>
-    <nav class="nav">
-      <a href="trangchu.html"><span class="i">🏠</span> <span data-i18n="nav.overview">Trang chủ</span></a>
-      <a href="danhsachchitieu.html"><span class="i">🧾</span> <span data-i18n="nav.list">Danh sách chi tiêu</span></a>
-      <a href="lichsuchitieu.html"><span class="i">🕘</span> <span data-i18n="nav.history">Lịch sử chi tiêu</span></a>
-      <a href="lenlichchitieu.html"><span class="i">📅</span> <span data-i18n="nav.schedule">Lên lịch chi tiêu</span></a>
-      <a href="loaichitieu.html"><span class="i">🏷️</span> <span data-i18n="nav.types">Loại chi tiêu</span></a>
-      <a href="baocao.html" class="active"><span class="i">📊</span> <span data-i18n="nav.report">Báo cáo</span></a>
-      <a href="hoso.html"><span class="i">👤</span> <span data-i18n="nav.profile">Hồ sơ</span></a>
-      <a href="caidat.html"><span class="i">⚙️</span> <span data-i18n="nav.settings">Cài đặt</span></a>
-      <a href="login.html"><span class="i">↪️</span> <span data-i18n="nav.logout">Đăng xuất</span></a>
-    </nav>
-  </aside>
+      @media (max-width: 1100px) {
+        body {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .chatbox {
+          right: 16px;
+          bottom: 96px;
+          width: min(92vw, 360px);
+        }
+        .pig-float {
+          right: 16px;
+          bottom: 20px;
+        }
+        .fab {
+          right: 16px;
+          bottom: 96px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <script src="/frontend/js/ai.js"></script>
 
-  <main class="main">
-    <div class="top">
-      <h1 data-i18n="report.title">Báo cáo</h1>
-      <div class="sp"></div>
-      <button class="btn" id="btnRefresh" style="background:var(--green);margin-right:8px;" title="Đồng bộ dữ liệu">🔄</button>
-      <button class="btn" id="btnDetail" data-i18n="report.viewDetail">Xem chi tiết báo cáo</button>
-    </div>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">
+          <img
+            src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+            alt=""
+          />
+        </div>
+        <b>SmartExpense</b>
+      </div>
+      <nav class="nav">
+        <a href="trangchu.html"
+          ><span class="i">🏠</span>
+          <span data-i18n="nav.overview">Trang chủ</span></a
+        >
+        <a href="danhsachchitieu.html"
+          ><span class="i">🧾</span>
+          <span data-i18n="nav.list">Danh sách chi tiêu</span></a
+        >
+        <a href="lichsuchitieu.html"
+          ><span class="i">🕘</span>
+          <span data-i18n="nav.history">Lịch sử chi tiêu</span></a
+        >
+        <a href="lenlichchitieu.html"
+          ><span class="i">📅</span>
+          <span data-i18n="nav.schedule">Lên lịch chi tiêu</span></a
+        >
+        <a href="loaichitieu.html"
+          ><span class="i">🏷️</span>
+          <span data-i18n="nav.types">Loại chi tiêu</span></a
+        >
+        <a href="baocao.html" class="active"
+          ><span class="i">📊</span>
+          <span data-i18n="nav.report">Báo cáo</span></a
+        >
+        <a href="hoso.html"
+          ><span class="i">👤</span>
+          <span data-i18n="nav.profile">Hồ sơ</span></a
+        >
+        <a href="caidat.html"
+          ><span class="i">⚙️</span>
+          <span data-i18n="nav.settings">Cài đặt</span></a
+        >
+        <a href="login.html"
+          ><span class="i">↪️</span>
+          <span data-i18n="nav.logout">Đăng xuất</span></a
+        >
+      </nav>
+    </aside>
 
-    <section class="grid">
-      <!-- Left: Daily -->
-      <div class="card daily">
-        <b data-i18n="daily.title">Chi tiêu theo ngày</b>
-        <div id="daily"></div>
-        <button class="btn" style="margin-top:10px" data-i18n="btn.more">Xem thêm</button>
+    <main class="main">
+      <div class="top">
+        <h1 data-i18n="report.title">Báo cáo</h1>
+        <div class="sp"></div>
+        <button
+          class="btn"
+          id="btnRefresh"
+          style="background: var(--green); margin-right: 8px"
+          title="Đồng bộ dữ liệu"
+        >
+          🔄
+        </button>
+        <button class="btn" id="btnDetail" data-i18n="report.viewDetail">
+          Xem chi tiết báo cáo
+        </button>
       </div>
 
-      <!-- Right: Chart + Monthly -->
-      <div style="display:grid;gap:16px">
-        <div class="card chart">
-          <div class="chart-type-selector">
-            <button class="chart-type-btn active" data-type="bar" title="Biểu đồ cột">📊 Biểu đồ cột</button>
-          </div>
-          <div class="panel" id="chartPanel">
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">
-              Đang tải biểu đồ...
+      <section class="grid">
+        <!-- Left: Daily -->
+        <div class="card daily">
+          <b data-i18n="daily.title">Chi tiêu theo ngày</b>
+          <div id="daily"></div>
+          <button class="btn" style="margin-top: 10px" data-i18n="btn.more">
+            Xem thêm
+          </button>
+        </div>
+
+        <!-- Right: Chart + Monthly -->
+        <div style="display: grid; gap: 16px">
+          <div class="card chart">
+            <div class="chart-type-selector">
+              <button
+                class="chart-type-btn active"
+                data-type="bar"
+                title="Biểu đồ cột"
+              >
+                📊 Biểu đồ cột
+              </button>
+            </div>
+            <div class="panel" id="chartPanel">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  height: 100%;
+                  color: #94a3b8;
+                  font-size: 14px;
+                "
+              >
+                Đang tải biểu đồ...
+              </div>
             </div>
           </div>
+
+          <div class="card month">
+            <b data-i18n="monthly.title">Chi tiêu theo tháng</b>
+            <div id="month"></div>
+            <button
+              class="btn"
+              style="margin-top: 10px; width: 110px"
+              data-i18n="btn.more"
+            >
+              Xem thêm
+            </button>
+          </div>
         </div>
+      </section>
+    </main>
 
-        <div class="card month">
-          <b data-i18n="monthly.title">Chi tiêu theo tháng</b>
-          <div id="month"></div>
-          <button class="btn" style="margin-top:10px;width:110px" data-i18n="btn.more">Xem thêm</button>
+    <!-- Chatbox -->
+    <div id="chatbox" class="chatbox" aria-hidden="true">
+      <div class="chat-head">
+        <img
+          src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+          alt=""
+        />
+        <div>
+          <div class="chat-title" data-i18n="chat.title">Trợ lý thông minh</div>
+          <div class="chat-sub" data-i18n="chat.sub">
+            Xin chào! 👋 Rất vui khi được hỗ trợ bạn
+          </div>
         </div>
       </div>
-    </section>
-  </main>
-
-  <!-- Chatbox -->
-  <div id="chatbox" class="chatbox" aria-hidden="true">
-    <div class="chat-head">
-      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
-      <div>
-        <div class="chat-title" data-i18n="chat.title">Trợ lý thông minh</div>
-        <div class="chat-sub" data-i18n="chat.sub">Xin chào! 👋 Rất vui khi được hỗ trợ bạn</div>
+      <div id="chatBody" class="chat-body"></div>
+      <div class="chat-input">
+        <input
+          id="chatInput"
+          type="text"
+          placeholder="Viết tin nhắn…"
+          data-i18n="ph.chat"
+        />
+        <button
+          id="sendBtn"
+          data-i18n="send.title"
+          data-i18n-attr="title,aria-label"
+          title="Gửi"
+          aria-label="Gửi"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor" />
+          </svg>
+        </button>
       </div>
     </div>
-    <div id="chatBody" class="chat-body"></div>
-    <div class="chat-input">
-      <input id="chatInput" type="text" placeholder="Viết tin nhắn…" data-i18n="ph.chat">
-      <button id="sendBtn" data-i18n="send.title" data-i18n-attr="title,aria-label" title="Gửi" aria-label="Gửi">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor"/></svg>
-      </button>
+
+    <button
+      id="chatToggle"
+      class="pig-float"
+      data-i18n="chat.open"
+      data-i18n-attr="aria-label"
+      aria-label="Mở trợ lý"
+    >
+      <img
+        src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+        alt=""
+      />
+    </button>
+
+    <div
+      class="fab"
+      title="Lên đầu trang"
+      data-i18n="fab.top"
+      data-i18n-attr="title"
+    >
+      ↑
     </div>
-  </div>
 
-  <button id="chatToggle" class="pig-float" data-i18n="chat.open" data-i18n-attr="aria-label" aria-label="Mở trợ lý">
-    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
-  </button>
-
-  <div class="fab" title="Lên đầu trang" data-i18n="fab.top" data-i18n-attr="title">↑</div>
-
-  <!-- Chart Modal -->
-  <div id="chartModal" class="chart-modal" aria-hidden="true">
-    <div class="chart-modal-overlay"></div>
-    <div class="chart-modal-content">
-      <div class="chart-modal-header">
-        <h2>Biểu đồ chi tiêu</h2>
-        <button class="chart-modal-close" aria-label="Đóng">&times;</button>
-      </div>
-      <div class="chart-modal-body">
-        <div id="chartModalContainer" class="chart-modal-chart"></div>
+    <!-- Chart Modal -->
+    <div id="chartModal" class="chart-modal" aria-hidden="true">
+      <div class="chart-modal-overlay"></div>
+      <div class="chart-modal-content">
+        <div class="chart-modal-header">
+          <h2>Biểu đồ chi tiêu</h2>
+          <button class="chart-modal-close" aria-label="Đóng">&times;</button>
+        </div>
+        <div class="chart-modal-body">
+          <div id="chartModalContainer" class="chart-modal-chart"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-<script>
-  /* ===== Apply saved theme from Settings ===== */
-  (function initTheme(){
-    const saved = localStorage.getItem('theme');
-    document.documentElement.classList.toggle('dark', saved === 'dark');
-  })();
+    <script>
+      /* ===== Apply saved theme from Settings ===== */
+      (function initTheme() {
+        const saved = localStorage.getItem("theme");
+        document.documentElement.classList.toggle("dark", saved === "dark");
+      })();
 
-  /* ===== I18N dictionary ===== */
-  const I18N = {
-    vi: {
-      "nav.overview":"Trang chủ","nav.list":"Danh sách chi tiêu","nav.history":"Lịch sử chi tiêu",
-      "nav.schedule":"Lên lịch chi tiêu","nav.types":"Loại chi tiêu","nav.report":"Báo cáo",
-      "nav.profile":"Hồ sơ","nav.settings":"Cài đặt","nav.logout":"Đăng xuất",
+      /* ===== I18N dictionary ===== */
+      const I18N = {
+        vi: {
+          "nav.overview": "Trang chủ",
+          "nav.list": "Danh sách chi tiêu",
+          "nav.history": "Lịch sử chi tiêu",
+          "nav.schedule": "Lên lịch chi tiêu",
+          "nav.types": "Loại chi tiêu",
+          "nav.report": "Báo cáo",
+          "nav.profile": "Hồ sơ",
+          "nav.settings": "Cài đặt",
+          "nav.logout": "Đăng xuất",
 
-      "report.title":"Báo cáo","report.viewDetail":"Xem chi tiết báo cáo",
-      "daily.title":"Chi tiêu theo ngày","monthly.title":"Chi tiêu theo tháng",
-      "btn.more":"Xem thêm","fab.top":"Lên đầu trang",
+          "report.title": "Báo cáo",
+          "report.viewDetail": "Xem chi tiết báo cáo",
+          "daily.title": "Chi tiêu theo ngày",
+          "monthly.title": "Chi tiêu theo tháng",
+          "btn.more": "Xem thêm",
+          "fab.top": "Lên đầu trang",
 
-      "chat.title":"Trợ lý thông minh","chat.sub":"Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
-      "chat.greet":"Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.",
-      "chat.open":"Mở trợ lý","ph.chat":"Viết tin nhắn…","send.title":"Gửi",
+          "chat.title": "Trợ lý thông minh",
+          "chat.sub": "Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
+          "chat.greet":
+            "Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.",
+          "chat.open": "Mở trợ lý",
+          "ph.chat": "Viết tin nhắn…",
+          "send.title": "Gửi",
 
-      "msg.create.wait":"Đang tạo câu trả lời dựa theo yêu cầu…",
-      "msg.create.done":"Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Hãy kiểm tra ở mục Danh sách chi tiêu.",
-      "msg.next":"Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?"
-    },
-    en: {
-      "nav.overview":"Home","nav.list":"Expense list","nav.history":"History",
-      "nav.schedule":"Budget planner","nav.types":"Categories","nav.report":"Reports",
-      "nav.profile":"Profile","nav.settings":"Settings","nav.logout":"Log out",
+          "msg.create.wait": "Đang tạo câu trả lời dựa theo yêu cầu…",
+          "msg.create.done":
+            "Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Hãy kiểm tra ở mục Danh sách chi tiêu.",
+          "msg.next":
+            "Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?",
+        },
+        en: {
+          "nav.overview": "Home",
+          "nav.list": "Expense list",
+          "nav.history": "History",
+          "nav.schedule": "Budget planner",
+          "nav.types": "Categories",
+          "nav.report": "Reports",
+          "nav.profile": "Profile",
+          "nav.settings": "Settings",
+          "nav.logout": "Log out",
 
-      "report.title":"Reports","report.viewDetail":"View detailed report",
-      "daily.title":"Daily spending","monthly.title":"Monthly spending",
-      "btn.more":"See more","fab.top":"Back to top",
+          "report.title": "Reports",
+          "report.viewDetail": "View detailed report",
+          "daily.title": "Daily spending",
+          "monthly.title": "Monthly spending",
+          "btn.more": "See more",
+          "fab.top": "Back to top",
 
-      "chat.title":"Smart assistant","chat.sub":"Hello! 👋 Happy to help",
-      "chat.greet":"I'm the SmartExpense assistant. I can create expenses, show reports, or share tips.",
-      "chat.open":"Open assistant","ph.chat":"Type a message…","send.title":"Send",
+          "chat.title": "Smart assistant",
+          "chat.sub": "Hello! 👋 Happy to help",
+          "chat.greet":
+            "I'm the SmartExpense assistant. I can create expenses, show reports, or share tips.",
+          "chat.open": "Open assistant",
+          "ph.chat": "Type a message…",
+          "send.title": "Send",
 
-      "msg.create.wait":"Generating a response based on your request…",
-      "msg.create.done":"I've created next month's recurring expense. Please check the Expense list.",
-      "msg.next":"Got it. What would you like me to do next?"
-    }
-  };
+          "msg.create.wait": "Generating a response based on your request…",
+          "msg.create.done":
+            "I've created next month's recurring expense. Please check the Expense list.",
+          "msg.next": "Got it. What would you like me to do next?",
+        },
+      };
 
-  function t(key){
-    const lang = localStorage.getItem('lang') || 'vi';
-    return (I18N[lang] && I18N[lang][key]) || key;
-  }
-
-  function translatePage(){
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const key = el.getAttribute('data-i18n');
-      const val = t(key);
-      const attrs = el.getAttribute('data-i18n-attr');
-      if (attrs) {
-        attrs.split(',').forEach(a => el.setAttribute(a.trim(), val));
-      } else if (el.tagName === 'INPUT') {
-        el.placeholder = val;
-      } else {
-        el.textContent = val;
+      function t(key) {
+        const lang = localStorage.getItem("lang") || "vi";
+        return (I18N[lang] && I18N[lang][key]) || key;
       }
-    });
-  }
 
-  /* ===== Load transactions from DataManager or API ===== */
-  async function getTransactions(forceRefresh = false){
-    // Priority 1: Force refresh from API if requested
-    if (forceRefresh && window.apiRequest && typeof window.apiRequest === 'function') {
-      try {
-        console.log('🔄 Force refreshing transactions from API...');
-        const result = await window.apiRequest('/api/expenses');
-        if (result && result.ok && result.data && result.data.items) {
-          const expenses = result.data.items;
-          // Update DataManager cache
-          if (window.dataManager) {
-            window.dataManager.data.expenses = expenses;
-            window.dataManager.saveData();
-            console.log(`✅ Loaded ${expenses.length} expenses from API and updated cache`);
+      function translatePage() {
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          const val = t(key);
+          const attrs = el.getAttribute("data-i18n-attr");
+          if (attrs) {
+            attrs.split(",").forEach((a) => el.setAttribute(a.trim(), val));
+          } else if (el.tagName === "INPUT") {
+            el.placeholder = val;
+          } else {
+            el.textContent = val;
           }
-          // Convert expenses to transaction format
-          return expenses.map(e => ({
-            date: e.date || '',
-            amount: typeof e.amount === 'number' ? (e.amount < 0 ? Math.abs(e.amount) : e.amount) : 0,
-            type: e.type || (e.amount < 0 ? 'expense' : 'income')
-          }));
-        }
-      } catch (e) {
-        console.warn('⚠️ Failed to force refresh from API:', e);
+        });
       }
-    }
-    
-    // Priority 2: Try DataManager (most reliable, already synced from API)
-    if (window.dataManager && window.dataManager.data && window.dataManager.data.expenses) {
-      const expenses = window.dataManager.data.expenses;
-      // Convert expenses to transaction format
-      return expenses.map(e => ({
-        date: e.date || '',
-        amount: typeof e.amount === 'number' ? (e.amount < 0 ? Math.abs(e.amount) : e.amount) : 0,
-        type: e.type || (e.amount < 0 ? 'expense' : 'income')
-      }));
-    }
-    
-    // Priority 3: Try loading from API directly if DataManager not available
-    if (window.apiRequest && typeof window.apiRequest === 'function') {
-      try {
-        const result = await window.apiRequest('/api/expenses');
-        if (result && result.ok && result.data && result.data.items) {
-          const expenses = result.data.items;
-          return expenses.map(e => ({
-            date: e.date || '',
-            amount: typeof e.amount === 'number' ? (e.amount < 0 ? Math.abs(e.amount) : e.amount) : 0,
-            type: e.type || (e.amount < 0 ? 'expense' : 'income')
-          }));
-        }
-      } catch (e) {
-        console.warn('Failed to load transactions from API:', e);
-      }
-    }
-    
-    // Fallback: try localStorage.transactions (legacy)
-    try{
-      const raw = localStorage.getItem('transactions');
-      const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? list : [];
-    }catch(_){ return []; }
-  }
 
-  function startOfDay(d){ const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setHours(0,0,0,0); return x; }
-  function ymd(d){ return d.toISOString().split('T')[0]; }
-
-  // ===== Load data from API and render =====
-  async function loadAndRenderReport(forceRefresh = false){
-    console.log('🔄 Loading report data...', forceRefresh ? '(force refresh)' : '(using cache)');
-    
-    // Step 1: Force refresh DataManager from API if requested
-    if (forceRefresh && window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-      try {
-        console.log('🔄 Force refreshing DataManager from API...');
-        await window.dataManager.loadFromAPI(true); // Force refresh
-        console.log('✅ DataManager refreshed from API');
-      } catch (e) {
-        console.warn('⚠️ DataManager API refresh failed:', e);
-      }
-    } else if (window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-      // Regular load (check cache first, then API if needed)
-      try {
-        await window.dataManager.loadFromAPI();
-        console.log('✅ DataManager loaded');
-      } catch (e) {
-        console.warn('⚠️ DataManager load failed, using cache:', e);
-      }
-    } else {
-      console.log('ℹ️ DataManager or loadFromAPI not available, using cache');
-    }
-    
-    // Step 2: Also try API reports/summary endpoint (use apiRequest to get correct API_BASE from utils.js)
-    try {
-      if (window.apiRequest && typeof window.apiRequest === 'function') {
-        const result = await window.apiRequest('/api/reports/summary');
-        if(result && result.ok && result.data){
-          const data = result.data;
-          if(data && Array.isArray(data.daily) && Array.isArray(data.monthly)){
-            // Format daily data with proper labels
-            const weekdayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-            window.__REPORT_DAILY = data.daily.map(d => {
-              const dateStr = d.date || '';
-              let label = dateStr;
-              if (dateStr) {
-                try {
-                  const dateObj = new Date(dateStr);
-                  const dayOfWeek = weekdayNames[dateObj.getDay()];
-                  const formattedDate = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`;
-                  label = `${dayOfWeek}, ${formattedDate}`;
-                } catch (e) {
-                  console.warn('Failed to parse date:', dateStr, e);
-                }
+      /* ===== Load transactions from DataManager or API ===== */
+      async function getTransactions(forceRefresh = false) {
+        // Priority 1: Force refresh from API if requested
+        if (
+          forceRefresh &&
+          window.apiRequest &&
+          typeof window.apiRequest === "function"
+        ) {
+          try {
+            console.log("🔄 Force refreshing transactions from API...");
+            const result = await window.apiRequest("/api/expenses");
+            if (result && result.ok && result.data && result.data.items) {
+              const expenses = result.data.items;
+              // Update DataManager cache
+              if (window.dataManager) {
+                window.dataManager.data.expenses = expenses;
+                window.dataManager.saveData();
+                console.log(
+                  `✅ Loaded ${expenses.length} expenses from API and updated cache`
+                );
               }
-              return {
-                label: label,
-                date: dateStr,
-                amount: Number(d.amount)||0 
-              };
-            });
-            
-            // Format monthly data
-            window.__REPORT_MONTHLY = data.monthly.map(m => ({ 
-              m: m.month || m.m || '', 
-              amount: Number(m.amount)||0 
-            }));
-            
-            console.log(`✅ Report summary loaded from API: ${window.__REPORT_DAILY.length} days, ${window.__REPORT_MONTHLY.length} months`);
+              // Convert expenses to transaction format
+              return expenses.map((e) => ({
+                date: e.date || "",
+                amount:
+                  typeof e.amount === "number"
+                    ? e.amount < 0
+                      ? Math.abs(e.amount)
+                      : e.amount
+                    : 0,
+                type: e.type || (e.amount < 0 ? "expense" : "income"),
+              }));
+            }
+          } catch (e) {
+            console.warn("⚠️ Failed to force refresh from API:", e);
           }
         }
+
+        // Priority 2: Try DataManager (most reliable, already synced from API)
+        if (
+          window.dataManager &&
+          window.dataManager.data &&
+          window.dataManager.data.expenses
+        ) {
+          const expenses = window.dataManager.data.expenses;
+          // Convert expenses to transaction format
+          return expenses.map((e) => ({
+            date: e.date || "",
+            amount:
+              typeof e.amount === "number"
+                ? e.amount < 0
+                  ? Math.abs(e.amount)
+                  : e.amount
+                : 0,
+            type: e.type || (e.amount < 0 ? "expense" : "income"),
+          }));
+        }
+
+        // Priority 3: Try loading from API directly if DataManager not available
+        if (window.apiRequest && typeof window.apiRequest === "function") {
+          try {
+            const result = await window.apiRequest("/api/expenses");
+            if (result && result.ok && result.data && result.data.items) {
+              const expenses = result.data.items;
+              return expenses.map((e) => ({
+                date: e.date || "",
+                amount:
+                  typeof e.amount === "number"
+                    ? e.amount < 0
+                      ? Math.abs(e.amount)
+                      : e.amount
+                    : 0,
+                type: e.type || (e.amount < 0 ? "expense" : "income"),
+              }));
+            }
+          } catch (e) {
+            console.warn("Failed to load transactions from API:", e);
+          }
+        }
+
+        // Fallback: try localStorage.transactions (legacy)
+        try {
+          const raw = localStorage.getItem("transactions");
+          const list = raw ? JSON.parse(raw) : [];
+          return Array.isArray(list) ? list : [];
+        } catch (_) {
+          return [];
+        }
       }
-    }catch(e){ 
-      console.warn('⚠️ Report API failed, using DataManager:', e);
-    }
-    
-    // Step 3: Now render with loaded data (await async functions)
-    // Clear caches to force recalculation from fresh data
-    if (forceRefresh) {
-      console.log('🔄 Force refreshing transaction data...');
-      await getTransactions(true); // Force refresh transactions
-    }
-    
-    await renderDaily();
-    await renderMonth();
-    await updateChartPanel(window.currentChartType || 'bar');
-    
-    // Initialize chart type selector after rendering
-    initChartTypeSelector();
-    
-    console.log('✅ Report rendered successfully');
-  }
 
-  // Build last N days totals (expenses only)
-  async function buildDailyTotals(days=10){
-    const txs = await getTransactions();
-    const map = {};
-    txs.forEach(t=>{
-      if(!t || !t.date) return;
-      const isExpense = (t.type === 'expense') || (typeof t.amount==='number' && t.amount < 0);
-      if(!isExpense) return;
-      const key = t.date;
-      map[key] = (map[key]||0) + Math.abs(t.amount||0);
-    });
-    const out = [];
-    const today = startOfDay(new Date());
-    const weekdayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    for(let i=0;i<days;i++){
-      const d = new Date(today); 
-      d.setDate(today.getDate()-i);
-      const key = ymd(d);
-      const dayOfWeek = weekdayNames[d.getDay()];
-      const formattedDate = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-      out.push({ 
-        label: `${dayOfWeek}, ${formattedDate}`, 
-        date: key,
-        amount: map[key]||0 
-      });
-    }
-    return out; // newest -> oldest
-  }
-
-  // Build last N months totals (expenses only)
-  async function buildMonthlyTotals(n=6){
-    const txs = await getTransactions();
-    console.log(`📦 buildMonthlyTotals: Found ${txs.length} transactions`);
-    
-    const map = {};
-    txs.forEach(t=>{
-      if(!t || !t.date) return;
-      const isExpense = (t.type === 'expense') || (typeof t.amount==='number' && t.amount < 0);
-      if(!isExpense) return;
-      const ym = t.date.slice(0,7); // yyyy-mm
-      map[ym] = (map[ym]||0) + Math.abs(t.amount||0);
-    });
-    
-    console.log('📊 buildMonthlyTotals: Expense totals by month:', Object.keys(map).sort().map(k => `${k}: ${map[k]}`).join(', '));
-    
-    const out = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-11 (0 = January, 11 = December)
-    
-    // Generate all months from current month backwards
-    for(let i=0;i<n;i++){
-      // Calculate target month and year
-      let targetMonth = currentMonth - i;
-      let targetYear = currentYear;
-      
-      // Handle year rollover
-      while (targetMonth < 0) {
-        targetMonth += 12;
-        targetYear -= 1;
+      function startOfDay(d) {
+        const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        x.setHours(0, 0, 0, 0);
+        return x;
       }
-      
-      // Format month string (MM/YYYY) and prefix (YYYY-MM)
-      const monthStr = `${String(targetMonth + 1).padStart(2, '0')}/${targetYear}`;
-      const monthPrefix = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-      
-      out.push({ m: monthStr, amount: map[monthPrefix]||0 });
-    }
-    
-    // Debug: Log all generated months
-    console.log(`📅 buildMonthlyTotals: Generated ${out.length} months:`, out.map(m => `${m.m} (${m.amount})`).join(', '));
-    
-    return out; // newest -> oldest
-  }
+      function ymd(d) {
+        return d.toISOString().split("T")[0];
+      }
 
-  // chọn locale theo ngôn ngữ
-  function currentLocale(){
-    const lang = localStorage.getItem('lang') || 'vi';
-    return lang === 'en' ? 'en-US' : 'vi-VN';
-  }
-  const fmt = n => (n||0).toLocaleString(currentLocale()) + 'đ';
+      // ===== Load data from API and render =====
+      async function loadAndRenderReport(forceRefresh = false) {
+        console.log(
+          "🔄 Loading report data...",
+          forceRefresh ? "(force refresh)" : "(using cache)"
+        );
 
-  // Render daily list
-  async function renderDaily(){
-    const wrap = document.getElementById('daily');
-    if (!wrap) return;
-    
-    // Show loading
-    wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">Đang tải...</div>';
-    
-    let daily;
-    if (window.__REPORT_DAILY && window.__REPORT_DAILY.length) {
-      daily = window.__REPORT_DAILY;
-    } else {
-      daily = await buildDailyTotals(10);
-    }
-    
-    const max = Math.max(...daily.map(d=>d.amount), 1);
-    wrap.innerHTML = '';
-    daily.forEach(d=>{
-      const w = Math.round((d.amount / max) * 100);
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `
+        // Step 1: Force refresh DataManager from API if requested
+        if (
+          forceRefresh &&
+          window.dataManager &&
+          typeof window.dataManager.loadFromAPI === "function"
+        ) {
+          try {
+            console.log("🔄 Force refreshing DataManager from API...");
+            await window.dataManager.loadFromAPI(true); // Force refresh
+            console.log("✅ DataManager refreshed from API");
+          } catch (e) {
+            console.warn("⚠️ DataManager API refresh failed:", e);
+          }
+        } else if (
+          window.dataManager &&
+          typeof window.dataManager.loadFromAPI === "function"
+        ) {
+          // Regular load (check cache first, then API if needed)
+          try {
+            await window.dataManager.loadFromAPI();
+            console.log("✅ DataManager loaded");
+          } catch (e) {
+            console.warn("⚠️ DataManager load failed, using cache:", e);
+          }
+        } else {
+          console.log(
+            "ℹ️ DataManager or loadFromAPI not available, using cache"
+          );
+        }
+
+        // Step 2: Also try API reports/summary endpoint (use apiRequest to get correct API_BASE from utils.js)
+        try {
+          if (window.apiRequest && typeof window.apiRequest === "function") {
+            const result = await window.apiRequest("/api/reports/summary");
+            if (result && result.ok && result.data) {
+              const data = result.data;
+              if (
+                data &&
+                Array.isArray(data.daily) &&
+                Array.isArray(data.monthly)
+              ) {
+                // Format daily data with proper labels
+                const weekdayNames = [
+                  "Chủ Nhật",
+                  "Thứ Hai",
+                  "Thứ Ba",
+                  "Thứ Tư",
+                  "Thứ Năm",
+                  "Thứ Sáu",
+                  "Thứ Bảy",
+                ];
+                window.__REPORT_DAILY = data.daily.map((d) => {
+                  const dateStr = d.date || "";
+                  let label = dateStr;
+                  if (dateStr) {
+                    try {
+                      const dateObj = new Date(dateStr);
+                      const dayOfWeek = weekdayNames[dateObj.getDay()];
+                      const formattedDate = `${String(
+                        dateObj.getDate()
+                      ).padStart(2, "0")}/${String(
+                        dateObj.getMonth() + 1
+                      ).padStart(2, "0")}/${dateObj.getFullYear()}`;
+                      label = `${dayOfWeek}, ${formattedDate}`;
+                    } catch (e) {
+                      console.warn("Failed to parse date:", dateStr, e);
+                    }
+                  }
+                  return {
+                    label: label,
+                    date: dateStr,
+                    amount: Number(d.amount) || 0,
+                  };
+                });
+
+                // Format monthly data
+                window.__REPORT_MONTHLY = data.monthly.map((m) => ({
+                  m: m.month || m.m || "",
+                  amount: Number(m.amount) || 0,
+                }));
+
+                console.log(
+                  `✅ Report summary loaded from API: ${window.__REPORT_DAILY.length} days, ${window.__REPORT_MONTHLY.length} months`
+                );
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Report API failed, using DataManager:", e);
+        }
+
+        // Step 3: Now render with loaded data (await async functions)
+        // Clear caches to force recalculation from fresh data
+        if (forceRefresh) {
+          console.log("🔄 Force refreshing transaction data...");
+          await getTransactions(true); // Force refresh transactions
+        }
+
+        await renderDaily();
+        await renderMonth();
+        await updateChartPanel(window.currentChartType || "bar");
+
+        // Initialize chart type selector after rendering
+        initChartTypeSelector();
+
+        console.log("✅ Report rendered successfully");
+      }
+
+      // Build last N days totals (expenses only)
+      async function buildDailyTotals(days = 10) {
+        const txs = await getTransactions();
+        const map = {};
+        txs.forEach((t) => {
+          if (!t || !t.date) return;
+          const isExpense =
+            t.type === "expense" ||
+            (typeof t.amount === "number" && t.amount < 0);
+          if (!isExpense) return;
+          const key = t.date;
+          map[key] = (map[key] || 0) + Math.abs(t.amount || 0);
+        });
+        const out = [];
+        const today = startOfDay(new Date());
+        const weekdayNames = [
+          "Chủ Nhật",
+          "Thứ Hai",
+          "Thứ Ba",
+          "Thứ Tư",
+          "Thứ Năm",
+          "Thứ Sáu",
+          "Thứ Bảy",
+        ];
+        for (let i = 0; i < days; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const key = ymd(d);
+          const dayOfWeek = weekdayNames[d.getDay()];
+          const formattedDate = `${String(d.getDate()).padStart(
+            2,
+            "0"
+          )}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+          out.push({
+            label: `${dayOfWeek}, ${formattedDate}`,
+            date: key,
+            amount: map[key] || 0,
+          });
+        }
+        return out; // newest -> oldest
+      }
+
+      // Build last N months totals (expenses only)
+      async function buildMonthlyTotals(n = 6) {
+        const txs = await getTransactions();
+        console.log(`📦 buildMonthlyTotals: Found ${txs.length} transactions`);
+
+        const map = {};
+        txs.forEach((t) => {
+          if (!t || !t.date) return;
+          const isExpense =
+            t.type === "expense" ||
+            (typeof t.amount === "number" && t.amount < 0);
+          if (!isExpense) return;
+          const ym = t.date.slice(0, 7); // yyyy-mm
+          map[ym] = (map[ym] || 0) + Math.abs(t.amount || 0);
+        });
+
+        console.log(
+          "📊 buildMonthlyTotals: Expense totals by month:",
+          Object.keys(map)
+            .sort()
+            .map((k) => `${k}: ${map[k]}`)
+            .join(", ")
+        );
+
+        const out = [];
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-11 (0 = January, 11 = December)
+
+        // Generate all months from current month backwards
+        for (let i = 0; i < n; i++) {
+          // Calculate target month and year
+          let targetMonth = currentMonth - i;
+          let targetYear = currentYear;
+
+          // Handle year rollover
+          while (targetMonth < 0) {
+            targetMonth += 12;
+            targetYear -= 1;
+          }
+
+          // Format month string (MM/YYYY) and prefix (YYYY-MM)
+          const monthStr = `${String(targetMonth + 1).padStart(
+            2,
+            "0"
+          )}/${targetYear}`;
+          const monthPrefix = `${targetYear}-${String(targetMonth + 1).padStart(
+            2,
+            "0"
+          )}`;
+
+          out.push({ m: monthStr, amount: map[monthPrefix] || 0 });
+        }
+
+        // Debug: Log all generated months
+        console.log(
+          `📅 buildMonthlyTotals: Generated ${out.length} months:`,
+          out.map((m) => `${m.m} (${m.amount})`).join(", ")
+        );
+
+        return out; // newest -> oldest
+      }
+
+      // chọn locale theo ngôn ngữ
+      function currentLocale() {
+        const lang = localStorage.getItem("lang") || "vi";
+        return lang === "en" ? "en-US" : "vi-VN";
+      }
+      const fmt = (n) => (n || 0).toLocaleString(currentLocale()) + "đ";
+
+      // Render daily list
+      async function renderDaily() {
+        const wrap = document.getElementById("daily");
+        if (!wrap) return;
+
+        // Show loading
+        wrap.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#888;">Đang tải...</div>';
+
+        let daily;
+        if (window.__REPORT_DAILY && window.__REPORT_DAILY.length) {
+          daily = window.__REPORT_DAILY;
+        } else {
+          daily = await buildDailyTotals(10);
+        }
+
+        const max = Math.max(...daily.map((d) => d.amount), 1);
+        wrap.innerHTML = "";
+        daily.forEach((d) => {
+          const w = Math.round((d.amount / max) * 100);
+          const row = document.createElement("div");
+          row.className = "row";
+          row.innerHTML = `
         <div class="arrow">›</div>
-        <div class="date">${d.label || d.date || ''}</div>
-        <div class="bar"><i class="${d.amount>0?'green':''}" style="width:${w}%"></i></div>
+        <div class="date">${d.label || d.date || ""}</div>
+        <div class="bar"><i class="${
+          d.amount > 0 ? "green" : ""
+        }" style="width:${w}%"></i></div>
         <div class="amount">${fmt(d.amount)}</div>
       `;
-      wrap.appendChild(row);
-    });
-  }
+          wrap.appendChild(row);
+        });
+      }
 
-  // Render monthly list
-  async function renderMonth(){
-    const wrap = document.getElementById('month');
-    if (!wrap) return;
-    
-    // Show loading
-    wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">Đang tải...</div>';
-    
-    // Always calculate from actual transaction data to ensure all months are included
-    // Don't rely on window.__REPORT_MONTHLY from API as it may be incomplete
-    const monthly = await buildMonthlyTotals(6);
-    
-    console.log('📊 renderMonth: Rendering months:', monthly.map(m => m.m).join(', '));
-    
-    const max = Math.max(...monthly.map(m=>m.amount), 1);
-    wrap.innerHTML = '';
-    monthly.forEach(m=>{
-      const w = Math.round((m.amount / max) * 100);
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `
-        <div>${m.m || ''}</div>
+      // Render monthly list
+      async function renderMonth() {
+        const wrap = document.getElementById("month");
+        if (!wrap) return;
+
+        // Show loading
+        wrap.innerHTML =
+          '<div style="padding:20px;text-align:center;color:#888;">Đang tải...</div>';
+
+        // Always calculate from actual transaction data to ensure all months are included
+        // Don't rely on window.__REPORT_MONTHLY from API as it may be incomplete
+        const monthly = await buildMonthlyTotals(6);
+
+        console.log(
+          "📊 renderMonth: Rendering months:",
+          monthly.map((m) => m.m).join(", ")
+        );
+
+        const max = Math.max(...monthly.map((m) => m.amount), 1);
+        wrap.innerHTML = "";
+        monthly.forEach((m) => {
+          const w = Math.round((m.amount / max) * 100);
+          const row = document.createElement("div");
+          row.className = "row";
+          row.innerHTML = `
+        <div>${m.m || ""}</div>
         <div class="mbar"><i style="width:${w}%;"></i></div>
         <div class="mamount">${fmt(m.amount)}</div>
       `;
-      wrap.appendChild(row);
-    });
-  }
+          wrap.appendChild(row);
+        });
+      }
 
-  // Update chart SVG with daily totals (bar chart only)
-  // Chart type state
-  window.currentChartType = window.currentChartType || 'bar';
+      // Update chart SVG with daily totals (bar chart only)
+      // Chart type state
+      window.currentChartType = window.currentChartType || "bar";
 
-  // Update chart SVG with daily totals (bar chart only)
-  async function updateChartPanel(chartType = window.currentChartType){
-    console.log('📊 Updating chart panel...', chartType);
-    
-    let daily;
-    // Priority: Use API data if available
-    if (window.__REPORT_DAILY && window.__REPORT_DAILY.length) {
-      console.log(`✅ Using API daily data: ${window.__REPORT_DAILY.length} days`);
-      // API returns newest -> oldest, but chart needs oldest -> newest
-      daily = window.__REPORT_DAILY.slice().reverse();
-    } else {
-      console.log('⚠️ No API daily data, building from transactions...');
-      const d = await buildDailyTotals(12);
-      // buildDailyTotals also returns newest -> oldest, reverse for chart
-      daily = d.slice().reverse(); // oldest -> newest
-    }
-    
-    console.log(`📈 Chart data: ${daily.length} days, amounts:`, daily.map(d => d.amount).join(', '));
-    
-    // Ensure we have at least some data points
-    if (daily.length === 0) {
-      console.warn('⚠️ No daily data available for chart');
-      const container = document.querySelector('.chart .panel');
-      if (container) {
-        container.innerHTML = `
+      // Update chart SVG with daily totals (bar chart only)
+      async function updateChartPanel(chartType = window.currentChartType) {
+        console.log("📊 Updating chart panel...", chartType);
+
+        let daily;
+        // Priority: Use API data if available
+        if (window.__REPORT_DAILY && window.__REPORT_DAILY.length) {
+          console.log(
+            `✅ Using API daily data: ${window.__REPORT_DAILY.length} days`
+          );
+          // API returns newest -> oldest, but chart needs oldest -> newest
+          daily = window.__REPORT_DAILY.slice().reverse();
+        } else {
+          console.log("⚠️ No API daily data, building from transactions...");
+          const d = await buildDailyTotals(12);
+          // buildDailyTotals also returns newest -> oldest, reverse for chart
+          daily = d.slice().reverse(); // oldest -> newest
+        }
+
+        console.log(
+          `📈 Chart data: ${daily.length} days, amounts:`,
+          daily.map((d) => d.amount).join(", ")
+        );
+
+        // Ensure we have at least some data points
+        if (daily.length === 0) {
+          console.warn("⚠️ No daily data available for chart");
+          const container = document.querySelector(".chart .panel");
+          if (container) {
+            container.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">
             Chưa có dữ liệu chi tiêu
           </div>
         `;
-      }
-      return;
-    }
-    
-    const max = Math.max(1, ...daily.map(d=>d.amount));
+          }
+          return;
+        }
 
-    // Cache data for Detail button/modal reuse
-    window.__CHART_CACHE = { daily, max, chartType };
-    const W=900, H=400, PADX=70, PADY=60, BOTTOM=70;
-    const innerW = W - PADX - 20, innerH = H - PADY - BOTTOM;
-    
-    // Calculate points with data - ensure amounts are valid numbers
-    const pointsData = daily.map((d,i)=>{
-      const amount = Number(d.amount) || 0;
-      const x = PADX + (daily.length > 1 ? (i/(daily.length-1))*innerW : 0);
-      const y = (H-BOTTOM) - (amount/max)*innerH;
-      return { x, y, amount: amount, date: d.date, label: d.label };
-    });
-    
-    // Generate chart based on type (bar chart only)
-    let chartElements = '';
-    
-    if (chartType === 'bar') {
-      const barWidth = innerW / (daily.length * 1.5);
-      const barSpacing = innerW / daily.length;
-      chartElements = pointsData.map((p, i) => {
-        const barHeight = (H-BOTTOM) - p.y;
-        const barX = p.x - barWidth / 2;
-        return `
-          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}" 
-                fill="url(#barGradient)" rx="4" class="chart-bar" 
-                data-amount="${p.amount}" data-date="${p.label || p.date}" data-index="${i}"/>
+        const max = Math.max(1, ...daily.map((d) => d.amount));
+
+        // Cache data for Detail button/modal reuse
+        window.__CHART_CACHE = { daily, max, chartType };
+        const W = 900,
+          H = 400,
+          PADX = 70,
+          PADY = 60,
+          BOTTOM = 70;
+        const innerW = W - PADX - 20,
+          innerH = H - PADY - BOTTOM;
+
+        // Calculate points with data - ensure amounts are valid numbers
+        const pointsData = daily.map((d, i) => {
+          const amount = Number(d.amount) || 0;
+          const x =
+            PADX + (daily.length > 1 ? (i / (daily.length - 1)) * innerW : 0);
+          const y = H - BOTTOM - (amount / max) * innerH;
+          return { x, y, amount: amount, date: d.date, label: d.label };
+        });
+
+        // Generate chart based on type (bar chart only)
+        let chartElements = "";
+
+        if (chartType === "bar") {
+          const barWidth = innerW / (daily.length * 1.5);
+          const barSpacing = innerW / daily.length;
+          chartElements = pointsData
+            .map((p, i) => {
+              const barHeight = H - BOTTOM - p.y;
+              const barX = p.x - barWidth / 2;
+              return `
+          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}"
+                fill="url(#barGradient)" rx="4" class="chart-bar"
+                data-amount="${p.amount}" data-date="${
+                p.label || p.date
+              }" data-index="${i}"/>
         `;
-      }).join('');
-    }
-    
-    // Y-axis labels
-    const yLabels = [];
-    const ySteps = max > 0 ? [1, 0.75, 0.5, 0.25, 0] : [0];
-    ySteps.forEach(ratio => {
-      const value = Math.round(max * ratio);
-      const y = (H-BOTTOM) - (ratio * innerH);
-      if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500" opacity="0.9">${fmt(value)}</text>`);
-      }
-    });
-    
-    // Grid lines
-    const gridLines = ySteps.map(ratio => {
-      if (ratio === 0) return '';
-      const y = (H-BOTTOM) - (ratio * innerH);
-      return `<line x1="${PADX}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" opacity="0.3"/>`;
-    }).join('');
-    
-    // Data point labels (not needed for bar chart)
-    let dataLabels = '';
-    
-    // X-axis labels (dates) - show date for all points if <= 8, otherwise every 2-3 points
-    const xLabels = pointsData.map((p, i) => {
-      let dateStr = '';
-      if (p.date) {
-        const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-      } else if (p.label) {
-        // fallback: take dd/MM from label if present
-        const parts = p.label.split(',');
-        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
-      }
-      // rotate to avoid overlap
-      return `<g transform="translate(${p.x}, ${H-10}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="10" font-family="'Noto Sans', system-ui">${dateStr}</text></g>`;
-    }).join('');
-    
-    const container = document.querySelector('.chart .panel');
-    if (!container) return;
-    container.innerHTML = `
+            })
+            .join("");
+        }
+
+        // Y-axis labels
+        const yLabels = [];
+        const ySteps = max > 0 ? [1, 0.75, 0.5, 0.25, 0] : [0];
+        ySteps.forEach((ratio) => {
+          const value = Math.round(max * ratio);
+          const y = H - BOTTOM - ratio * innerH;
+          if (value > 0 || ratio === 0) {
+            yLabels.push(
+              `<text x="${PADX - 15}" y="${
+                y + 5
+              }" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500" opacity="0.9">${fmt(
+                value
+              )}</text>`
+            );
+          }
+        });
+
+        // Grid lines
+        const gridLines = ySteps
+          .map((ratio) => {
+            if (ratio === 0) return "";
+            const y = H - BOTTOM - ratio * innerH;
+            return `<line x1="${PADX}" y1="${y}" x2="${
+              W - 20
+            }" y2="${y}" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" opacity="0.3"/>`;
+          })
+          .join("");
+
+        // Data point labels (not needed for bar chart)
+        let dataLabels = "";
+
+        // X-axis labels (dates) - show date for all points if <= 8, otherwise every 2-3 points
+        const xLabels = pointsData
+          .map((p, i) => {
+            let dateStr = "";
+            if (p.date) {
+              const d = new Date(p.date);
+              dateStr = d.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+              });
+            } else if (p.label) {
+              // fallback: take dd/MM from label if present
+              const parts = p.label.split(",");
+              dateStr = parts[1]
+                ? parts[1].trim().slice(0, 5)
+                : parts[0].trim();
+            }
+            // rotate to avoid overlap
+            return `<g transform="translate(${p.x}, ${
+              H - 10
+            }) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="10" font-family="'Noto Sans', system-ui">${dateStr}</text></g>`;
+          })
+          .join("");
+
+        const container = document.querySelector(".chart .panel");
+        if (!container) return;
+        container.innerHTML = `
       <div class="chart-tooltip" id="chartTooltip"></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" id="chartSvg">
         <defs>
@@ -813,143 +1506,183 @@
         <rect x="0" y="0" width="${W}" height="${H}" fill="#0b1220"/>
         ${gridLines}
         <g stroke="#24324a" stroke-width="1">
-          <line x1="${PADX}" y1="${H-BOTTOM}" x2="${W-20}" y2="${H-BOTTOM}"/>
-          <line x1="${PADX}" y1="30"  x2="${PADX}"  y2="${H-BOTTOM}"/>
+          <line x1="${PADX}" y1="${H - BOTTOM}" x2="${W - 20}" y2="${
+          H - BOTTOM
+        }"/>
+          <line x1="${PADX}" y1="30"  x2="${PADX}"  y2="${H - BOTTOM}"/>
         </g>
         ${chartElements}
         ${dataLabels}
-        ${yLabels.join('')}
+        ${yLabels.join("")}
         ${xLabels}
       </svg>`;
-    
-    // Add hover effects
-    const svg = container.querySelector('#chartSvg');
-    const tooltip = container.querySelector('#chartTooltip');
-    
-    // Handle hover for bars
-    const interactiveElements = svg.querySelectorAll('.chart-bar');
-    interactiveElements.forEach((element) => {
-      const amount = element.getAttribute('data-amount');
-      const date = element.getAttribute('data-date');
-      
-      element.addEventListener('mouseenter', function(e) {
-        element.setAttribute('opacity', '0.9');
-        element.setAttribute('fill', '#4ade80');
-        
-        // Show tooltip
-        if (tooltip) {
-          tooltip.innerHTML = `<span class="date">${date}</span><span class="amount">${fmt(parseFloat(amount))}</span>`;
-          tooltip.classList.add('show');
-          
-          // Position tooltip near cursor
-          const rect = container.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          tooltip.style.left = `${Math.min(x + 10, rect.width - 140)}px`;
-          tooltip.style.top = `${Math.max(y - 50, 10)}px`;
-        }
-      });
-      
-      element.addEventListener('mouseleave', function() {
-        element.setAttribute('opacity', '1');
-        element.setAttribute('fill', 'url(#barGradient)');
-        
-        if (tooltip) {
-          tooltip.classList.remove('show');
-        }
-      });
-      
-      element.addEventListener('mousemove', function(e) {
-        if (tooltip && tooltip.classList.contains('show')) {
-          const rect = container.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          tooltip.style.left = `${Math.min(x + 10, rect.width - 140)}px`;
-          tooltip.style.top = `${Math.max(y - 50, 10)}px`;
-        }
-      });
-    });
-    
-    // Add click handler to open modal
-    container.addEventListener('click', function(e) {
-      // Don't open modal if clicking on tooltip or bars
-      if (e.target.closest('.chart-bar') || e.target.closest('#chartTooltip')) {
-        return;
-      }
-      // Pass current chart type to modal
-      openChartModal(daily, max, chartType);
-    });
-  }
 
-  // Open chart modal with enlarged chart (make it global so baocao.js can use it)
-  window.openChartModal = function(daily, max, chartType = window.currentChartType || 'bar') {
-    const modal = document.getElementById('chartModal');
-    const modalContainer = document.getElementById('chartModalContainer');
-    if (!modal || !modalContainer) return;
-    
-    console.log('🔍 Opening chart modal with type:', chartType);
-    
-    // Render larger chart in modal
-    const W = 1000, H = 600, PADX = 80, PADY = 60, BOTTOM = 80;
-    const innerW = W - PADX - 20, innerH = H - PADY - BOTTOM;
-    
-    const pointsData = daily.map((d, i) => {
-      const x = PADX + (daily.length > 1 ? (i / (daily.length - 1)) * innerW : 0);
-      const y = (H - BOTTOM) - (d.amount / max) * innerH;
-      return { x, y, amount: d.amount, date: d.date, label: d.label };
-    });
-    
-    // Generate chart based on type (bar chart only)
-    let chartElements = '';
-    
-    if (chartType === 'bar') {
-      const barWidth = innerW / (daily.length * 1.5);
-      chartElements = pointsData.map((p, i) => {
-        const barHeight = (H-BOTTOM) - p.y;
-        const barX = p.x - barWidth / 2;
-        return `
-          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}" 
-                fill="url(#gModalBar)" rx="4" class="chart-bar" 
-                data-amount="${p.amount}" data-date="${p.label || p.date}" data-index="${i}"/>
+        // Add hover effects
+        const svg = container.querySelector("#chartSvg");
+        const tooltip = container.querySelector("#chartTooltip");
+
+        // Handle hover for bars
+        const interactiveElements = svg.querySelectorAll(".chart-bar");
+        interactiveElements.forEach((element) => {
+          const amount = element.getAttribute("data-amount");
+          const date = element.getAttribute("data-date");
+
+          element.addEventListener("mouseenter", function (e) {
+            element.setAttribute("opacity", "0.9");
+            element.setAttribute("fill", "#4ade80");
+
+            // Show tooltip
+            if (tooltip) {
+              tooltip.innerHTML = `<span class="date">${date}</span><span class="amount">${fmt(
+                parseFloat(amount)
+              )}</span>`;
+              tooltip.classList.add("show");
+
+              // Position tooltip near cursor
+              const rect = container.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              tooltip.style.left = `${Math.min(x + 10, rect.width - 140)}px`;
+              tooltip.style.top = `${Math.max(y - 50, 10)}px`;
+            }
+          });
+
+          element.addEventListener("mouseleave", function () {
+            element.setAttribute("opacity", "1");
+            element.setAttribute("fill", "url(#barGradient)");
+
+            if (tooltip) {
+              tooltip.classList.remove("show");
+            }
+          });
+
+          element.addEventListener("mousemove", function (e) {
+            if (tooltip && tooltip.classList.contains("show")) {
+              const rect = container.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              tooltip.style.left = `${Math.min(x + 10, rect.width - 140)}px`;
+              tooltip.style.top = `${Math.max(y - 50, 10)}px`;
+            }
+          });
+        });
+
+        // Add click handler to open modal
+        container.addEventListener("click", function (e) {
+          // Don't open modal if clicking on tooltip or bars
+          if (
+            e.target.closest(".chart-bar") ||
+            e.target.closest("#chartTooltip")
+          ) {
+            return;
+          }
+          // Pass current chart type to modal
+          openChartModal(daily, max, chartType);
+        });
+      }
+
+      // Open chart modal with enlarged chart (make it global so baocao.js can use it)
+      window.openChartModal = function (
+        daily,
+        max,
+        chartType = window.currentChartType || "bar"
+      ) {
+        const modal = document.getElementById("chartModal");
+        const modalContainer = document.getElementById("chartModalContainer");
+        if (!modal || !modalContainer) return;
+
+        console.log("🔍 Opening chart modal with type:", chartType);
+
+        // Render larger chart in modal
+        const W = 1000,
+          H = 600,
+          PADX = 80,
+          PADY = 60,
+          BOTTOM = 80;
+        const innerW = W - PADX - 20,
+          innerH = H - PADY - BOTTOM;
+
+        const pointsData = daily.map((d, i) => {
+          const x =
+            PADX + (daily.length > 1 ? (i / (daily.length - 1)) * innerW : 0);
+          const y = H - BOTTOM - (d.amount / max) * innerH;
+          return { x, y, amount: d.amount, date: d.date, label: d.label };
+        });
+
+        // Generate chart based on type (bar chart only)
+        let chartElements = "";
+
+        if (chartType === "bar") {
+          const barWidth = innerW / (daily.length * 1.5);
+          chartElements = pointsData
+            .map((p, i) => {
+              const barHeight = H - BOTTOM - p.y;
+              const barX = p.x - barWidth / 2;
+              return `
+          <rect x="${barX}" y="${p.y}" width="${barWidth}" height="${barHeight}"
+                fill="url(#gModalBar)" rx="4" class="chart-bar"
+                data-amount="${p.amount}" data-date="${
+                p.label || p.date
+              }" data-index="${i}"/>
         `;
-      }).join('');
-    }
-    
-    // Y-axis labels
-    const yLabels = [];
-    const ySteps = max > 0 ? [0, 0.25, 0.5, 0.75, 1] : [0];
-    ySteps.forEach(ratio => {
-      const value = Math.round(max * ratio);
-      const y = (H - BOTTOM) - (ratio * innerH);
-      if (value > 0 || ratio === 0) {
-        yLabels.push(`<text x="${PADX-15}" y="${y+5}" text-anchor="end" fill="#94a3b8" font-size="14" font-family="'Noto Sans', system-ui" font-weight="500">${fmt(value)}</text>`);
-      }
-    });
-    
-    // Grid lines
-    const gridLines = ySteps.map(ratio => {
-      if (ratio === 0) return '';
-      const y = (H - BOTTOM) - (ratio * innerH);
-      return `<line x1="${PADX}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#24324a" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`;
-    }).join('');
-    
-    // Data point labels (not needed for bar chart)
-    let dataLabels = '';
-    
-    // X-axis labels - show all dates
-    const xLabels = pointsData.map((p, i) => {
-      let dateStr = '';
-      if (p.date) {
-        const d = new Date(p.date);
-        dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-      } else if (p.label) {
-        const parts = p.label.split(',');
-        dateStr = parts[1] ? parts[1].trim().slice(0,5) : parts[0].trim();
-      }
-      return `<g transform="translate(${p.x}, ${H-15}) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500">${dateStr}</text></g>`;
-    }).join('');
-    
-    modalContainer.innerHTML = `
+            })
+            .join("");
+        }
+
+        // Y-axis labels
+        const yLabels = [];
+        const ySteps = max > 0 ? [0, 0.25, 0.5, 0.75, 1] : [0];
+        ySteps.forEach((ratio) => {
+          const value = Math.round(max * ratio);
+          const y = H - BOTTOM - ratio * innerH;
+          if (value > 0 || ratio === 0) {
+            yLabels.push(
+              `<text x="${PADX - 15}" y="${
+                y + 5
+              }" text-anchor="end" fill="#94a3b8" font-size="14" font-family="'Noto Sans', system-ui" font-weight="500">${fmt(
+                value
+              )}</text>`
+            );
+          }
+        });
+
+        // Grid lines
+        const gridLines = ySteps
+          .map((ratio) => {
+            if (ratio === 0) return "";
+            const y = H - BOTTOM - ratio * innerH;
+            return `<line x1="${PADX}" y1="${y}" x2="${
+              W - 20
+            }" y2="${y}" stroke="#24324a" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`;
+          })
+          .join("");
+
+        // Data point labels (not needed for bar chart)
+        let dataLabels = "";
+
+        // X-axis labels - show all dates
+        const xLabels = pointsData
+          .map((p, i) => {
+            let dateStr = "";
+            if (p.date) {
+              const d = new Date(p.date);
+              dateStr = d.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+              });
+            } else if (p.label) {
+              const parts = p.label.split(",");
+              dateStr = parts[1]
+                ? parts[1].trim().slice(0, 5)
+                : parts[0].trim();
+            }
+            return `<g transform="translate(${p.x}, ${
+              H - 15
+            }) rotate(-30)"><text x="0" y="0" text-anchor="end" fill="#94a3b8" font-size="12" font-family="'Noto Sans', system-ui" font-weight="500">${dateStr}</text></g>`;
+          })
+          .join("");
+
+        modalContainer.innerHTML = `
       <div class="chart-tooltip" id="chartModalTooltip"></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" id="chartModalSvg">
         <defs>
@@ -961,131 +1694,137 @@
         <rect x="0" y="0" width="${W}" height="${H}" fill="#0b1220"/>
         ${gridLines}
         <g stroke="#24324a" stroke-width="2">
-          <line x1="${PADX}" y1="${H-BOTTOM}" x2="${W-20}" y2="${H-BOTTOM}"/>
-          <line x1="${PADX}" y1="40" x2="${PADX}" y2="${H-BOTTOM}"/>
+          <line x1="${PADX}" y1="${H - BOTTOM}" x2="${W - 20}" y2="${
+          H - BOTTOM
+        }"/>
+          <line x1="${PADX}" y1="40" x2="${PADX}" y2="${H - BOTTOM}"/>
         </g>
         ${chartElements}
         ${dataLabels}
-        ${yLabels.join('')}
+        ${yLabels.join("")}
         ${xLabels}
       </svg>
     `;
-    
-    // Add hover effects to modal chart
-    const svg = modalContainer.querySelector('#chartModalSvg');
-    const tooltip = modalContainer.querySelector('#chartModalTooltip');
-    
-    if (svg && tooltip) {
-      // Handle bars (for bar chart)
-      const bars = svg.querySelectorAll('.chart-bar');
-      bars.forEach((bar) => {
-        const amount = bar.getAttribute('data-amount');
-        const date = bar.getAttribute('data-date');
-        
-        bar.addEventListener('mouseenter', function(e) {
-          bar.setAttribute('opacity', '0.9');
-          bar.setAttribute('fill', '#4ade80');
-          
-          if (tooltip) {
-            tooltip.innerHTML = `<span class="date">${date}</span><span class="amount">${fmt(parseFloat(amount))}</span>`;
-            tooltip.classList.add('show');
-            
-            const rect = modalContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
-            tooltip.style.top = `${Math.max(y - 60, 10)}px`;
-          }
-        });
-        
-        bar.addEventListener('mouseleave', function() {
-          bar.setAttribute('opacity', '1');
-          bar.setAttribute('fill', 'url(#gModalBar)');
-          
-          if (tooltip) {
-            tooltip.classList.remove('show');
-          }
-        });
-        
-        bar.addEventListener('mousemove', function(e) {
-          if (tooltip && tooltip.classList.contains('show')) {
-            const rect = modalContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
-            tooltip.style.top = `${Math.max(y - 60, 10)}px`;
-          }
-        });
-      });
-    }
-    
-    // Show modal
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-  };
 
-  // Chart type selector event handlers (initialize after DOM ready)
-  function initChartTypeSelector() {
-    const chartTypeButtons = document.querySelectorAll('.chart-type-btn');
-    if (chartTypeButtons.length === 0) return;
-    
-    chartTypeButtons.forEach(btn => {
-      // Skip if listener already attached
-      if (btn.hasAttribute('data-listener-attached')) {
-        return;
-      }
-      
-      btn.setAttribute('data-listener-attached', 'true');
-      
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Remove active class from all buttons
-        document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
-        // Add active class to clicked button
-        this.classList.add('active');
-        // Update chart type
-        const chartType = this.getAttribute('data-type');
-        window.currentChartType = chartType;
-        console.log('🔄 Switching to chart type:', chartType);
-        // Re-render chart with new type
-        updateChartPanel(chartType);
-      });
-    });
-  }
-  
-  // Initialize when DOM is ready or immediately if already loaded
-  (function() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initChartTypeSelector);
-    } else {
-      // DOM already loaded, initialize immediately
-      setTimeout(initChartTypeSelector, 100);
-    }
-  })();
+        // Add hover effects to modal chart
+        const svg = modalContainer.querySelector("#chartModalSvg");
+        const tooltip = modalContainer.querySelector("#chartModalTooltip");
 
-  // Open a simple notice modal instead of the chart (for the Detail button)
-  window.openReportNoticeModal = async function(){
-    const modal = document.getElementById('chartModal');
-    const modalContainer = document.getElementById('chartModalContainer');
-    if (!modal || !modalContainer) return;
-    // Try to prepare a tiny summary (optional)
-    let daily = [];
-    try{
-      if (window.__CHART_CACHE && window.__CHART_CACHE.daily) {
-        daily = window.__CHART_CACHE.daily;
-      } else {
-        const d = await buildDailyTotals(12);
-        daily = d.slice().reverse();
+        if (svg && tooltip) {
+          // Handle bars (for bar chart)
+          const bars = svg.querySelectorAll(".chart-bar");
+          bars.forEach((bar) => {
+            const amount = bar.getAttribute("data-amount");
+            const date = bar.getAttribute("data-date");
+
+            bar.addEventListener("mouseenter", function (e) {
+              bar.setAttribute("opacity", "0.9");
+              bar.setAttribute("fill", "#4ade80");
+
+              if (tooltip) {
+                tooltip.innerHTML = `<span class="date">${date}</span><span class="amount">${fmt(
+                  parseFloat(amount)
+                )}</span>`;
+                tooltip.classList.add("show");
+
+                const rect = modalContainer.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
+                tooltip.style.top = `${Math.max(y - 60, 10)}px`;
+              }
+            });
+
+            bar.addEventListener("mouseleave", function () {
+              bar.setAttribute("opacity", "1");
+              bar.setAttribute("fill", "url(#gModalBar)");
+
+              if (tooltip) {
+                tooltip.classList.remove("show");
+              }
+            });
+
+            bar.addEventListener("mousemove", function (e) {
+              if (tooltip && tooltip.classList.contains("show")) {
+                const rect = modalContainer.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                tooltip.style.left = `${Math.min(x + 10, rect.width - 160)}px`;
+                tooltip.style.top = `${Math.max(y - 60, 10)}px`;
+              }
+            });
+          });
+        }
+
+        // Show modal
+        modal.classList.add("show");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      };
+
+      // Chart type selector event handlers (initialize after DOM ready)
+      function initChartTypeSelector() {
+        const chartTypeButtons = document.querySelectorAll(".chart-type-btn");
+        if (chartTypeButtons.length === 0) return;
+
+        chartTypeButtons.forEach((btn) => {
+          // Skip if listener already attached
+          if (btn.hasAttribute("data-listener-attached")) {
+            return;
+          }
+
+          btn.setAttribute("data-listener-attached", "true");
+
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Remove active class from all buttons
+            document
+              .querySelectorAll(".chart-type-btn")
+              .forEach((b) => b.classList.remove("active"));
+            // Add active class to clicked button
+            this.classList.add("active");
+            // Update chart type
+            const chartType = this.getAttribute("data-type");
+            window.currentChartType = chartType;
+            console.log("🔄 Switching to chart type:", chartType);
+            // Re-render chart with new type
+            updateChartPanel(chartType);
+          });
+        });
       }
-    }catch(_){}
-    const total = daily.reduce((s,x)=>s + (x.amount||0), 0);
-    const maxAmt = daily.reduce((m,x)=> Math.max(m, x.amount||0), 0);
-    const days = daily.length;
-    // Render simple notice content
-    modalContainer.innerHTML = `
+
+      // Initialize when DOM is ready or immediately if already loaded
+      (function () {
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", initChartTypeSelector);
+        } else {
+          // DOM already loaded, initialize immediately
+          setTimeout(initChartTypeSelector, 100);
+        }
+      })();
+
+      // Open a simple notice modal instead of the chart (for the Detail button)
+      window.openReportNoticeModal = async function () {
+        const modal = document.getElementById("chartModal");
+        const modalContainer = document.getElementById("chartModalContainer");
+        if (!modal || !modalContainer) return;
+        // Try to prepare a tiny summary (optional)
+        let daily = [];
+        try {
+          if (window.__CHART_CACHE && window.__CHART_CACHE.daily) {
+            daily = window.__CHART_CACHE.daily;
+          } else {
+            const d = await buildDailyTotals(12);
+            daily = d.slice().reverse();
+          }
+        } catch (_) {}
+        const total = daily.reduce((s, x) => s + (x.amount || 0), 0);
+        const maxAmt = daily.reduce((m, x) => Math.max(m, x.amount || 0), 0);
+        const days = daily.length;
+        // Render simple notice content
+        modalContainer.innerHTML = `
       <div style="width:100%;max-width:760px;margin:0 auto;color:#e2e8f0">
         <div style="background:#0b1220;border:1px solid #162033;border-radius:12px;padding:20px">
           <h3 style="margin:0 0 10px 0;color:#93c5fd;font-weight:800;font-size:20px">Thông báo báo cáo</h3>
@@ -1106,280 +1845,322 @@
           </div>
         </div>
       </div>`;
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-  };
+        modal.classList.add("show");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      };
 
-  // Close chart modal (make it global)
-  window.closeChartModal = function() {
-    const modal = document.getElementById('chartModal');
-    if (!modal) return;
-    
-    modal.classList.remove('show');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  };
+      // Close chart modal (make it global)
+      window.closeChartModal = function () {
+        const modal = document.getElementById("chartModal");
+        if (!modal) return;
 
-  // Initialize modal close handlers (run after DOM is ready)
-  setTimeout(function initChartModal() {
-    const modal = document.getElementById('chartModal');
-    const closeBtn = modal?.querySelector('.chart-modal-close');
-    const overlay = modal?.querySelector('.chart-modal-overlay');
-    
-    if (closeBtn) {
-      closeBtn.addEventListener('click', window.closeChartModal);
-    }
-    
-    if (overlay) {
-      overlay.addEventListener('click', window.closeChartModal);
-    }
-    
-    // Close on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && modal?.classList.contains('show')) {
-        window.closeChartModal();
-      }
-    });
-  }, 100);
+        modal.classList.remove("show");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+      };
 
-  // Initialize when DOM and DataManager are ready
-  (async function initReport(){
-    // Wait for DataManager to be available
-    let retries = 10;
-    while (!window.dataManager && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries--;
-    }
-    
-    // Load and render data - force refresh on first load to ensure sync
-    // Check if this is the first load by checking if data exists
-    const hasCachedData = window.dataManager && window.dataManager.data && window.dataManager.data.expenses && window.dataManager.data.expenses.length > 0;
-    await loadAndRenderReport(!hasCachedData); // Force refresh if no cached data
-    
-    console.log('✅ Report page initialized');
-    
-    // Set up auto-refresh when expenses are added/updated
-    // Listen for expenseAdded event (from dashboard.js)
-    window.addEventListener('expenseAdded', async function(e) {
-      console.log('🔄 Expense added event detected, refreshing report...');
-      // Clear cached report data to force reload
-      window.__REPORT_DAILY = null;
-      window.__REPORT_MONTHLY = null;
-      // Reload and re-render
-      await loadAndRenderReport();
-    });
-    
-    // Listen for storage events (cross-tab sync)
-    window.addEventListener('storage', async function(e) {
-      if (e.key === 'expenseAdded' || e.key === 'smartexpense_data') {
-        console.log('🔄 Storage event detected, refreshing report...');
-        // Clear cached report data
-        window.__REPORT_DAILY = null;
-        window.__REPORT_MONTHLY = null;
-        // Reload DataManager if available
-        if (window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-          await window.dataManager.loadFromAPI();
+      // Initialize modal close handlers (run after DOM is ready)
+      setTimeout(function initChartModal() {
+        const modal = document.getElementById("chartModal");
+        const closeBtn = modal?.querySelector(".chart-modal-close");
+        const overlay = modal?.querySelector(".chart-modal-overlay");
+
+        if (closeBtn) {
+          closeBtn.addEventListener("click", window.closeChartModal);
         }
-        // Reload and re-render
-        await loadAndRenderReport();
-      }
-    });
-    
-    // Listen for BroadcastChannel messages (faster cross-tab sync)
-    if (typeof BroadcastChannel !== 'undefined') {
-      if (!window.expenseBroadcastChannel) {
-        window.expenseBroadcastChannel = new BroadcastChannel('smartexpense_channel');
-      }
-      window.expenseBroadcastChannel.addEventListener('message', async function(e) {
-        if (e.data && e.data.type === 'expenseAdded') {
-          console.log('🔄 BroadcastChannel message detected, refreshing report...');
-          // Clear cached report data
+
+        if (overlay) {
+          overlay.addEventListener("click", window.closeChartModal);
+        }
+
+        // Close on Escape key
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && modal?.classList.contains("show")) {
+            window.closeChartModal();
+          }
+        });
+      }, 100);
+
+      // Initialize when DOM and DataManager are ready
+      (async function initReport() {
+        // Wait for DataManager to be available
+        let retries = 10;
+        while (!window.dataManager && retries > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          retries--;
+        }
+
+        // Load and render data - force refresh on first load to ensure sync
+        // Check if this is the first load by checking if data exists
+        const hasCachedData =
+          window.dataManager &&
+          window.dataManager.data &&
+          window.dataManager.data.expenses &&
+          window.dataManager.data.expenses.length > 0;
+        await loadAndRenderReport(!hasCachedData); // Force refresh if no cached data
+
+        console.log("✅ Report page initialized");
+
+        // Set up auto-refresh when expenses are added/updated
+        // Listen for expenseAdded event (from dashboard.js)
+        window.addEventListener("expenseAdded", async function (e) {
+          console.log("🔄 Expense added event detected, refreshing report...");
+          // Clear cached report data to force reload
           window.__REPORT_DAILY = null;
           window.__REPORT_MONTHLY = null;
-          // Reload DataManager if available
-          if (window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-            await window.dataManager.loadFromAPI();
-          }
           // Reload and re-render
           await loadAndRenderReport();
+        });
+
+        // Listen for storage events (cross-tab sync)
+        window.addEventListener("storage", async function (e) {
+          if (e.key === "expenseAdded" || e.key === "smartexpense_data") {
+            console.log("🔄 Storage event detected, refreshing report...");
+            // Clear cached report data
+            window.__REPORT_DAILY = null;
+            window.__REPORT_MONTHLY = null;
+            // Reload DataManager if available
+            if (
+              window.dataManager &&
+              typeof window.dataManager.loadFromAPI === "function"
+            ) {
+              await window.dataManager.loadFromAPI();
+            }
+            // Reload and re-render
+            await loadAndRenderReport();
+          }
+        });
+
+        // Listen for BroadcastChannel messages (faster cross-tab sync)
+        if (typeof BroadcastChannel !== "undefined") {
+          if (!window.expenseBroadcastChannel) {
+            window.expenseBroadcastChannel = new BroadcastChannel(
+              "smartexpense_channel"
+            );
+          }
+          window.expenseBroadcastChannel.addEventListener(
+            "message",
+            async function (e) {
+              if (e.data && e.data.type === "expenseAdded") {
+                console.log(
+                  "🔄 BroadcastChannel message detected, refreshing report..."
+                );
+                // Clear cached report data
+                window.__REPORT_DAILY = null;
+                window.__REPORT_MONTHLY = null;
+                // Reload DataManager if available
+                if (
+                  window.dataManager &&
+                  typeof window.dataManager.loadFromAPI === "function"
+                ) {
+                  await window.dataManager.loadFromAPI();
+                }
+                // Reload and re-render
+                await loadAndRenderReport();
+              }
+            }
+          );
+        }
+
+        // Also set up periodic refresh (every 30 seconds) to catch any missed updates
+        setInterval(async function () {
+          if (document.visibilityState === "visible") {
+            console.log("🔄 Periodic refresh, reloading report...");
+            // Clear cached report data
+            window.__REPORT_DAILY = null;
+            window.__REPORT_MONTHLY = null;
+            // Reload DataManager if available
+            if (
+              window.dataManager &&
+              typeof window.dataManager.loadFromAPI === "function"
+            ) {
+              await window.dataManager.loadFromAPI();
+            }
+            // Reload and re-render
+            await loadAndRenderReport();
+          }
+        }, 30000); // 30 seconds
+      })();
+
+      // FAB scroll to top
+      document.querySelector(".fab").onclick = () =>
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Refresh button - force sync data from API
+      document.getElementById("btnRefresh").onclick = async function () {
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "⏳";
+        btn.style.opacity = "0.6";
+
+        try {
+          console.log("🔄 Manual refresh triggered by user");
+          // Clear all caches
+          window.__REPORT_DAILY = null;
+          window.__REPORT_MONTHLY = null;
+
+          // Force refresh from API
+          await loadAndRenderReport(true);
+
+          // Show success message briefly
+          btn.innerHTML = "✅";
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.opacity = "1";
+            btn.disabled = false;
+          }, 1000);
+        } catch (error) {
+          console.error("Refresh failed:", error);
+          btn.innerHTML = "❌";
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.opacity = "1";
+            btn.disabled = false;
+          }, 2000);
+        }
+      };
+
+      // Detail button: open notice modal (no chart)
+      document.getElementById("btnDetail").onclick = async function () {
+        try {
+          await window.openReportNoticeModal();
+        } catch (e) {
+          console.warn("Failed to open report notice:", e);
+        }
+      };
+
+      // ===== Chatbox =====
+      const chatToggle = document.getElementById("chatToggle");
+      const chatbox = document.getElementById("chatbox");
+      const chatBody = document.getElementById("chatBody");
+      const chatInput = document.getElementById("chatInput");
+      const sendBtn = document.getElementById("sendBtn");
+
+      let greeted = false;
+      function openChat() {
+        chatbox.classList.add("open");
+        chatbox.setAttribute("aria-hidden", "false");
+        if (!greeted) {
+          botSay(t("chat.greet"));
+          greeted = true;
+        }
+        setTimeout(() => chatInput && chatInput.focus(), 100);
+      }
+      function closeChat() {
+        chatbox.classList.remove("open");
+        chatbox.setAttribute("aria-hidden", "true");
+      }
+      chatToggle.addEventListener("click", () =>
+        chatbox.classList.contains("open") ? closeChat() : openChat()
+      );
+
+      function scrollBottom() {
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+      function addMsg(text, who = "bot") {
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${who}`;
+        const avatar = document.createElement("div");
+        avatar.className = "avatar-s";
+        avatar.textContent = who === "bot" ? "🐷" : "👤";
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.innerText = text;
+        if (who === "bot") {
+          wrap.append(avatar, bubble);
+        } else {
+          wrap.append(bubble, avatar);
+        }
+        chatBody.appendChild(wrap);
+        scrollBottom();
+      }
+      function addTyping() {
+        const wrap = document.createElement("div");
+        wrap.className = "msg bot";
+        wrap.dataset.typing = "1";
+        wrap.innerHTML = `<div class="avatar-s">🐷</div>
+      <div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+        chatBody.appendChild(wrap);
+        scrollBottom();
+        return wrap;
+      }
+      function botSay(text, delay = 0) {
+        const tnode = addTyping();
+        setTimeout(() => {
+          tnode.remove();
+          addMsg(text, "bot");
+        }, Math.max(300, delay));
+      }
+
+      // Load persisted chat on open
+      function renderHistory() {
+        if (!window.AI || !window.AI.loadHistory) return;
+        const hist = window.AI.loadHistory();
+        chatBody.innerHTML = "";
+        hist.forEach((m) => addMsg(m.text, m.role === "user" ? "user" : "bot"));
+      }
+
+      async function handleSend() {
+        const txt = chatInput.value.trim();
+        if (!txt) return;
+        addMsg(txt, "user");
+        chatInput.value = "";
+
+        // Call backend AI chat; fallback to local template if unavailable
+        const data =
+          window.AI && window.AI.chat
+            ? await window.AI.chat(txt)
+            : { reply: t("msg.next") };
+        const reply = data && data.reply ? data.reply : t("msg.next");
+        botSay(reply);
+
+        // Optional: handle created expense result to refresh UI later
+        if (data && data.created) {
+          // You could trigger a refresh of reports here if needed
+          // e.g., location.reload() or re-call summary API
+        }
+      }
+      sendBtn.addEventListener("click", handleSend);
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleSend();
+      });
+
+      // When chat opens, show history
+      chatToggle.addEventListener("click", () => {
+        if (!chatbox.classList.contains("open")) {
+          setTimeout(renderHistory, 50);
         }
       });
-    }
-    
-    // Also set up periodic refresh (every 30 seconds) to catch any missed updates
-    setInterval(async function() {
-      if (document.visibilityState === 'visible') {
-        console.log('🔄 Periodic refresh, reloading report...');
-        // Clear cached report data
-        window.__REPORT_DAILY = null;
-        window.__REPORT_MONTHLY = null;
-        // Reload DataManager if available
-        if (window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
-          await window.dataManager.loadFromAPI();
-        }
-        // Reload and re-render
-        await loadAndRenderReport();
-      }
-    }, 30000); // 30 seconds
-  })();
 
-  // FAB scroll to top
-  document.querySelector('.fab').onclick = ()=> window.scrollTo({top:0,behavior:'smooth'});
-
-  // Refresh button - force sync data from API
-  document.getElementById('btnRefresh').onclick = async function() {
-    const btn = this;
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '⏳';
-    btn.style.opacity = '0.6';
-    
-    try {
-      console.log('🔄 Manual refresh triggered by user');
-      // Clear all caches
-      window.__REPORT_DAILY = null;
-      window.__REPORT_MONTHLY = null;
-      
-      // Force refresh from API
-      await loadAndRenderReport(true);
-      
-      // Show success message briefly
-      btn.innerHTML = '✅';
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.style.opacity = '1';
-        btn.disabled = false;
-      }, 1000);
-    } catch (error) {
-      console.error('Refresh failed:', error);
-      btn.innerHTML = '❌';
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.style.opacity = '1';
-        btn.disabled = false;
-      }, 2000);
-    }
-  };
-
-  // Detail button: open notice modal (no chart)
-  document.getElementById('btnDetail').onclick = async function(){
-    try{
-      await window.openReportNoticeModal();
-    }catch(e){ console.warn('Failed to open report notice:', e); }
-  };
-
-  // ===== Chatbox =====
-  const chatToggle = document.getElementById('chatToggle');
-  const chatbox = document.getElementById('chatbox');
-  const chatBody = document.getElementById('chatBody');
-  const chatInput = document.getElementById('chatInput');
-  const sendBtn  = document.getElementById('sendBtn');
-
-  let greeted = false;
-  function openChat() {
-    chatbox.classList.add('open');
-    chatbox.setAttribute('aria-hidden','false');
-    if (!greeted) {
-      botSay(t('chat.greet'));
-      greeted = true;
-    }
-    setTimeout(()=> chatInput && chatInput.focus(), 100);
-  }
-  function closeChat() {
-    chatbox.classList.remove('open');
-    chatbox.setAttribute('aria-hidden','true');
-  }
-  chatToggle.addEventListener('click', ()=> chatbox.classList.contains('open') ? closeChat() : openChat());
-
-  function scrollBottom(){ chatBody.scrollTop = chatBody.scrollHeight; }
-  function addMsg(text, who='bot'){
-    const wrap = document.createElement('div');
-    wrap.className = `msg ${who}`;
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar-s';
-    avatar.textContent = who==='bot' ? '🐷' : '👤';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.innerText = text;
-    if (who==='bot'){ wrap.append(avatar, bubble); } else { wrap.append(bubble, avatar); }
-    chatBody.appendChild(wrap);
-    scrollBottom();
-  }
-  function addTyping(){
-    const wrap = document.createElement('div');
-    wrap.className = 'msg bot';
-    wrap.dataset.typing = '1';
-    wrap.innerHTML = `<div class="avatar-s">🐷</div>
-      <div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
-    chatBody.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
-  function botSay(text, delay=0){
-    const tnode = addTyping();
-    setTimeout(()=>{ tnode.remove(); addMsg(text,'bot'); }, Math.max(300, delay));
-  }
-
-  // Load persisted chat on open
-  function renderHistory(){
-    if (!window.AI || !window.AI.loadHistory) return;
-    const hist = window.AI.loadHistory();
-    chatBody.innerHTML = '';
-    hist.forEach(m => addMsg(m.text, m.role === 'user' ? 'user' : 'bot'));
-  }
-
-  async function handleSend(){
-    const txt = chatInput.value.trim();
-    if (!txt) return;
-    addMsg(txt,'user');
-    chatInput.value = '';
-
-    // Call backend AI chat; fallback to local template if unavailable
-    const data = window.AI && window.AI.chat ? await window.AI.chat(txt) : { reply: t('msg.next') };
-    const reply = (data && data.reply) ? data.reply : t('msg.next');
-    botSay(reply);
-
-    // Optional: handle created expense result to refresh UI later
-    if (data && data.created) {
-      // You could trigger a refresh of reports here if needed
-      // e.g., location.reload() or re-call summary API
-    }
-  }
-  sendBtn.addEventListener('click', handleSend);
-  chatInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') handleSend(); });
-
-  // When chat opens, show history
-  chatToggle.addEventListener('click', ()=>{
-    if (!chatbox.classList.contains('open')) {
-      setTimeout(renderHistory, 50);
-    }
-  });
-
-  // ===== Init language & translate =====
-  (function initI18N(){
-    const savedLang = localStorage.getItem('lang') || 'vi';
-    // set lang attribute on <html> for a11y
-    document.documentElement.setAttribute('lang', savedLang);
-    translatePage();
-  })();
-</script>
-  <script>
-  document.addEventListener('click', function(e){
-    var link = e.target && e.target.closest && e.target.closest('a[href="login.html"]');
-    if(!link) return;
-    e.preventDefault();
-    try {
-      localStorage.removeItem('smartexpense_user');
-      localStorage.removeItem('smartexpense_token');
-    } catch(_){}
-    window.location.href = 'login.html';
-  });
-  </script>
-  <script src="/frontend/js/utils.js"></script>
-  <script src="/frontend/js/dataManager.js"></script>
-  <!-- SheetJS for Excel export -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <script src="/frontend/js/baocao.js"></script>
-</body>
+      // ===== Init language & translate =====
+      (function initI18N() {
+        const savedLang = localStorage.getItem("lang") || "vi";
+        // set lang attribute on <html> for a11y
+        document.documentElement.setAttribute("lang", savedLang);
+        translatePage();
+      })();
+    </script>
+    <script>
+      document.addEventListener("click", function (e) {
+        var link =
+          e.target &&
+          e.target.closest &&
+          e.target.closest('a[href="login.html"]');
+        if (!link) return;
+        e.preventDefault();
+        try {
+          localStorage.removeItem("smartexpense_user");
+          localStorage.removeItem("smartexpense_token");
+        } catch (_) {}
+        window.location.href = "login.html";
+      });
+    </script>
+    <script src="/frontend/js/utils.js"></script>
+    <script src="/frontend/js/dataManager.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="/frontend/js/baocao.js"></script>
+  </body>
 </html>

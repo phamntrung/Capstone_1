@@ -609,16 +609,32 @@ const dateObj = new Date(d.date + 'T00:00:00');
 
 ### Cấu Trúc Database
 
+<<<<<<< HEAD
+Dự án sử dụng MySQL/MariaDB để lưu trữ dữ liệu. Có 2 file database chính:
+
+1. **`database_schema.sql`** - File SQL schema hoàn chỉnh chứa:
+   - Tất cả các bảng: `users`, `categories`, `expenses`, `budgets`, `reports`, `report_cache`, `user_settings`
+=======
 Dự án sử dụng MySQL/MariaDB để lưu trữ dữ liệu. File database chính:
 
 **`database_schema.sql`** - File SQL schema hoàn chỉnh và duy nhất chứa:
    - Tất cả các bảng: `users`, `categories`, `expenses`, `budgets`, `reports`, `report_cache`, `user_settings`, `notifications`
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
    - Stored procedures: `GetMonthlyExpense`, `GetBudgetStatus`
    - Views: `v_user_category_summary`, `v_current_month_summary`
    - Triggers: Tự động cập nhật balance khi có expense/income
    - Indexes tối ưu cho performance
 
+<<<<<<< HEAD
+2. **`database_complete.js`** - File helper Node.js hoàn chỉnh với:
+   - Functions kết nối database
+   - CRUD operations cho tất cả bảng
+   - Helper functions cho reports, cache, settings
+   - Transaction support
+   - Error handling đầy đủ
+=======
 **`backend-node/database.js`** - File helper Node.js để kết nối database
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
 
 ### Thiết Lập Database
 
@@ -633,10 +649,17 @@ mysql -u root -p
 mysql -u root -p < database_schema.sql
 ```
 
+<<<<<<< HEAD
+**Cách 2: Sử dụng script tự động (Backend Flask)**
+```bash
+cd backend
+python create_database_auto.py
+=======
 **Cách 2: Sử dụng Flask Migrate (Backend Flask)**
 ```bash
 cd backend
 flask db upgrade
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
 ```
 
 #### Bước 2: Cấu hình `.env`
@@ -662,10 +685,16 @@ MYSQL_DATABASE=smart_expense
 #### Bước 3: Kiểm tra kết nối
 
 **Backend Node.js:**
+<<<<<<< HEAD
+```javascript
+const db = require('./database_complete.js');
+await db.testConnection(); // Sẽ log "✅ Database connection: OK"
+=======
 ```bash
 cd backend-node
 npm start
 # Kiểm tra log xem có kết nối database thành công không
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
 ```
 
 **Backend Flask:**
@@ -727,6 +756,43 @@ python app.py
 - `setting_key`: Tên setting
 - `setting_value`: Giá trị setting
 
+<<<<<<< HEAD
+### Sử Dụng Database Helper (Node.js)
+
+```javascript
+const db = require('./database_complete.js');
+
+// Kiểm tra kết nối
+await db.testConnection();
+
+// Lấy user theo email
+const user = await db.getUserByEmail('user@example.com');
+
+// Tạo expense mới
+const expense = await db.createExpense({
+  user_id: 1,
+  date: '2024-01-15',
+  amount: -50000,
+  type: 'expense',
+  category_id: 1,
+  note: 'Mua đồ ăn'
+});
+
+// Lấy expenses với filter
+const expenses = await db.getExpensesByUserId(1, {
+  date_from: '2024-01-01',
+  date_to: '2024-01-31',
+  type: 'expense'
+});
+
+// Sử dụng transaction
+await db.transaction(async (connection) => {
+  // Multiple queries trong transaction
+  await connection.query(...);
+});
+});
+```
+=======
 #### 8. `notifications` - Thông báo cho người dùng
 - `id`: Primary key
 - `user_id`: Foreign key → `users.id`
@@ -739,6 +805,7 @@ python app.py
 ### Sử Dụng Database (Node.js)
 
 Backend Node.js sử dụng `backend-node/database.js` để kết nối database. Các operations được thực hiện thông qua các routes trong `backend-node/routes/`.
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
 
 ### Tính Năng Đặc Biệt
 
@@ -747,7 +814,10 @@ Backend Node.js sử dụng `backend-node/database.js` để kết nối databas
 3. **Views**: `v_user_category_summary`, `v_current_month_summary` cho báo cáo
 4. **Indexes**: Tối ưu cho các query thường dùng (user_id + date, user_id + type, etc.)
 5. **Cascade Delete**: Khi xóa user, tất cả dữ liệu liên quan tự động xóa
+<<<<<<< HEAD
+=======
 6. **Notifications System**: Hệ thống thông báo cho người dùng (vượt ngân sách, tóm tắt hàng ngày, báo cáo...)
+>>>>>>> b756c905020a3370a4cdc9756365c6ae5b1558e5
 
 ## 📞 Hỗ Trợ
 

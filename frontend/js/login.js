@@ -23,10 +23,10 @@ function safeRedirect(target) {
         console.warn('⚠️ Phát hiện redirect đang chờ, reset flag và thực hiện redirect mới');
         window.__REDIRECT_IN_PROGRESS = false;
     }
-    
+
     window.__REDIRECT_IN_PROGRESS = true;
     console.log('🔄 Đang chuyển hướng đến:', target);
-    
+
     // Add timeout to reset flag if redirect doesn't happen (safety measure)
     setTimeout(() => {
         if (window.__REDIRECT_IN_PROGRESS) {
@@ -34,7 +34,7 @@ function safeRedirect(target) {
             window.__REDIRECT_IN_PROGRESS = false;
         }
     }, 2000);
-    
+
     try {
         // Use location.href for more reliable redirect
         window.location.href = target;
@@ -95,7 +95,7 @@ async function persistSession(user, token) {
             if (token) {
                 localStorage.setItem('smartexpense_token', token);
             }
-            
+
             const profileResult = await window.apiRequest('/api/me');
             if (profileResult && profileResult.ok && profileResult.data) {
                 // Merge profile data from API
@@ -103,7 +103,7 @@ async function persistSession(user, token) {
                 const apiBalance = profileResult.data.balance !== undefined && profileResult.data.balance !== null
                     ? profileResult.data.balance
                     : (userData.balance !== undefined ? userData.balance : 0);
-                
+
                 userData = {
                     ...userData,
                     balance: apiBalance,
@@ -129,10 +129,10 @@ async function persistSession(user, token) {
     } catch (e) {
       console.warn('Lỗi khi khôi phục avatar:', e);
     }
-    
+
     // Store user data in localStorage
     localStorage.setItem('smartexpense_user', JSON.stringify(userData));
-    
+
     // Only store token in localStorage if provided (password login)
     // Google login tokens are in httpOnly cookie and should NOT be in localStorage
     if (token) {
@@ -142,7 +142,7 @@ async function persistSession(user, token) {
         localStorage.removeItem('smartexpense_token');
         console.log('✅ Token được lưu trong httpOnly cookie, không lưu trong localStorage');
     }
-    
+
     // Load data from API after login (ensure data is fresh from server)
     // Note: This will be loaded on the next page (trangchu.html), so we don't delay redirect
     // The data loading will happen in parallel with page navigation for better performance
@@ -216,35 +216,35 @@ async function handleLogin(event) {
             safeRedirect('trangchu.html');
             return;
         }
-        
+
         // Try to use apiRequest from utils.js if available, otherwise use fetch
         let result;
         if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
             // Use unified apiRequest from utils.js
             console.log('Đang sử dụng apiRequest để đăng nhập...');
             const requestData = { email, password };
-            console.log('📤 Request data:', { 
-                email: requestData.email, 
+            console.log('📤 Request data:', {
+                email: requestData.email,
                 passwordLength: requestData.password ? requestData.password.length : 0,
-                fullData: requestData 
+                fullData: requestData
             });
             result = await window.apiRequest('/api/auth/login', {
                 method: 'POST',
                 body: JSON.stringify(requestData)
             });
-            
+
             console.log('Phản hồi API đăng nhập:', result);
-            
+
             if (!result || !result.ok) {
                 const errorMsg = result?.data?.message || 'Đăng nhập thất bại';
                 console.error('Đăng nhập thất bại:', errorMsg, result);
-                
+
                 // Reset button state
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Đăng nhập';
                 }
-                
+
                 // Show user-friendly error message
                 // If it's a connection error, show detailed instructions
                 if (result?.data?.errorType === 'CONNECTION_ERROR') {
@@ -256,7 +256,7 @@ async function handleLogin(event) {
                 }
                 return;
             }
-            
+
             // Ensure result.data exists
             if (!result.data) {
                 console.error('Không có dữ liệu trong phản hồi:', result);
@@ -267,12 +267,12 @@ async function handleLogin(event) {
                 alert('Phản hồi từ server không hợp lệ. Vui lòng thử lại.');
                 return;
             }
-            
+
             const user = result.data.user || {};
             const token = result.data.token;
-            
+
             console.log('Dữ liệu phản hồi đăng nhập:', { user, hasToken: !!token, fullData: result.data });
-            
+
             if (!token) {
                 console.error('Không có token trong phản hồi:', result.data);
                 if (submitBtn) {
@@ -282,7 +282,7 @@ async function handleLogin(event) {
                 alert('Không nhận được token xác thực. Vui lòng thử lại.');
                 return;
             }
-            
+
             if (!user || !user.id) {
                 console.error('Dữ liệu người dùng không hợp lệ:', user);
                 if (submitBtn) {
@@ -292,12 +292,12 @@ async function handleLogin(event) {
                 alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
                 return;
             }
-            
+
             console.log('Đăng nhập thành công, user từ database:', user.email);
             await persistSession(user, token);
             console.log('✅ Đã lưu session, chuẩn bị redirect...');
             showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
-            
+
             // Redirect immediately without delay
             isRedirecting = true; // Mark that redirect is starting
             console.log('🔄 Bắt đầu redirect đến trangchu.html...');
@@ -347,9 +347,9 @@ async function handleLogin(event) {
 
             const user = data.user || {};
             const token = data.token;
-            
+
             console.log('Dữ liệu phản hồi đăng nhập:', { user, hasToken: !!token, fullData: data });
-            
+
             if (!token) {
                 console.error('Không có token trong phản hồi:', data);
                 if (submitBtn) {
@@ -359,7 +359,7 @@ async function handleLogin(event) {
                 alert('Không nhận được token xác thực. Vui lòng thử lại.');
                 return;
             }
-            
+
             if (!user || !user.id) {
                 console.error('Dữ liệu người dùng không hợp lệ:', user);
                 if (submitBtn) {
@@ -431,9 +431,9 @@ async function checkExistingLogin() {
         console.log('⏭️ Đang kiểm tra login, bỏ qua request mới');
         return;
     }
-    
+
     window.__CHECKING_EXISTING_LOGIN = true;
-    
+
     try {
         const token = localStorage.getItem('smartexpense_token');
         const user = localStorage.getItem('smartexpense_user');
@@ -445,7 +445,7 @@ async function checkExistingLogin() {
         }
 
         // Kiểm tra xem có đang ở trang login không
-        const isLoginPage = window.location.pathname.includes('login.html') || 
+        const isLoginPage = window.location.pathname.includes('login.html') ||
                             window.location.href.includes('login.html');
         if (!isLoginPage) {
             console.log('⏭️ Không ở trang login, bỏ qua check');
@@ -460,22 +460,22 @@ async function checkExistingLogin() {
                 const verifyResult = await window.apiRequest('/api/me', {
                     method: 'GET'
                 });
-                
+
                 if (verifyResult && verifyResult.ok && verifyResult.data && verifyResult.data.user) {
                     // Session hợp lệ, có thể redirect
                     const userData = verifyResult.data.user;
                     console.log('✅ Session hợp lệ, người dùng đã đăng nhập:', userData.name || userData.email);
-                    
+
                     // Cập nhật localStorage với dữ liệu từ server
                     localStorage.setItem('smartexpense_user', JSON.stringify(userData));
-                    
+
                     // Kiểm tra lại xem có đang redirect không
                     if (window.__REDIRECT_IN_PROGRESS) {
                         console.log('⏭️ Đang trong quá trình redirect, bỏ qua');
                         window.__CHECKING_EXISTING_LOGIN = false;
                         return;
                     }
-                    
+
                     console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến trang chủ...');
                     safeRedirect('trangchu.html');
                 } else {
@@ -541,27 +541,27 @@ if (typeof window !== 'undefined') {
     if (typeof window.__GOOGLE_ERROR_HANDLERS_INIT === 'undefined') {
         window.__GOOGLE_ERROR_HANDLERS_INIT = false;
     }
-    
+
     // Chỉ khởi tạo một lần
     if (!window.__GOOGLE_ERROR_HANDLERS_INIT) {
         window.__GOOGLE_ERROR_HANDLERS_INIT = true;
-        
+
         const currentOrigin = window.location.origin;
         console.log('📍 Origin hiện tại cho Google OAuth:', currentOrigin);
         console.log('💡 Nếu bạn thấy lỗi "[GSI_LOGGER]: The given origin is not allowed",');
         console.log('   hãy thêm origin này vào Google Console:', currentOrigin);
         console.log('   Liên kết: https://console.cloud.google.com/apis/credentials');
-        
+
         // Intercept console errors to detect GSI_LOGGER origin errors
         const originalError = console.error;
         const originalWarn = console.warn;
-        
+
         // Suppress COOP warning (Cross-Origin-Opener-Policy) - this is a harmless warning
         // Google Sign-In still works despite this warning
         const suppressCOOPWarning = (...args) => {
             const message = args.join(' ');
             // Check for COOP postMessage warning
-            if (message.includes('Cross-Origin-Opener-Policy') && 
+            if (message.includes('Cross-Origin-Opener-Policy') &&
                 message.includes('postMessage')) {
                 // Suppress this specific warning as it doesn't affect functionality
                 // Google Sign-In still works correctly despite this warning
@@ -570,18 +570,18 @@ if (typeof window !== 'undefined') {
             // Call original function for other errors
             return originalWarn.apply(console, args);
         };
-        
+
         // Track if we've already shown the warning
         let originWarningShown = false;
-        
+
         // Function to show origin warning in UI (defined early so it can be called from anywhere)
         function showOriginWarning() {
             const currentOrigin = window.location.origin;
-            
+
             // Try to show in UI if DOM is ready
             const warningDiv = document.getElementById('oauthWarning');
             const warningContent = document.getElementById('oauthWarningContent');
-            
+
             if (warningDiv && warningContent) {
                 const allOrigins = [
                     currentOrigin,
@@ -590,7 +590,7 @@ if (typeof window !== 'undefined') {
                     'http://localhost:8080',
                     'http://127.0.0.1:8080'
                 ].filter((origin, index, self) => self.indexOf(origin) === index);
-                
+
                 warningContent.innerHTML = `
                     <div style="margin-bottom:8px;"><strong>⚠️ Lỗi cấu hình Google OAuth:</strong></div>
                     <div style="margin-bottom:8px;">Origin hiện tại chưa được phép trong Google Console:</div>
@@ -622,13 +622,13 @@ if (typeof window !== 'undefined') {
                 }
             }
         }
-        
+
         // Expose function globally so it can be called from anywhere
         window.showOriginWarning = showOriginWarning;
-        
+
             function checkForOriginError(...args) {
             const message = args.join(' ');
-            
+
             // Check for GSI_LOGGER origin errors (multiple patterns)
             // Pattern 1: [GSI_LOGGER]: The given origin is not allowed for the given client ID.
             // Pattern 2: credential_button_library errors
@@ -642,7 +642,7 @@ if (typeof window !== 'undefined') {
                     showOriginWarning();
                 }
             }
-            
+
             // Check for 403 errors from accounts.google.com
             if (message.includes('403') && message.includes('accounts.google.com')) {
                 if (!originWarningShown) {
@@ -650,14 +650,14 @@ if (typeof window !== 'undefined') {
                     showOriginWarning();
                 }
             }
-            
+
             // Call original function
             return originalError.apply(console, args);
         }
-        
+
         function checkForOriginWarn(...args) {
             const message = args.join(' ');
-            
+
             // Check for GSI_LOGGER origin errors in warnings too (multiple patterns)
             if ((message.includes('GSI_LOGGER') && (message.includes('origin is not allowed') || message.includes('not allowed for the given client ID'))) ||
                 (message.includes('credential_button_library') && (message.includes('origin is not allowed') || message.includes('not allowed for the given client ID'))) ||
@@ -668,18 +668,18 @@ if (typeof window !== 'undefined') {
                     showOriginWarning();
                 }
             }
-            
+
             // Call original function
             return originalWarn.apply(console, args);
         }
-        
+
         // Override console.error and console.warn
         console.error = checkForOriginError;
         // Suppress COOP warning first, then check for origin errors
         console.warn = function(...args) {
             const message = args.join(' ');
             // Suppress COOP postMessage warning (harmless warning)
-            if (message.includes('Cross-Origin-Opener-Policy') && 
+            if (message.includes('Cross-Origin-Opener-Policy') &&
                 message.includes('postMessage')) {
                 // This warning doesn't affect Google Sign-In functionality
                 // Google Sign-In still works correctly despite this warning
@@ -688,14 +688,14 @@ if (typeof window !== 'undefined') {
             // Check for origin errors
             return checkForOriginWarn.apply(console, args);
         };
-    
+
         // Chỉ đăng ký event listener một lần - gộp hai listener thành một
         window.addEventListener('error', function(e) {
             const errorMessage = e.message || '';
             const errorSource = e.filename || e.target?.src || '';
-            
+
             // Check for 403 errors from Google accounts
-            if (errorMessage.includes('403') || 
+            if (errorMessage.includes('403') ||
                 errorSource.includes('accounts.google.com') ||
                 (errorMessage.includes('client') && errorMessage.includes('403'))) {
                 if (!originWarningShown) {
@@ -703,7 +703,7 @@ if (typeof window !== 'undefined') {
                     showOriginWarning();
                 }
             }
-            
+
             // Check for failed script loads
             if (e.target && e.target.tagName === 'SCRIPT' && e.target.src) {
                 const src = e.target.src;
@@ -717,7 +717,7 @@ if (typeof window !== 'undefined') {
                 }
             }
         }, true);
-        
+
         // Also intercept console.log to catch GSI_LOGGER messages
         const originalLog = console.log;
         console.log = function(...args) {
@@ -735,13 +735,13 @@ if (typeof window !== 'undefined') {
             // Call original function
             return originalLog.apply(console, args);
         };
-        
+
         // Monitor network requests for 403 errors from Google
         const originalFetch = window.fetch;
         window.fetch = function(...args) {
             return originalFetch.apply(this, args).catch(error => {
                 // Check if it's a 403 error from Google
-                if (args[0] && typeof args[0] === 'string' && 
+                if (args[0] && typeof args[0] === 'string' &&
                     (args[0].includes('accounts.google.com') || args[0].includes('gsi/client'))) {
                     if (!originWarningShown) {
                         originWarningShown = true;
@@ -761,24 +761,24 @@ if (typeof window !== 'undefined') {
     if (typeof window.__GOOGLE_SDK_INIT === 'undefined') {
         window.__GOOGLE_SDK_INIT = false;
     }
-    
+
     // Chỉ khởi tạo một lần
     if (!window.__GOOGLE_SDK_INIT) {
         window.__GOOGLE_SDK_INIT = true;
-        
+
         // Chỉ đăng ký event listener một lần
         let loadHandlerAdded = false;
         const initGoogleSDK = function() {
             if (loadHandlerAdded) return;
             loadHandlerAdded = true;
-            
+
             // Check after a delay to see if Google SDK loaded successfully
             let checkTimeout = null;
             checkTimeout = setTimeout(function() {
                 if (typeof window.google === 'undefined' || typeof window.google.accounts === 'undefined') {
                     console.warn('⚠️ Google Sign-In SDK chưa được tải. Kiểm tra xem origin đã được ủy quyền trong Google Console chưa.');
                     console.warn('   Origin hiện tại:', window.location.origin);
-                    
+
                     // Chỉ hiển thị cảnh báo nếu chưa có cảnh báo nào
                     if (typeof window.showOriginWarning === 'function') {
                         window.showOriginWarning();
@@ -789,7 +789,7 @@ if (typeof window !== 'undefined') {
                 checkTimeout = null;
             }, 2000); // Giảm thời gian chờ xuống 2 giây
         };
-        
+
         // Đăng ký event listener một lần
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
             // DOM đã sẵn sàng, chạy ngay
@@ -816,18 +816,18 @@ if (typeof window.onGoogleCredential === 'undefined') {
         return;
     }
     window.__GOOGLE_LOGIN_IN_PROGRESS = true;
-    
+
     try {
         // Extract credential - Google can pass it as response.credential or just response (string)
         const credential = (typeof response === 'string') ? response : (response?.credential || response);
-        
+
         if (!credential) {
             console.error('Không tìm thấy thông tin xác thực trong phản hồi:', response);
             alert('Không nhận được thông tin xác thực từ Google. Vui lòng thử lại.');
             window.__GOOGLE_LOGIN_IN_PROGRESS = false;
             return;
         }
-        
+
         if (FRONTEND_ONLY) {
             try {
                 console.log('🔧 Chế độ FRONTEND_ONLY: Xử lý đăng nhập Google...');
@@ -837,24 +837,24 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 const name = payload.name || (email ? email.split('@')[0] : 'Người dùng');
                 const mockUser = { email, name, role: 'user' };
                 const mockToken = credential;
-                
+
                 console.log('💾 Đang lưu session...');
                 await persistSession(mockUser, mockToken);
                 console.log('✅ Đã lưu session thành công');
-                
+
                 try {
                     showSuccessMessage(`Đăng nhập thành công! Chào mừng ${name}`);
                 } catch (msgError) {
                     console.warn('Không thể hiển thị thông báo thành công:', msgError);
                 }
-                
+
                 console.log('🔄 Chuẩn bị chuyển hướng đến trangchu.html (frontend-only)...');
                 console.log('   Current location:', window.location.href);
                 console.log('   Target: trangchu.html');
-                
+
                 // Reset flag before redirect
                 window.__GOOGLE_LOGIN_IN_PROGRESS = false;
-                
+
                 // Redirect immediately without delay
                 console.log('🔄 Đang thực hiện redirect (frontend-only Google)...');
                 safeRedirect('trangchu.html');
@@ -866,21 +866,21 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 return;
             }
         }
-        
+
         // Try to use apiRequest from utils.js if available, otherwise use fetch
         if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
             // Use unified apiRequest from utils.js
             console.log('📤 Đang gửi thông tin xác thực Google đến backend API...');
             console.log('   URL API:', `${getApiBase()}/api/auth/google`);
             console.log('   Độ dài credential:', credential.length);
-            
+
             const result = await window.apiRequest('/api/auth/google', {
                 method: 'POST',
                 body: JSON.stringify({ credential: credential })
             });
-            
+
             console.log('📥 Đã nhận phản hồi từ backend:', result);
-            
+
             if (!result || !result.ok) {
                 const errorMsg = result?.data?.message || 'Đăng nhập Google thất bại';
                 console.error('❌ Đăng nhập Google thất bại:', errorMsg);
@@ -889,8 +889,10 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 window.__GOOGLE_LOGIN_IN_PROGRESS = false;
                 return;
             }
-            
+
             const user = result.data.user || {};
+            const token = result.data.token; // Backend-node trả về token trong body
+
             console.log('✅ Cuộc gọi API đăng nhập Google thành công!');
             console.log('   Dữ liệu người dùng nhận được:', user);
             console.log('   - ID người dùng:', user.id);
@@ -898,34 +900,33 @@ if (typeof window.onGoogleCredential === 'undefined') {
             console.log('   - Email:', user.email);
             console.log('   - Phương thức đăng nhập:', user.login_method);
             console.log('   - Google ID:', user.google_id);
-            
-            // Token is now in httpOnly cookie, not in response body
-            console.log('🍪 Token được lưu trong httpOnly cookie (không có trong response body)');
-            
-            // Save user data immediately (don't wait for /api/me)
-            // This ensures we have user data even if /api/me fails
-            await persistSession(user, null); // Token is in cookie, don't store in localStorage
-            console.log('✅ Đã lưu thông tin người dùng cơ bản vào localStorage');
-            
+            console.log('   - Token received:', !!token);
+
+            // Backend-node set cookie VÀ trả về token trong body
+            // Lưu token vào localStorage để backward compatibility
+            // Cookie sẽ được dùng tự động bởi browser
+            await persistSession(user, token); // Lưu cả user và token
+            console.log('✅ Đã lưu thông tin người dùng và token vào localStorage');
+
             // Load full user profile from /api/me (will use cookie automatically)
             // Don't wait - redirect immediately and let the next page load full profile
             // This improves perceived performance
             console.log('🔄 Hồ sơ đầy đủ sẽ được tải trên trang chủ để không làm chậm redirect...');
-            
+
             // Show success message (don't let errors here block redirect)
             try {
                 showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
             } catch (msgError) {
                 console.warn('Không thể hiển thị thông báo thành công:', msgError);
             }
-            
+
             // Reset flag before redirect
             window.__GOOGLE_LOGIN_IN_PROGRESS = false;
-            
+
             // Redirect immediately after loading full profile
             console.log('🔄 Chuẩn bị chuyển hướng đến trangchu.html (apiRequest mode)...');
             console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
-            
+
             // Redirect immediately for better performance
             console.log('🔄 Đang thực hiện redirect Google login...');
             safeRedirect('trangchu.html');
@@ -937,14 +938,14 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ credential: credential })
             });
-            
+
             const data = await res.json().catch((err) => {
                 console.error('Không thể phân tích JSON phản hồi:', err);
                 return { message: 'Lỗi xử lý phản hồi từ server' };
             });
-            
+
             console.log('Phản hồi backend:', { status: res.status, ok: res.ok, data });
-            
+
             if (!res.ok) {
                 const errorMsg = data.message || `Đăng nhập Google thất bại (${res.status})`;
                 console.error('Đăng nhập Google thất bại:', errorMsg);
@@ -952,35 +953,35 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 window.__GOOGLE_LOGIN_IN_PROGRESS = false;
                 return;
             }
-            
+
             const user = data.user || {};
             // Token is now in httpOnly cookie, not in response body
             console.log('Đăng nhập Google thành công, token được lưu trong httpOnly cookie');
-            
+
             // Save user data immediately (don't wait for /api/me)
             // This ensures we have user data even if /api/me fails
             await persistSession(user, null); // Token is in cookie, don't store in localStorage
             console.log('✅ Đã lưu thông tin người dùng cơ bản vào localStorage');
-            
+
             // Load full user profile from /api/me (will use cookie automatically)
             // Don't wait - redirect immediately and let the next page load full profile
             // This improves perceived performance
             console.log('🔄 Hồ sơ đầy đủ sẽ được tải trên trang chủ để không làm chậm redirect...');
-            
+
             // Show success message (don't let errors here block redirect)
             try {
                 showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
             } catch (msgError) {
                 console.warn('Không thể hiển thị thông báo thành công:', msgError);
             }
-            
+
             // Reset flag before redirect
             window.__GOOGLE_LOGIN_IN_PROGRESS = false;
-            
+
             // Redirect immediately after loading full profile
             console.log('🔄 Chuẩn bị chuyển hướng đến trangchu.html (fallback fetch mode)...');
             console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
-            
+
             // Redirect immediately for better performance
             console.log('🔄 Đang thực hiện redirect Google login (fallback)...');
             safeRedirect('trangchu.html');
@@ -997,7 +998,7 @@ if (typeof window.onGoogleCredential === 'undefined') {
     } finally {
         // Release the in-progress guard after navigation starts (if not already reset)
         // Only reset if redirect hasn't happened (no navigation after 3 seconds)
-        setTimeout(() => { 
+        setTimeout(() => {
             if (window.__GOOGLE_LOGIN_IN_PROGRESS) {
                 console.log('⚠️ Reset Google login flag sau timeout');
                 window.__GOOGLE_LOGIN_IN_PROGRESS = false;
