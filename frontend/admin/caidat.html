@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="title.settings">SmartExpense – Admin / Cài đặt</title>
+
+  <!-- BOOT: áp dụng theme + ngôn ngữ trước khi vẽ để tránh nháy -->
+  <script>
+    (function(){
+      const s = (()=>{ try{return JSON.parse(localStorage.getItem('se_settings')||'{}')}catch(e){return{}} })();
+      const theme = s.theme || 'system';
+      const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const resolved = theme==='system' ? (sysDark?'dark':'light') : theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.setAttribute('data-lang', s.lang || 'vi');
+      document.documentElement.lang = s.lang || 'vi';
+      // Theo dõi thay đổi system khi chọn System
+      if(theme==='system' && window.matchMedia){
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener?.('change', e=>{
+          document.documentElement.setAttribute('data-theme', e.matches?'dark':'light');
+        });
+      }
+    })();
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ===== Design tokens (Light) ===== */
+    :root{
+      color-scheme: light;
+      --bg:#ECF5FA; --panel:#FFFFFF; --text:#0F172A; --muted:#6B7280;
+      --primary:#22C55E; --danger:#EF4444; --blue:#3B82F6;
+      --border:#E2E8F0; --radius:14px; --shadow:0 8px 24px rgba(15,23,42,.06);
+
+      --control-h:44px;
+      --pill-radius:999px;
+      --pill-grad:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);
+      --pill-shadow:inset 0 1px 0 #FFFFFF, 0 6px 16px rgba(15,23,42,.06);
+
+      --title-size:22px; --title-weight:700; --title-tracking:.2px;
+      --pill-font-size:15px; --label-size:13px;
+    }
+    /* ===== Dark theme overrides ===== */
+    :root[data-theme="dark"]{
+      color-scheme: dark;
+      --bg:#0B1220; --panel:#0F172A; --text:#E5E7EB; --muted:#94A3B8;
+      --primary:#22C55E; --danger:#F87171; --blue:#60A5FA;
+      --border:#1F2937; --shadow:0 8px 24px rgba(0,0,0,.35);
+      --pill-grad:linear-gradient(180deg,#0F172A 0%,#111827 100%);
+      --pill-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 6px 16px rgba(0,0,0,.25);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+
+    /* Header UI */
+    header .page-title{
+      margin:0;font-size:var(--title-size);font-weight:var(--title-weight);
+      letter-spacing:var(--title-tracking);line-height:1.2;color:var(--text)
+    }
+    header .search{position:relative; flex:1; max-width:720px}
+    header .search input{
+      width:100%; height:var(--control-h);
+      border-radius:var(--pill-radius);
+      border:1px solid var(--border);
+      padding:0 14px 0 44px;
+      background:var(--pill-grad);
+      box-shadow:var(--pill-shadow);
+      color:var(--text); outline:none;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      font-size:var(--pill-font-size); font-weight:600; line-height:1;
+    }
+    header .search input::placeholder{color:var(--muted); font-weight:500}
+    header .search .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.6}
+    header .btn, header .select{
+      height:var(--control-h); border-radius:var(--pill-radius);
+      border:1px solid var(--border); padding:0 14px;
+      background:var(--pill-grad); box-shadow:var(--pill-shadow);
+      cursor:pointer; font-size:var(--pill-font-size); font-weight:600; color:var(--text)
+    }
+    header .btn:hover, header .select:hover, header .search input:hover{ background:rgba(255,255,255,.04) }
+    header .btn[disabled]{opacity:.5;cursor:not-allowed}
+    header .select{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%238A94A6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
+    }
+    .btn-ic{margin-right:6px;font-size:14px;line-height:0}
+
+    /* Layout */
+    .app{display:grid;grid-template-columns:260px 1fr;min-height:100dvh}
+    aside{background:var(--panel);border-right:1px solid var(--border);padding:18px;position:sticky;top:0;height:100dvh}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+    .logo-badge{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#FFE9DE 0%,#FFF5EE 100%);box-shadow:0 6px 16px rgba(15,23,42,.08), inset 0 0 0 1px rgba(255,255,255,.6);display:block;overflow:hidden}
+    :root[data-theme="dark"] .logo-badge{background:linear-gradient(135deg,#213244 0%,#1b2940 100%); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+    .brand-logo{width:100%;height:100%;object-fit:contain}
+    .nav{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+    .nav a{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);padding:10px 12px;border-radius:12px;transition:background .25s,transform .15s}
+    .nav a .ic{width:22px}
+    .nav a:hover{background:rgba(148,163,184,.15);transform:translateX(2px)}
+    .nav a.active{background:#A7EFC1;color:#065F46;font-weight:600}
+    :root[data-theme="dark"] .nav a.active{background:rgba(34,197,94,.18);color:#86efac}
+
+    main{display:flex;flex-direction:column;min-width:0}
+    header{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+    .toolbar{display:flex;align-items:center;gap:12px;flex:1;justify-content:center}
+    .avatar{display:flex;align-items:center;gap:10px}
+    .avatar .pic{width:36px;height:36px;border-radius:50%;background:#FDE68A}
+    :root[data-theme="dark"] .avatar .pic{background:#334155}
+
+    .content{padding:20px;display:grid;gap:16px}
+    .card{background:var(--panel);padding:16px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
+
+    /* Form controls */
+    .input, .select, .textarea{
+      height:var(--control-h); border-radius:var(--pill-radius);
+      border:1px solid var(--border); padding:0 14px;
+      background:var(--pill-grad); box-shadow:var(--pill-shadow);
+      font-size:var(--pill-font-size); font-weight:600; color:var(--text); outline:none; width:100%;
+    }
+    .textarea{height:auto; padding:12px 14px; border-radius:12px; font-weight:500}
+    .label{font-size:var(--label-size); color:var(--muted); margin-bottom:6px}
+    .help{font-size:12px; color:var(--muted)}
+    .row{display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:center;margin-bottom:12px}
+    .section-title{margin:0 0 12px 0;font-size:16px}
+
+    /* Switch */
+    .switch{position:relative; display:inline-flex; align-items:center; gap:10px}
+    .switch input{display:none}
+    .slider{
+      width:48px;height:28px;border-radius:999px;border:1px solid var(--border);
+      background:#F3F4F6; position:relative; box-shadow:inset 0 1px 0 #fff; transition:background .2s;
+    }
+    :root[data-theme="dark"] .slider{background:#111827; box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .slider::after{content:""; position:absolute; top:3px; left:3px; width:22px;height:22px;border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(15,23,42,.15); transition:left .2s}
+    .switch input:checked + .slider{background:#A7EFC1; border-color:#86EFAC}
+    .switch input:checked + .slider::after{left:23px}
+
+    /* Segmented */
+    .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+    .seg input{display:none}
+    .seg label{padding:10px 14px; cursor:pointer; font-weight:600; font-size:var(--pill-font-size); background:var(--pill-grad)}
+    .seg input:checked + label{background:#DCFCE7;color:#065F46}
+    :root[data-theme="dark"] .seg input:checked + label{background:rgba(34,197,94,.18);color:#86efac}
+
+    /* Grid */
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+    @media (max-width:1100px){ .grid{grid-template-columns:1fr} .row{grid-template-columns:1fr} }
+
+    /* Toast */
+    .toast{position:fixed;right:16px;bottom:16px;background:#0F172A;color:#fff;padding:10px 14px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;transform:translateY(8px);z-index:99}
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    /* Density & Accessibility (đã có từ trước) */
+    :root[data-density="compact"] table td{ padding:8px 8px; }
+    :root[data-density="compact"] tr td:first-child{ border-radius:8px 0 0 8px }
+    :root[data-density="compact"] tr td:last-child{ border-radius:0 8px 8px 0 }
+    :root[data-reduce-motion="1"] *{ transition:none !important; animation:none !important; }
+    :root[data-color-blind="1"] .b-green{ background:#C7E9FF; color:#0B5394; }
+  </style>
+
+  <link rel="icon" href="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w96-h96-rw" sizes="96x96">
+  <link rel="apple-touch-icon" href="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w180-h180-rw">
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside>
+      <div class="brand">
+        <span class="logo-badge">
+          <img class="brand-logo" src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="SmartExpense" />
+        </span>
+        <span data-i18n="brand">SmartExpense Admin</span>
+      </div>
+      <nav class="nav" style="margin-top:14px">
+        <a href="tongquan.html"><span class="ic">🏠</span> <span data-i18n="nav.dashboard">Tổng quan</span></a>
+        <a href="nguoidung.html"><span class="ic">👥</span> <span data-i18n="nav.users">Người dùng</span></a>
+        <a href="giaodich.html"><span class="ic">💳</span> <span data-i18n="nav.transactions">Giao dịch</span></a>
+        <a href="ai_insights.html"><span class="ic">🤖</span> <span data-i18n="nav.ai">AI Insights</span></a>
+        <a href="baocao.html"><span class="ic">📊</span> <span data-i18n="nav.reports">Báo cáo</span></a>
+        <a class="active" href="#"><span class="ic">⚙️</span> <span data-i18n="nav.settings">Cài đặt</span></a>
+        <a href="#"><span class="ic">🚪</span> <span data-i18n="nav.signout">Đăng xuất</span></a>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main>
+      <header>
+        <h2 class="page-title" data-i18n="settings.title">Cài đặt</h2>
+        <div class="toolbar">
+          <div class="search" style="max-width:520px">
+            <span class="icon">🔎</span>
+            <input id="searchSettings" data-i18n-placeholder="search.placeholder" placeholder="Tìm cài đặt (ví dụ: 2FA, ngôn ngữ, tiền tệ)..." aria-label="Tìm cài đặt" />
+          </div>
+          <button class="btn" id="btnReset" data-i18n="btn.reset">Hoàn tác thay đổi</button>
+          <button class="btn" id="btnSave" disabled aria-keyshortcuts="Control+S Meta+S" title="Ctrl/Cmd + S">
+            <span class="btn-ic">💾</span> <span data-i18n="btn.save">Lưu</span>
+          </button>
+        </div>
+        <div class="avatar" aria-label="Tài khoản">
+          <div class="pic"></div>
+          <div style="font-weight:600">Admin</div>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- Quick chips -->
+        <div class="card" style="padding:12px">
+          <div class="chips" id="quick">
+            <a class="chip" data-jump="account"  data-i18n="chip.account">👤 Tài khoản</a>
+            <a class="chip" data-jump="security" data-i18n="chip.security">🔐 Bảo mật</a>
+            <a class="chip" data-jump="notify"   data-i18n="chip.notify">🔔 Thông báo</a>
+            <a class="chip" data-jump="prefs"    data-i18n="chip.prefs">⚙️ Ứng dụng</a>
+            <a class="chip" data-jump="privacy"  data-i18n="chip.privacy">🗄 Dữ liệu</a>
+            <a class="chip" data-jump="integrations" data-i18n="chip.integrations">🔗 Tích hợp</a>
+          </div>
+        </div>
+
+        <section class="grid">
+          <!-- LEFT -->
+          <div style="display:grid;gap:16px">
+            <div class="card" id="account">
+              <h3 class="section-title" data-i18n="sec.account">Tài khoản & hồ sơ</h3>
+              <div class="row">
+                <div class="label" data-i18n="label.displayName">Tên hiển thị</div>
+                <input class="input" id="displayName" data-i18n-placeholder="ph.displayName" placeholder="Tên của bạn">
+              </div>
+              <div class="row">
+                <div class="label">Email</div>
+                <input class="input" id="email" placeholder="email@example.com" disabled>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.role">Vai trò</div>
+                <input class="input" id="role" value="Admin" disabled>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.timezone">Múi giờ</div>
+                <select class="select" id="timezone">
+                  <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (GMT+7)</option>
+                  <option value="Asia/Bangkok">Asia/Bangkok (GMT+7)</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.avatar">Ảnh đại diện</div>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div id="avatarPreview" style="width:56px;height:56px;border-radius:50%;background:#E5E7EB;overflow:hidden"></div>
+                  <input type="file" id="avatarFile" accept="image/*" class="input" style="max-width:260px;height:auto;padding:10px 14px">
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="security">
+              <h3 class="section-title" data-i18n="sec.security">Bảo mật</h3>
+              <div class="row">
+                <div class="label" data-i18n="label.2fa">Xác thực 2 lớp (2FA)</div>
+                <label class="switch"><input id="twoFA" type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.session">Phiên đăng nhập</div>
+                <select class="select" id="sessionLen">
+                  <option value="24" data-i18n="opt.session24">Tự đăng xuất sau 24 giờ</option>
+                  <option value="72" data-i18n="opt.session72">Tự đăng xuất sau 72 giờ</option>
+                  <option value="0"  data-i18n="opt.session0">Không tự đăng xuất</option>
+                </select>
+              </div>
+              <div class="row" style="align-items:start">
+                <div class="label" data-i18n="label.changePwd">Đổi mật khẩu</div>
+                <div style="display:grid;gap:10px">
+                  <input class="input" id="pwd1" type="password" data-i18n-placeholder="ph.currentPwd" placeholder="Mật khẩu hiện tại">
+                  <input class="input" id="pwd2" type="password" data-i18n-placeholder="ph.newPwd" placeholder="Mật khẩu mới">
+                  <input class="input" id="pwd3" type="password" data-i18n-placeholder="ph.reNewPwd" placeholder="Nhập lại mật khẩu mới">
+                  <div class="help" data-i18n="help.pwd">Yêu cầu: tối thiểu 8 ký tự, có số & chữ.</div>
+                  <div><button class="btn" id="btnChangePwd" data-i18n="btn.changePwd">Đổi mật khẩu</button></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="notify">
+              <h3 class="section-title" data-i18n="sec.notify">Thông báo</h3>
+              <div class="row">
+                <div class="label" data-i18n="label.weeklyMail">Email báo cáo tuần</div>
+                <label class="switch"><input id="nWeekly" type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.push">Thông báo đẩy (push)</div>
+                <label class="switch"><input id="nPush" type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.fraud">Ngưỡng cảnh báo gian lận</div>
+                <input class="input" id="fraudThreshold" type="number" min="1" max="100" placeholder="%" >
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.channel">Kênh ưu tiên</div>
+                <select class="select" id="nChannel">
+                  <option value="email" data-i18n="opt.email">Email</option>
+                  <option value="push"  data-i18n="opt.push">Push</option>
+                  <option value="both"  data-i18n="opt.both">Cả hai</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div style="display:grid;gap:16px">
+            <div class="card" id="prefs">
+              <h3 class="section-title" data-i18n="sec.prefs">Tuỳ chọn ứng dụng</h3>
+
+              <div class="row">
+                <div class="label" data-i18n="label.lang">Ngôn ngữ</div>
+                <select class="select" id="lang">
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.currency">Tiền tệ</div>
+                <select class="select" id="currency">
+                  <option value="VND">VND – Đồng Việt Nam</option>
+                  <option value="USD">USD – US Dollar</option>
+                </select>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.theme">Chủ đề</div>
+                <div class="seg">
+                  <input id="themeLight" type="radio" name="theme" value="light"><label for="themeLight" data-i18n="opt.light">Light</label>
+                  <input id="themeDark"  type="radio" name="theme" value="dark"><label for="themeDark" data-i18n="opt.dark">Dark</label>
+                  <input id="themeSys"   type="radio" name="theme" value="system" checked><label for="themeSys" data-i18n="opt.system">System</label>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.dateFmt">Định dạng ngày</div>
+                <select class="select" id="dateFmt">
+                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                </select>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.timeFmt">Định dạng giờ</div>
+                <div class="seg">
+                  <input id="time24" type="radio" name="timeFmt" value="24h" checked><label for="time24">24h</label>
+                  <input id="time12" type="radio" name="timeFmt" value="12h"><label for="time12">12h</label>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.density">Mật độ bảng</div>
+                <div class="seg">
+                  <input id="densComfort" type="radio" name="density" value="comfortable" checked><label for="densComfort" data-i18n="opt.comfort">Comfortable</label>
+                  <input id="densCompact" type="radio" name="density" value="compact"><label for="densCompact" data-i18n="opt.compact">Compact</label>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.startPage">Trang mặc định</div>
+                <select class="select" id="startPage">
+                  <option value="tongquan.html" data-i18n="nav.dashboard">Tổng quan</option>
+                  <option value="nguoidung.html" data-i18n="nav.users">Người dùng</option>
+                  <option value="giaodich.html" data-i18n="nav.transactions">Giao dịch</option>
+                  <option value="ai_insights.html" data-i18n="nav.ai">AI Insights</option>
+                  <option value="baocao.html" data-i18n="nav.reports">Báo cáo</option>
+                  <option value="cai_dat.html" data-i18n="nav.settings">Cài đặt</option>
+                </select>
+              </div>
+
+              <div class="row">
+                <div class="label" data-i18n="label.autoRefresh">Tự động làm mới</div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <label class="switch"><input id="autoRefresh" type="checkbox"><span class="slider"></span></label>
+                  <select class="select" id="autoMins" style="max-width:160px">
+                    <option value="1" data-i18n="opt.m1">1 phút</option>
+                    <option value="5" data-i18n="opt.m5" selected>5 phút</option>
+                    <option value="10" data-i18n="opt.m10">10 phút</option>
+                    <option value="30" data-i18n="opt.m30">30 phút</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="privacy">
+              <h3 class="section-title" data-i18n="sec.privacy">Dữ liệu & Quyền riêng tư</h3>
+              <div class="row">
+                <div class="label" data-i18n="label.export">Xuất cài đặt</div>
+                <div><button class="btn" id="btnExport" data-i18n="btn.export">Tải JSON</button></div>
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.import">Nhập cài đặt</div>
+                <input type="file" id="importFile" class="input" style="height:auto;padding:10px 14px">
+              </div>
+              <div class="row">
+                <div class="label" data-i18n="label.clear">Xoá dữ liệu demo</div>
+                <div><button class="btn" id="btnClear" data-i18n="btn.clear">Xoá (local)</button></div>
+              </div>
+            </div>
+
+            <div class="card" id="integrations">
+              <h3 class="section-title" data-i18n="sec.integrations">Tích hợp</h3>
+              <div class="row">
+                <div class="label">Vietcombank</div>
+                <label class="switch"><input id="intVCB" type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div class="label">MoMo</div>
+                <label class="switch"><input id="intMomo" type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div class="label">ZaloPay</div>
+                <label class="switch"><input id="intZalo" type="checkbox"><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <div class="card" style="border-color:#FECACA">
+              <h3 class="section-title" style="color:#991B1B" data-i18n="sec.danger">Khu vực nguy hiểm</h3>
+              <div class="row">
+                <div class="label" data-i18n="label.factory">Khôi phục mặc định</div>
+                <div><button class="btn" id="btnFactory" style="background:#FFF5F5;border-color:#FECACA;color:#B91C1C" data-i18n="btn.resetAll">Reset tất cả</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" data-i18n="toast.saved">Đã lưu cài đặt ✓</div>
+
+  <script>
+    /* ===== I18N ===== */
+    const I18N = {
+      vi: {
+        "title.settings":"SmartExpense – Admin / Cài đặt",
+        brand:"SmartExpense Admin",
+        "nav.dashboard":"Tổng quan","nav.users":"Người dùng","nav.transactions":"Giao dịch","nav.ai":"AI Insights","nav.reports":"Báo cáo","nav.settings":"Cài đặt","nav.signout":"Đăng xuất",
+        "settings.title":"Cài đặt",
+        "btn.reset":"Hoàn tác thay đổi","btn.save":"Lưu","btn.export":"Tải JSON","btn.clear":"Xoá (local)","btn.changePwd":"Đổi mật khẩu","btn.resetAll":"Reset tất cả",
+        "chip.account":"👤 Tài khoản","chip.security":"🔐 Bảo mật","chip.notify":"🔔 Thông báo","chip.prefs":"⚙️ Ứng dụng","chip.privacy":"🗄 Dữ liệu","chip.integrations":"🔗 Tích hợp",
+        "search.placeholder":"Tìm cài đặt (ví dụ: 2FA, ngôn ngữ, tiền tệ)...",
+        "sec.account":"Tài khoản & hồ sơ","sec.security":"Bảo mật","sec.notify":"Thông báo","sec.prefs":"Tuỳ chọn ứng dụng","sec.privacy":"Dữ liệu & Quyền riêng tư","sec.integrations":"Tích hợp","sec.danger":"Khu vực nguy hiểm",
+        "label.displayName":"Tên hiển thị","ph.displayName":"Tên của bạn","label.role":"Vai trò","label.timezone":"Múi giờ","label.avatar":"Ảnh đại diện",
+        "label.2fa":"Xác thực 2 lớp (2FA)","label.session":"Phiên đăng nhập","opt.session24":"Tự đăng xuất sau 24 giờ","opt.session72":"Tự đăng xuất sau 72 giờ","opt.session0":"Không tự đăng xuất",
+        "label.changePwd":"Đổi mật khẩu","ph.currentPwd":"Mật khẩu hiện tại","ph.newPwd":"Mật khẩu mới","ph.reNewPwd":"Nhập lại mật khẩu mới","help.pwd":"Yêu cầu: tối thiểu 8 ký tự, có số & chữ.",
+        "label.weeklyMail":"Email báo cáo tuần","label.push":"Thông báo đẩy (push)","label.fraud":"Ngưỡng cảnh báo gian lận","label.channel":"Kênh ưu tiên",
+        "opt.email":"Email","opt.push":"Push","opt.both":"Cả hai",
+        "label.lang":"Ngôn ngữ","label.currency":"Tiền tệ","label.theme":"Chủ đề",
+        "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
+        "label.dateFmt":"Định dạng ngày","label.timeFmt":"Định dạng giờ","label.density":"Mật độ bảng","opt.comfort":"Comfortable","opt.compact":"Compact",
+        "label.startPage":"Trang mặc định","label.autoRefresh":"Tự động làm mới","opt.m1":"1 phút","opt.m5":"5 phút","opt.m10":"10 phút","opt.m30":"30 phút",
+        "label.export":"Xuất cài đặt","label.import":"Nhập cài đặt","label.clear":"Xoá dữ liệu demo","label.factory":"Khôi phục mặc định",
+        "toast.saved":"Đã lưu cài đặt ✓"
+      },
+      en: {
+        "title.settings":"SmartExpense – Admin / Settings",
+        brand:"SmartExpense Admin",
+        "nav.dashboard":"Dashboard","nav.users":"Users","nav.transactions":"Transactions","nav.ai":"AI Insights","nav.reports":"Reports","nav.settings":"Settings","nav.signout":"Sign out",
+        "settings.title":"Settings",
+        "btn.reset":"Undo changes","btn.save":"Save","btn.export":"Download JSON","btn.clear":"Clear (local)","btn.changePwd":"Change password","btn.resetAll":"Reset all",
+        "chip.account":"👤 Account","chip.security":"🔐 Security","chip.notify":"🔔 Notifications","chip.prefs":"⚙️ App","chip.privacy":"🗄 Data","chip.integrations":"🔗 Integrations",
+        "search.placeholder":"Search settings (e.g., 2FA, language, currency)...",
+        "sec.account":"Account & profile","sec.security":"Security","sec.notify":"Notifications","sec.prefs":"Application preferences","sec.privacy":"Data & Privacy","sec.integrations":"Integrations","sec.danger":"Danger zone",
+        "label.displayName":"Display name","ph.displayName":"Your name","label.role":"Role","label.timezone":"Timezone","label.avatar":"Avatar",
+        "label.2fa":"Two-factor authentication (2FA)","label.session":"Session length","opt.session24":"Auto sign-out after 24h","opt.session72":"Auto sign-out after 72h","opt.session0":"Never auto sign-out",
+        "label.changePwd":"Change password","ph.currentPwd":"Current password","ph.newPwd":"New password","ph.reNewPwd":"Re-enter new password","help.pwd":"Min 8 characters with letters & numbers.",
+        "label.weeklyMail":"Weekly report email","label.push":"Push notifications","label.fraud":"Fraud alert threshold","label.channel":"Preferred channel",
+        "opt.email":"Email","opt.push":"Push","opt.both":"Both",
+        "label.lang":"Language","label.currency":"Currency","label.theme":"Theme",
+        "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
+        "label.dateFmt":"Date format","label.timeFmt":"Time format","label.density":"Table density","opt.comfort":"Comfortable","opt.compact":"Compact",
+        "label.startPage":"Default landing page","label.autoRefresh":"Auto refresh","opt.m1":"1 minute","opt.m5":"5 minutes","opt.m10":"10 minutes","opt.m30":"30 minutes",
+        "label.export":"Export settings","label.import":"Import settings","label.clear":"Clear demo data","label.factory":"Factory reset",
+        "toast.saved":"Settings saved ✓"
+      }
+    };
+
+    function applyLang(lang){
+      const dict = I18N[lang] || I18N.vi;
+      // text nodes
+      document.querySelectorAll('[data-i18n]').forEach(el=>{
+        const key = el.getAttribute('data-i18n');
+        if(dict[key]) el.textContent = dict[key];
+      });
+      // placeholders
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+        const key = el.getAttribute('data-i18n-placeholder');
+        if(dict[key]) el.setAttribute('placeholder', dict[key]);
+      });
+      // <title>
+      if(dict['title.settings']) document.title = dict['title.settings'];
+      document.documentElement.lang = lang;
+      document.documentElement.setAttribute('data-lang', lang);
+    }
+  </script>
+
+  <script>
+    // ====== State & Storage ======
+    const STORE_KEY = 'se_settings';
+    const $ = id => document.getElementById(id);
+    const inputs = {
+      displayName: $('displayName'), email: $('email'), role: $('role'), timezone: $('timezone'),
+      twoFA: $('twoFA'), sessionLen: $('sessionLen'),
+      nWeekly: $('nWeekly'), nPush: $('nPush'), fraudThreshold: $('fraudThreshold'), nChannel: $('nChannel'),
+      lang: $('lang'), currency: $('currency'), dateFmt: $('dateFmt'),
+      theme: () => document.querySelector('input[name="theme"]:checked')?.value,
+      timeFmt: () => document.querySelector('input[name="timeFmt"]:checked')?.value,
+      density: () => document.querySelector('input[name="density"]:checked')?.value,
+      startPage: $('startPage'),
+      autoRefresh: $('autoRefresh'), autoMins: $('autoMins'),
+      intVCB: $('intVCB'), intMomo: $('intMomo'), intZalo: $('intZalo'),
+      reduceMotion: null, colorBlind: null // (giữ chỗ nếu bạn thêm)
+    };
+    let dirty = false;
+    const toast = $('toast');
+
+    function showToast(msg){
+      toast.textContent = msg || (I18N[(document.documentElement.getAttribute('data-lang')||'vi')]['toast.saved']);
+      toast.classList.add('show');
+      setTimeout(()=>toast.classList.remove('show'), 1600);
+    }
+
+    function load(){
+      const def = {
+        displayName:'Admin', email:'admin@example.com', role:'Admin', timezone:'Asia/Ho_Chi_Minh',
+        twoFA:false, sessionLen:'24', nWeekly:true, nPush:true, fraudThreshold:10, nChannel:'email',
+        lang:(document.documentElement.getAttribute('data-lang')||'vi'), currency:'VND',
+        dateFmt:'DD/MM/YYYY', theme:(document.documentElement.getAttribute('data-theme')||'light'),
+        timeFmt:'24h', density:'comfortable', startPage:'tongquan.html', autoRefresh:false, autoMins:'5',
+        intVCB:false,intMomo:false,intZalo:false, avatar:null
+      };
+      let s = def; try{ s = Object.assign(def, JSON.parse(localStorage.getItem(STORE_KEY)||'{}')); }catch(e){}
+
+      // Bind
+      inputs.displayName.value = s.displayName;
+      inputs.email.value = s.email;
+      inputs.role.value = s.role;
+      inputs.timezone.value = s.timezone;
+      inputs.twoFA.checked = !!s.twoFA;
+      inputs.sessionLen.value = s.sessionLen;
+      inputs.nWeekly.checked = !!s.nWeekly;
+      inputs.nPush.checked = !!s.nPush;
+      inputs.fraudThreshold.value = s.fraudThreshold;
+      inputs.nChannel.value = s.nChannel;
+
+      inputs.lang.value = s.lang;
+      inputs.currency.value = s.currency;
+      inputs.dateFmt.value = s.dateFmt;
+
+      document.querySelector(`input[name="theme"][value="${s.theme}"]`)?.setAttribute('checked','checked');
+      $('theme' + (s.theme==='light'?'Light':s.theme==='dark'?'Dark':'Sys')).checked = true;
+
+      document.querySelector(`input[name="timeFmt"][value="${s.timeFmt}"]`)?.setAttribute('checked','checked');
+      $('time' + (s.timeFmt==='24h'?'24':'12')).checked = true;
+
+      document.querySelector(`input[name="density"][value="${s.density}"]`)?.setAttribute('checked','checked');
+      $('dens' + (s.density==='compact'?'Compact':'Comfort')).checked = true;
+
+      inputs.startPage.value = s.startPage;
+      inputs.autoRefresh.checked = !!s.autoRefresh;
+      inputs.autoMins.value = s.autoMins;
+      inputs.autoMins.disabled = !inputs.autoRefresh.checked;
+
+      if(s.avatar){ $('avatarPreview').innerHTML = `<img src="${s.avatar}" style="width:56px;height:56px;object-fit:cover">`; }
+
+      // Áp dụng theme + lang ngay
+      setThemeImmediate(s.theme);
+      applyLang(s.lang);
+
+      dirty=false; $('btnSave').disabled=true;
+    }
+
+    function collect(){
+      return {
+        displayName: $('displayName').value.trim(),
+        email: $('email').value.trim(),
+        role: $('role').value.trim(),
+        timezone: $('timezone').value,
+        twoFA: $('twoFA').checked,
+        sessionLen: $('sessionLen').value,
+        nWeekly: $('nWeekly').checked,
+        nPush: $('nPush').checked,
+        fraudThreshold: +$('fraudThreshold').value || 0,
+        nChannel: $('nChannel').value,
+
+        lang: $('lang').value,
+        currency: $('currency').value,
+        dateFmt: $('dateFmt').value,
+        theme: (document.querySelector('input[name="theme"]:checked')?.value),
+
+        timeFmt: (document.querySelector('input[name="timeFmt"]:checked')?.value),
+        density: (document.querySelector('input[name="density"]:checked')?.value),
+        startPage: $('startPage').value,
+        autoRefresh: $('autoRefresh').checked,
+        autoMins: $('autoMins').value,
+
+        intVCB: $('intVCB').checked,
+        intMomo: $('intMomo').checked,
+        intZalo: $('intZalo').checked,
+        avatar: document.querySelector('#avatarPreview img')?.src || null,
+      };
+    }
+
+    function save(){
+      const data = collect();
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      dirty=false; $('btnSave').disabled=true;
+      showToast();
+    }
+    function markDirty(){ dirty=true; $('btnSave').disabled=false; }
+
+    // ===== Theme switch (áp dụng ngay) =====
+    let sysWatcher = null;
+    function setThemeImmediate(theme){
+      if(sysWatcher){ sysWatcher.removeEventListener?.('change', sysWatcher._h); sysWatcher=null; }
+      const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const resolved = theme==='system' ? (sysDark?'dark':'light') : theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+      if(theme==='system' && window.matchMedia){
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        const handler = e => document.documentElement.setAttribute('data-theme', e.matches?'dark':'light');
+        mq.addEventListener?.('change', handler);
+        mq._h = handler;
+        sysWatcher = mq;
+      }
+    }
+
+    // Events (input changes -> dirty + live apply for theme/lang)
+    document.addEventListener('input', e=>{
+      const t = e.target;
+      if(
+        t.matches('.input, .select, .textarea') ||
+        t.matches('input[type="checkbox"]') ||
+        t.matches('input[type="radio"]')
+      ){ markDirty(); }
+
+      if(t.name === 'theme'){ setThemeImmediate(t.value); }
+      if(t.id === 'lang'){ applyLang(t.value); }
+      if(t.id === 'autoRefresh'){ $('autoMins').disabled = !t.checked; }
+    });
+
+    // Avatar preview
+    document.getElementById('avatarFile').addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0]; if(!f) return;
+      const url = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(f); });
+      $('avatarPreview').innerHTML = `<img src="${url}" style="width:56px;height:56px;object-fit:cover">`;
+      markDirty();
+    });
+
+    // Change password (demo)
+    $('btnChangePwd')?.addEventListener('click', ()=>{
+      const p1=$('pwd1').value, p2=$('pwd2').value, p3=$('pwd3').value;
+      if(!p1 || p2.length<8 || p2!==p3){ alert((document.documentElement.getAttribute('data-lang')==='en')?'Please check your password.':'Vui lòng kiểm tra lại mật khẩu.'); return; }
+      $('pwd1').value=$('pwd2').value=$('pwd3').value='';
+      showToast((document.documentElement.getAttribute('data-lang')==='en')?'Password changed (demo)':'Đã đổi mật khẩu (demo)');
+    });
+
+    // Save / Reset / Shortcuts
+    $('btnSave').addEventListener('click', save);
+    $('btnReset').addEventListener('click', load);
+    window.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); if(dirty) save(); } });
+
+    // Export / Import / Clear / Factory
+    $('btnExport').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(collect(),null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='settings.json'; a.click(); URL.revokeObjectURL(a.href);
+    });
+    $('importFile').addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0]; if(!f) return;
+      try{
+        const text = await f.text();
+        localStorage.setItem(STORE_KEY, text);
+        load(); showToast(document.documentElement.getAttribute('data-lang')==='en'?'Imported ✓':'Đã nhập cài đặt ✓');
+      }catch(err){ alert(document.documentElement.getAttribute('data-lang')==='en'?'Import failed':'Không thể nhập cài đặt'); }
+    });
+    $('btnClear').addEventListener('click', ()=>{
+      if(confirm(document.documentElement.getAttribute('data-lang')==='en'?'Clear demo data (localStorage)?':'Xoá dữ liệu demo (localStorage)?')){
+        localStorage.removeItem(STORE_KEY); load();
+      }
+    });
+    $('btnFactory').addEventListener('click', ()=>{
+      if(confirm(document.documentElement.getAttribute('data-lang')==='en'?'Restore factory defaults?':'Khôi phục mặc định toàn bộ cài đặt?')){
+        localStorage.removeItem(STORE_KEY); load(); showToast(document.documentElement.getAttribute('data-lang')==='en'?'Restored defaults':'Đã khôi phục mặc định');
+      }
+    });
+
+    // Quick jump chips
+    document.querySelectorAll('#quick .chip').forEach(ch=>{
+      ch.addEventListener('click', ()=>{
+        document.getElementById(ch.dataset.jump)?.scrollIntoView({behavior:'smooth', block:'start'});
+        document.querySelectorAll('#quick .chip').forEach(c=>c.classList.remove('active'));
+        ch.classList.add('active'); setTimeout(()=>ch.classList.remove('active'), 800);
+      });
+    });
+
+    // Search highlight
+    $('searchSettings').addEventListener('input', e=>{
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('.card').forEach(card=>{
+        if(card.id==='') return;
+        const txt = card.textContent.toLowerCase();
+        card.style.outline = q && txt.includes(q) ? '2px solid #A7EFC1' : 'none';
+        card.style.boxShadow = q && txt.includes(q) ? '0 0 0 4px rgba(134,239,172,.3), var(--shadow)' : 'var(--shadow)';
+      });
+    });
+
+    // Init
+    load();
+  </script>
+</body>
+</html>

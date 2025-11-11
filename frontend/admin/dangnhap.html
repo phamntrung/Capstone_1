@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SmartExpense Admin – Đăng nhập</title>
+    <meta name="description" content="Trang đăng nhập khu vực quản trị SmartExpense – bảo mật, nhanh, thân thiện." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+         :root {
+            --bg: #eef6ff;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --primary: #2563eb;
+            --primary-600: #1d4ed8;
+            --ring: rgba(37, 99, 235, .25);
+            --error: #dc2626;
+            --success: #16a34a;
+            --radius: 18px;
+            --shadow: 0 10px 20px rgba(2, 6, 23, .08), 0 3px 8px rgba(2, 6, 23, .05);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+             :root {
+                --bg: #0b1220;
+                --card: #0f172a;
+                --text: #e2e8f0;
+                --muted: #94a3b8;
+                --primary: #60a5fa;
+                --primary-600: #3b82f6;
+                --ring: rgba(96, 165, 250, .25);
+                --shadow: 0 10px 20px rgba(0, 0, 0, .45), 0 3px 8px rgba(0, 0, 0, .35);
+            }
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        html,
+        body {
+            height: 100%;
+        }
+        
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 10% -10%, #dbeafe 10%, transparent 40%), radial-gradient(900px 500px at 110% 10%, #bfdbfe 10%, transparent 40%), var(--bg);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+        
+        .card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(2, 6, 23, .06);
+        }
+        
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 6px;
+        }
+        
+        .logo {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: #ffe9e6;
+            border: 1px solid rgba(2, 6, 23, .08);
+            box-shadow: 0 2px 6px rgba(2, 6, 23, .06), 0 1px 1px rgba(2, 6, 23, .04);
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+        }
+        
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #0b63f6;
+            background: linear-gradient(180deg, #eaf2ff, #dbe9ff);
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+            border: 1px solid #c6ddff;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 2px rgba(2, 6, 23, .05);
+        }
+        
+        .brand-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #60a5fa;
+            box-shadow: 0 0 0 4px rgba(96, 165, 250, .25);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .brand-badge {
+                color: #8ecaff;
+                background: linear-gradient(180deg, #12223c, #0f1d33);
+                border-color: rgba(148, 163, 184, .25);
+            }
+            .logo {
+                background: #0b1220;
+                border-color: rgba(148, 163, 184, .25);
+            }
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 8px 0 4px;
+        }
+        
+        .subtitle {
+            margin: 0 0 18px;
+            color: var(--muted);
+            font-size: 15px;
+        }
+        
+        form {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+        
+        label {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .control {
+            position: relative;
+        }
+        
+        .control input {
+            width: 100%;
+            padding: 12px 44px 12px 42px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            outline: none;
+            font-size: 15px;
+            background: #f8fafc;
+            transition: box-shadow .15s, border-color .15s, background .15s;
+        }
+        
+        .control input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--ring);
+            background: #fff;
+        }
+        
+        .control input[aria-invalid="true"] {
+            border-color: var(--error);
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, .15);
+        }
+        
+        .icon-left,
+        .icon-right {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            width: 22px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+        }
+        
+        .icon-left {
+            left: 12px;
+        }
+        
+        .icon-right {
+            right: 12px;
+            cursor: pointer;
+        }
+        
+        .toggle-eye {
+            user-select: none;
+            background: transparent;
+            border: 0;
+            padding: 0;
+        }
+        
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .row .remember {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        
+        .btn {
+            appearance: none;
+            border: 0;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 600;
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: transform .03s ease, background .15s ease, box-shadow .15s ease, opacity .15s ease;
+            box-shadow: 0 6px 14px rgba(37, 99, 235, .25);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-600);
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 8px rgba(37, 99, 235, .25);
+        }
+        
+        .btn[disabled] {
+            opacity: .7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, .55);
+            border-top-color: transparent;
+            animation: spin .8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .footer-note {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+        
+        .field-error {
+            color: var(--error);
+            font-size: 12px;
+            min-height: 16px;
+        }
+        
+        .alert {
+            display: none;
+            border: 1px solid rgba(220, 38, 38, .35);
+            background: rgba(254, 226, 226, .6);
+            color: var(--error);
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .alert {
+                background: rgba(127, 29, 29, .25);
+                border-color: rgba(239, 68, 68, .35);
+            }
+        }
+        
+        .visually-hidden {
+            position: absolute !important;
+            height: 1px;
+            width: 1px;
+            overflow: hidden;
+            clip: rect(1px, 1px, 1px, 1px);
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card" role="main" aria-labelledby="title">
+        <div class="brand">
+            <div class="logo" aria-hidden="true" title="SmartExpense">
+                <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="SmartExpense Logo" />
+            </div>
+
+            <div class="brand-text">
+                <h1 id="title">SmartExpense</h1>
+                <div class="brand-badge" aria-label="Môi trường quản trị">ADMIN</div>
+                <p class="subtitle">Truy cập bảng điều khiển quản trị</p>
+            </div>
+        </div>
+
+
+        <div id="formAlert" class="alert" role="alert" aria-live="assertive"></div>
+
+        <form id="loginForm" action="#" method="post" novalidate>
+            <!-- Identifier (Username or Employee ID) -->
+            <div class="field">
+                <label for="identifier">Tên đăng nhập</label>
+                <div class="control">
+                    <span class="icon-left" aria-hidden="true">
+            <!-- user icon -->
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+          </span>
+                    <input id="identifier" name="identifier" type="text" inputmode="text" autocomplete="username" placeholder="" required aria-required="true" aria-describedby="idError" />
+                    <button type="button" class="icon-right" aria-hidden="true" tabindex="-1" style="pointer-events:none; opacity:.001"></button>
+                </div>
+                <div id="idError" class="field-error" role="status" aria-live="polite"></div>
+            </div>
+
+            <!-- Password -->
+            <div class="field">
+                <label for="password">Mật khẩu</label>
+                <div class="control">
+                    <span class="icon-left" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+                    <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" minlength="6" required aria-required="true" aria-describedby="passwordError" />
+                    <button type="button" class="icon-right toggle-eye" aria-label="Hiện/ẩn mật khẩu" aria-pressed="false" title="Hiện/ẩn mật khẩu" onclick="togglePassword(this)">
+            <svg id="eye" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+                </div>
+                <div id="passwordError" class="field-error" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="row">
+                <label class="remember"><input type="checkbox" id="remember" name="remember"> Lưu mật khẩu</label>
+            </div>
+
+            <button id="submitBtn" class="btn" type="submit"><span>Đăng nhập</span></button>
+
+            <p class="footer-note">© 2025 SmartExpense Admin</p>
+        </form>
+    </main>
+
+    <script>
+        const idEl = document.getElementById('identifier');
+        const passwordEl = document.getElementById('password');
+        const idError = document.getElementById('idError');
+        const passwordError = document.getElementById('passwordError');
+        const formAlert = document.getElementById('formAlert');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function togglePassword(btn) {
+            const typeNow = passwordEl.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordEl.setAttribute('type', typeNow);
+            btn.setAttribute('aria-pressed', typeNow === 'text');
+        }
+
+        function setFieldError(el, container, msg) {
+            if (msg) {
+                el.setAttribute('aria-invalid', 'true');
+                container.textContent = msg;
+            } else {
+                el.removeAttribute('aria-invalid');
+                container.textContent = '';
+            }
+        }
+
+        // Cho phép username hoặc ID: 2–40 ký tự, chữ/số/._-
+        const ID_REGEX = /^[A-Za-z0-9._-]{2,40}$/;
+
+        function validate() {
+            let ok = true;
+            const idVal = idEl.value.trim();
+            const passVal = passwordEl.value;
+
+            if (!idVal) {
+                setFieldError(idEl, idError, 'Vui lòng nhập tên đăng nhập hoặc mã nhân viên.');
+                ok = false;
+            } else if (!ID_REGEX.test(idVal)) {
+                setFieldError(idEl, idError, 'Chỉ cho phép chữ, số, dấu chấm (.), gạch dưới (_) hoặc gạch nối (-), 2–40 ký tự.');
+                ok = false;
+            } else {
+                setFieldError(idEl, idError, '');
+            }
+
+            if (!passVal) {
+                setFieldError(passwordEl, passwordError, 'Vui lòng nhập mật khẩu.');
+                ok = false;
+            } else if (passVal.length < 6) {
+                setFieldError(passwordEl, passwordError, 'Mật khẩu tối thiểu 6 ký tự.');
+                ok = false;
+            } else {
+                setFieldError(passwordEl, passwordError, '');
+            }
+
+            return ok;
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                submitBtn.setAttribute('disabled', 'true');
+                submitBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>Đang xử lý…</span>';
+            } else {
+                submitBtn.removeAttribute('disabled');
+                submitBtn.innerHTML = '<span>Đăng nhập</span>';
+            }
+        }
+
+        function showAlert(msg, type = 'error') {
+            formAlert.textContent = msg;
+            formAlert.style.display = 'block';
+            formAlert.style.borderColor = type === 'success' ? 'rgba(22,163,74,.45)' : 'rgba(220,38,38,.35)';
+            formAlert.style.background = type === 'success' ? 'rgba(220,252,231,.7)' : 'rgba(254,226,226,.6)';
+            formAlert.style.color = type === 'success' ? '#166534' : '#dc2626';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            formAlert.style.display = 'none';
+            if (!validate()) return;
+            setLoading(true);
+            try {
+                // DEMO: mô phỏng gọi API. Đổi sang fetch('/api/login', {...}) trong dự án thật.
+                await new Promise(r => setTimeout(r, 800));
+                showAlert('Đăng nhập thành công!', 'success');
+                // window.location.href = 'dashboard.html';
+            } catch (err) {
+                showAlert('Đăng nhập thất bại. Vui lòng thử lại.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+    </script>
+</body>
+
+</html>
