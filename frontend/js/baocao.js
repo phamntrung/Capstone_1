@@ -52,7 +52,48 @@ class BaoCaoManager {
   async loadReportData(forceRefresh = false) {
     console.log('🔄 Loading report data...');
     
-    // Sử dụng DataManager để lấy dữ liệu thực
+    // Thử gọi API summary để lấy báo cáo và LƯU vào DB (backend sẽ tự lưu)
+    // Nếu API không khả dụng, fallback sang tổng hợp từ DataManager/localStorage
+    try {
+      if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+        const res = await window.apiRequest('/api/reports/summary');
+        if (res && res.ok && res.data) {
+          // Backend đã lưu báo cáo; lấy dữ liệu trả về để hiển thị
+          const daily = Array.isArray(res.data.daily) ? res.data.daily : [];
+          const monthly = Array.isArray(res.data.monthly) ? res.data.monthly : [];
+          const categories = Array.isArray(res.data.categories) ? res.data.categories : [];
+          
+          // Chuẩn hoá vào định dạng đang dùng
+          this.dailyData = daily.map(d => ({
+            date: d.date,
+            label: d.label || d.date, // backend có thể không trả label
+            amount: Number(d.amount || 0),
+            transactions: Number(d.transactions || 0)
+          }));
+          
+          this.monthlyData = monthly.map(m => ({
+            month: m.month, // dạng MM/YYYY theo backend
+            amount: Number(m.amount || 0),
+            budget: Number(m.budget || 0),
+            transactions: Number(m.transactions || 0)
+          }));
+          
+          this.categoryData = categories.map(c => ({
+            name: c.name || c.categoryName || 'Khác',
+            amount: Number(c.amount || 0),
+            percentage: Number(c.percentage || 0),
+            color: c.color || '#3b82f6'
+          }));
+          
+          console.log('✅ Loaded report summary from API and saved to DB by backend');
+          return; // Đã có dữ liệu, không cần fallback
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to load /api/reports/summary, will fallback to local aggregation:', e);
+    }
+    
+    // Sử dụng DataManager để lấy dữ liệu thực (fallback)
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
 
@@ -1534,73 +1575,30 @@ class BaoCaoManager {
   setupRealTimeUpdates() {
     console.log('🔔 Setting up manual refresh for reports (auto-refresh disabled)...');
     
-    // TẤT CẢ TÍNH NĂNG TỰ ĐỘNG ĐÃ BỊ TẮT
-    // Chỉ refresh khi người dùng click nút refresh
-    
-    // BroadcastChannel - TẮT tự động refresh
-    // try {
-    //   if (typeof BroadcastChannel !== 'undefined') {
-    //     if (!window.expenseBroadcastChannel) {
-    //       window.expenseBroadcastChannel = new BroadcastChannel('smartexpense_updates');
-    //     }
-    //     window.expenseBroadcastChannel.onmessage = (event) => {
-    //       if (event.data && event.data.type === 'expenseAdded') {
-    //         console.log('📡 BroadcastChannel: Expense added in another tab, refreshing reports...');
-    //         setTimeout(() => {
-    //           this.refreshData();
-    //         }, 500);
-    //       }
-    //     };
-    //     console.log('✅ BroadcastChannel initialized for cross-tab sync');
-    //   }
-    // } catch (e) {
-    //   console.warn('BroadcastChannel not available:', e);
-    // }
-    
-    // Storage changes - TẮT tự động refresh
-    // window.addEventListener('storage', (e) => {
-    //   if (e.key === 'smartexpense_data' || e.key === 'smartexpense_expense_added' || e.key === 'transactions') {
-    //     console.log('📦 Storage change detected:', e.key);
-    //     this.refreshData();
-    //   }
-    // });
+    // Bật refresh tự động theo sự kiện hệ thống
+    window.addEventListener('profileUpdated', () => {
+      console.log('📬 Reports: profileUpdated received -> refresh');
+      this.refreshData();
+    });
+    window.addEventListener('expenseAdded', () => {
+      console.log('📬 Reports: expenseAdded received -> refresh');
+      // Trễ nhẹ để backend xử lý xong
+      setTimeout(() => this.refreshData(), 300);
+    });
+    window.addEventListener('storage', (e) => {
+      if (e && (e.key === 'smartexpense_profile_updated' || e.key === 'smartexpense_expense_added')) {
+        console.log('📦 Reports: storage change detected -> refresh', e.key);
+        this.refreshData();
+      }
+    });
 
-    // Custom events - TẮT tự động refresh
-    // window.addEventListener('dataUpdated', (event) => {
-    //   console.log('📊 Data update event received:', event.detail);
-    //   this.refreshData();
-    // });
+    // Export API cho trang khác gọi
+    window.reloadReportData = () => this.refreshData();
 
-    // Expense added events - TẮT tự động refresh
-    // window.addEventListener('expenseAdded', async (event) => {
-    //   console.log('➕ Expense added event received, refreshing reports...', event.detail);
-    //   setTimeout(() => {
-    //     this.refreshData();
-    //   }, 500);
-    // });
-
-    // Page visibility changes - TẮT tự động refresh
-    // document.addEventListener('visibilitychange', () => {
-    //   if (!document.hidden) {
-    //     console.log('👁️ Page visible, refreshing data from API...');
-    //     this.refreshData();
-    //   }
-    // });
-
-    // Auto-refresh interval - ĐÃ TẮT
-    // this.autoRefreshInterval = setInterval(() => {
-    //   this.refreshData();
-    // }, 10000);
-
-    // Add refresh button - CHỈ CÁCH NÀY ĐỂ REFRESH
+    // Nút refresh thủ công
     this.addRefreshButton();
     
-    // Initial auto-refresh - TẮT
-    // setTimeout(() => {
-    //   this.refreshData();
-    // }, 2000);
-    
-    console.log('✅ Manual refresh mode: chỉ refresh khi người dùng click nút refresh');
+    console.log('✅ Reports realtime updates enabled (events + manual refresh)');
   }
 
   addRefreshButton() {

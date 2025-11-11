@@ -140,7 +140,7 @@ npm start            # Khởi động server thông thường
 
 **Khi server khởi động thành công, bạn sẽ thấy:**
 ```
-🚀 SmartExpense API running on http://0.0.0.0:5001
+🚀 SmartExpense API running on http://0.0.0.0:5000
 📊 Environment: development
 ```
 
@@ -170,7 +170,7 @@ Serving HTTP on 0.0.0.0 port 8080 ...
 **Bước 3: Truy cập ứng dụng**
 
 - **Frontend:** http://localhost:8080/frontend/login.html (hoặc http://127.0.0.1:8080/frontend/login.html)
-- **Backend API:** http://127.0.0.1:5001 (để kiểm tra server có đang chạy)
+- **Backend API:** http://127.0.0.1:5000 (để kiểm tra server có đang chạy)
 
 ### 🔧 Xử Lý Lỗi Kết Nối
 

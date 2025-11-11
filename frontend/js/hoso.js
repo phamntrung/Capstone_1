@@ -195,6 +195,12 @@
     }
   }
 
+  function populateFormFromUser(user) {
+    // Same logic as populateFormFromProfile - user data structure is similar
+    if (!user) return;
+    populateFormFromProfile(user);
+  }
+
   function loadSettingsFromUser(user) {
     if (!user.settings) return;
     const excludeToggle = document.getElementById('excludeToggle');
@@ -250,7 +256,6 @@
       const monthlyBudgetInput = document.getElementById('monthlyBudgetInput');
       const phoneInput = document.getElementById('phoneInput');
       const emailValue = document.getElementById('emailValue');
-      const excludeToggle = document.getElementById('excludeToggle');
       const autoCategoryToggle = document.getElementById('autoCategoryToggle');
       const dailyReportToggle = document.getElementById('dailyReportToggle');
 
@@ -347,7 +352,7 @@
         }
 
         // Update localStorage - đảm bảo cập nhật balance đúng
-        updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle, dailyReportToggle);
+        updateLocalStorageAfterSave(savedUser, profile, emailValue, null, autoCategoryToggle, dailyReportToggle);
 
         // Update balance on dashboard/home page
         const finalBalance = savedUser.balance !== undefined && savedUser.balance !== null ? savedUser.balance : profile.balance;
@@ -361,6 +366,36 @@
         showToastMessage(`Đã lưu vào hồ sơ thành công! Số dư: ${formatCurrencyFunc(finalBalance)}`, 'success');
         
         console.log('✅ Profile save completed successfully');
+
+        // Refresh profile from server to ensure persistence and sync UI/localStorage
+        try {
+          const meResult = await window.apiRequest('/api/me');
+          if (meResult && meResult.ok && meResult.data) {
+            const fresh = meResult.data;
+            // Update header name/email
+            const fullNameValueEl = document.getElementById('fullNameValue');
+            if (fullNameValueEl && fresh.name) fullNameValueEl.textContent = fresh.name;
+            const emailValueEl = document.getElementById('emailValue');
+            if (emailValueEl && fresh.email) emailValueEl.textContent = fresh.email;
+            // Update localStorage
+            const currentUser2 = getCurrentUser();
+            if (currentUser2) {
+              const updatedUser2 = {
+                ...currentUser2,
+                name: fresh.name ?? currentUser2.name,
+                email: fresh.email ?? currentUser2.email,
+                gender: fresh.gender ?? currentUser2.gender,
+                currency: fresh.currency ?? currentUser2.currency,
+                phone: fresh.phone ?? currentUser2.phone,
+                balance: fresh.balance ?? currentUser2.balance,
+                monthly_budget: fresh.balance ?? currentUser2.monthly_budget
+              };
+              localStorage.setItem('smartexpense_user', JSON.stringify(updatedUser2));
+            }
+          }
+        } catch (refreshErr) {
+          console.warn('Could not refresh /api/me after saving profile:', refreshErr);
+        }
         } catch (apiError) {
           console.error('❌ Error calling API:', apiError);
           throw apiError; // Re-throw để catch block bên ngoài xử lý
@@ -417,6 +452,17 @@
     console.log('✅ saveProfile (real function) exported to window object');
   }
 
+  /**
+   * @brief Cập nhật dữ liệu người dùng sau khi lưu hồ sơ (bao gồm số dư đã lưu)
+   * @param {Object} savedUser - Đối tượng user trả về từ backend (có thể chứa balance mới)
+   * @param {Object} profile - Dữ liệu hồ sơ từ form (dùng làm fallback nếu backend không trả về balance)
+   * @param {HTMLElement} emailValue - Node hiển thị email hiện tại (để ghi kèm vào localStorage/DataManager)
+   * @param {HTMLInputElement} excludeToggle - Công tắc loại trừ chi tiêu (cài đặt)
+   * @param {HTMLInputElement} autoCategoryToggle - Công tắc tự động phân loại (cài đặt)
+   * @param {HTMLInputElement} dailyReportToggle - Công tắc báo cáo hằng ngày (cài đặt)
+   * @note Ưu tiên dùng balance từ backend; nếu thiếu thì dùng balance người dùng nhập từ form.
+   *       Sau khi cập nhật localStorage, giá trị này sẽ được trang chủ (dashboard) đọc và hiển thị.
+   */
   function updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle, dailyReportToggle) {
     const currentUser = getCurrentUser();
     if (!currentUser) {
@@ -479,6 +525,12 @@
     }
   }
 
+  /**
+   * @brief Phát sự kiện để trang chủ cập nhật ngay số dư hiển thị sau khi lưu
+   * @param {number} balance - Số tiền đã lưu (được chuẩn hoá là number)
+   * @note Gửi CustomEvent 'profileUpdated' kèm detail.balance. Trang chủ lắng nghe và
+   *       đồng bộ localStorage, sau đó cập nhật phần tử #balanceAmount để hiển thị số tiền.
+   */
   function updateDashboardBalance(balance) {
     console.log('🔄 Updating dashboard balance:', balance);
     

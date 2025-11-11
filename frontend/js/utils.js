@@ -4,9 +4,100 @@
  */
 
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
-// Node.js backend runs on port 5000
-const API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
-window.API_BASE = API_BASE; // Make it globally accessible
+// Prefer persisted override, then window override, then default 5000
+(function initApiBase() {
+  try {
+    const savedBase = localStorage.getItem('smartexpense_api_base');
+    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:8080';
+    window.API_BASE = initialBase;
+  } catch (e) {
+    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:8080';
+  }
+})();
+
+function setApiBase(newBase) {
+  if (!newBase || typeof newBase !== 'string') return;
+  try {
+    localStorage.setItem('smartexpense_api_base', newBase);
+  } catch (e) {
+    // ignore
+  }
+  window.API_BASE = newBase;
+  console.log('🌐 API Base switched to:', newBase);
+}
+
+async function tryDiscoverApiBase() {
+  if (window.__API_BASE_DISCOVERY_IN_PROGRESS) return null;
+  window.__API_BASE_DISCOVERY_IN_PROGRESS = true;
+  const unique = (arr) => Array.from(new Set(arr.filter(Boolean)));
+  const candidates = unique([
+    window.SMARTEXPENSE_API,
+    (function () {
+      try { return localStorage.getItem('smartexpense_api_base'); } catch (e) { return null; }
+    })(),
+    'http://127.0.0.1:8080',
+    'http://localhost:8080',
+    'http://127.0.0.1:5000',
+    'http://localhost:5000',
+    // Thử thêm các cổng phổ biến khác nếu dự án bạn dùng chúng
+    'http://127.0.0.1:5001',
+    'http://localhost:5001',
+    'http://127.0.0.1:5002',
+    'http://localhost:5002',
+  ]);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1200);
+
+  try {
+    for (const base of candidates) {
+      try {
+        const resp = await fetch(`${base}/`, {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal
+        });
+        if (resp.ok) {
+          // Basic sanity check on welcome endpoint
+          let ok = true;
+          try {
+            const data = await resp.clone().json();
+            ok = !!(data && (data.message || data.status));
+          } catch (e) {
+            // If not JSON but ok status, still accept
+            ok = true;
+          }
+          if (ok) {
+            // Thực hiện một lần "preflight thực" để xác thực CORS + credentials
+            // Gửi POST rỗng đến /api/auth/login để buộc trình duyệt thực hiện preflight.
+            try {
+              const preflight = await fetch(`${base}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}), // yêu cầu sẽ thất bại 400 nhưng mục tiêu là qua preflight
+                credentials: 'include',
+                mode: 'cors'
+              });
+              // Nếu tới được đây nghĩa là preflight không bị chặn bởi CORS ở network layer
+              // Ta không cần preflight thành công về mặt nghiệp vụ (có thể 400/401)
+            } catch (corsErr) {
+              // CORS/preflight thất bại → bỏ qua base này
+              continue;
+            }
+            setApiBase(base);
+            return base;
+          }
+        }
+      } catch (e) {
+        // try next
+      }
+    }
+  } finally {
+    clearTimeout(timeout);
+    window.__API_BASE_DISCOVERY_IN_PROGRESS = false;
+  }
+  return null;
+}
 
 // Show message function (global)
 function showMessage(message, isSuccess = false, containerId = 'message') {
@@ -139,6 +230,15 @@ async function apiRequest(endpoint, options = {}) {
     credentials: options.credentials !== undefined ? options.credentials : 'include'
   };
 
+  // Simple exponential backoff settings for 429 handling
+  const max429Retries = 3;
+  const baseDelayMs = 400;
+
+  // Internal helper to sleep
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  let attempt = 0;
+  while (true) {
   try {
     // Log request details for debugging (especially for Google login)
     const user = auth?.user;
@@ -153,7 +253,7 @@ async function apiRequest(endpoint, options = {}) {
       hasAuthHeader: !!finalOptions.headers['Authorization']
     });
 
-    const response = await fetch(`${API_BASE}${endpoint}`, finalOptions);
+    const response = await fetch(`${window.API_BASE}${endpoint}`, finalOptions);
 
     // Check if response has content before parsing JSON
     const contentType = response.headers.get('content-type');
@@ -222,7 +322,7 @@ async function apiRequest(endpoint, options = {}) {
       console.log('🔄 Verifying session via cookie before redirecting...');
 
       try {
-        const verifyResult = await fetch(`${API_BASE}/api/me`, {
+        const verifyResult = await fetch(`${window.API_BASE}/api/me`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -257,6 +357,33 @@ async function apiRequest(endpoint, options = {}) {
       ok: response.ok,
       message: data.message
     });
+
+    // Handle 429 Too Many Requests with backoff/retry
+    if (response.status === 429 && attempt < max429Retries) {
+      attempt++;
+      // Honor Retry-After if present
+      let retryAfterMs = 0;
+      const retryAfter = response.headers.get('retry-after');
+      if (retryAfter) {
+        const parsed = parseInt(retryAfter, 10);
+        if (!isNaN(parsed)) {
+          // seconds
+          retryAfterMs = parsed * 1000;
+        } else {
+          // HTTP-date
+          const dateMs = Date.parse(retryAfter);
+          if (!isNaN(dateMs)) {
+            retryAfterMs = Math.max(0, dateMs - Date.now());
+          }
+        }
+      }
+      // Exponential backoff with jitter
+      const backoffMs = retryAfterMs || Math.min(8000, baseDelayMs * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 200);
+      console.warn(`⏳ 429 Too Many Requests. Retrying ${attempt}/${max429Retries} after ${backoffMs}ms for ${endpoint}`);
+      await sleep(backoffMs);
+      // Loop to retry
+      continue;
+    }
 
     // If API returns 401 (unauthorized), handle appropriately
     // This handles cases where:
@@ -370,8 +497,30 @@ async function apiRequest(endpoint, options = {}) {
       errorMessage += '5. Đảm bảo Backend Node.js đang chạy:\n';
       errorMessage += '   cd backend-node\n';
       errorMessage += '   npm run dev\n\n';
-      errorMessage += '💡 Backend sẽ chạy tại: http://127.0.0.1:5000';
+      errorMessage += '💡 Backend (mặc định) tại: ' + window.API_BASE;
     } else if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED'))) {
+      // Try auto-discover backend port then retry once
+      try {
+        // Ưu tiên quay về Node backend mặc định (5000) nếu đang dùng base khác
+        if (window.API_BASE !== 'http://127.0.0.1:5000' && window.API_BASE !== 'http://localhost:5000') {
+          try {
+            localStorage.setItem('smartexpense_api_base', 'http://127.0.0.1:5000');
+          } catch (e) {}
+          setApiBase('http://127.0.0.1:5000');
+          const retryOnDefault = await apiRequest(endpoint, options);
+          if (retryOnDefault && (retryOnDefault.ok || retryOnDefault.status)) {
+            return retryOnDefault;
+          }
+        }
+        const discovered = await tryDiscoverApiBase();
+        if (discovered) {
+          console.log('✅ Discovered API Base:', discovered, '- retrying original request...');
+          const retryResult = await apiRequest(endpoint, options);
+          return retryResult;
+        }
+      } catch (e) {
+        // ignore and fall through to guidance
+      }
       errorMessage += '🔴 Backend Node.js chưa được khởi động hoặc không thể kết nối.\n\n';
       errorMessage += '📋 Cách khắc phục:\n';
       errorMessage += '1. Mở terminal/command prompt\n';
@@ -381,23 +530,23 @@ async function apiRequest(endpoint, options = {}) {
       errorMessage += '   npm run dev\n\n';
       errorMessage += '5. Đợi server khởi động xong\n';
       errorMessage += '6. Quay lại trang này và thử lại\n\n';
-      errorMessage += '💡 Server sẽ chạy tại: http://127.0.0.1:5000';
+      errorMessage += '💡 Server đang dùng: ' + window.API_BASE;
       errorMessage += '\n\n📍 Origin hiện tại: ' + window.location.origin;
     } else if (error.message && error.message.includes('NetworkError')) {
       errorMessage += '🌐 Lỗi mạng. Vui lòng:\n';
       errorMessage += '- Kiểm tra kết nối internet\n';
-      errorMessage += '- Đảm bảo Backend Node.js đang chạy tại http://127.0.0.1:5000\n';
+      errorMessage += '- Đảm bảo Backend Node.js đang chạy tại ' + window.API_BASE + '\n';
       errorMessage += '- Kiểm tra firewall/antivirus không chặn kết nối\n';
       errorMessage += '\n📍 Origin hiện tại: ' + window.location.origin;
     } else {
-      errorMessage += '⚠️ Không thể kết nối đến Backend Node.js tại ' + API_BASE + '\n\n';
+      errorMessage += '⚠️ Không thể kết nối đến Backend Node.js tại ' + window.API_BASE + '\n\n';
       errorMessage += 'Vui lòng:\n';
       errorMessage += '1. Kiểm tra server có đang chạy không\n';
       errorMessage += '2. Kiểm tra port 5000 có bị chiếm dụng không\n';
       errorMessage += '3. Khởi động lại server: cd backend-node && npm run dev\n';
       errorMessage += '\n📍 Origin hiện tại: ' + (window.location.origin || 'file://');
       errorMessage += '\n📍 Protocol: ' + window.location.protocol;
-      errorMessage += '\n📍 API Base: ' + API_BASE;
+      errorMessage += '\n📍 API Base: ' + window.API_BASE;
     }
 
     return {
@@ -411,6 +560,8 @@ async function apiRequest(endpoint, options = {}) {
         protocol: window.location.protocol
       }
     };
+  }
+  // End retry loop
   }
 }
 

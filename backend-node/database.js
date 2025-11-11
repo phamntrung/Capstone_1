@@ -387,6 +387,132 @@ async function deleteAllDevicesExceptCurrent(userId, currentDeviceId) {
   return result.affectedRows;
 }
 
+/**
+ * Lấy chi tiêu theo ID
+ */
+async function getExpenseById(expenseId, userId) {
+  const results = await query(
+    `SELECT e.*, c.name as category_name FROM expenses e 
+     LEFT JOIN categories c ON e.category_id = c.id
+     WHERE e.id = ? AND e.user_id = ?`,
+    [expenseId, userId]
+  );
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Lấy danh sách chi tiêu của user
+ */
+async function getExpensesByUserId(userId, filters = {}) {
+  let sql = `SELECT e.*, c.name as category_name FROM expenses e 
+             LEFT JOIN categories c ON e.category_id = c.id
+             WHERE e.user_id = ?`;
+  const params = [userId];
+
+  if (filters.date_from) {
+    sql += ' AND e.date >= ?';
+    params.push(filters.date_from);
+  }
+
+  if (filters.date_to) {
+    sql += ' AND e.date <= ?';
+    params.push(filters.date_to);
+  }
+
+  if (filters.categoryId) {
+    sql += ' AND e.category_id = ?';
+    params.push(filters.categoryId);
+  }
+
+  if (filters.type) {
+    sql += ' AND e.type = ?';
+    params.push(filters.type);
+  }
+
+  sql += ' ORDER BY e.date DESC';
+
+  return await query(sql, params);
+}
+
+/**
+ * Tạo chi tiêu mới
+ */
+async function createExpense(userId, expenseData) {
+  const {
+    date,
+    amount,
+    type = 'expense',
+    categoryId = null,
+    note = null
+  } = expenseData;
+
+  const result = await query(
+    `INSERT INTO expenses (user_id, date, amount, type, category_id, note, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [userId, date, amount, type, categoryId, note]
+  );
+
+  return await getExpenseById(result.insertId, userId);
+}
+
+/**
+ * Cập nhật chi tiêu
+ */
+async function updateExpense(expenseId, userId, updates) {
+  const fields = [];
+  const values = [];
+
+  if (updates.date !== undefined) {
+    fields.push('date = ?');
+    values.push(updates.date);
+  }
+
+  if (updates.amount !== undefined) {
+    fields.push('amount = ?');
+    values.push(updates.amount);
+  }
+
+  if (updates.type !== undefined) {
+    fields.push('type = ?');
+    values.push(updates.type);
+  }
+
+  if (updates.categoryId !== undefined) {
+    fields.push('category_id = ?');
+    values.push(updates.categoryId);
+  }
+
+  if (updates.note !== undefined) {
+    fields.push('note = ?');
+    values.push(updates.note);
+  }
+
+  if (fields.length === 0) {
+    return await getExpenseById(expenseId, userId);
+  }
+
+  fields.push('updated_at = NOW()');
+  values.push(expenseId, userId);
+
+  await query(
+    `UPDATE expenses SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
+    values
+  );
+
+  return await getExpenseById(expenseId, userId);
+}
+
+/**
+ * Xóa chi tiêu
+ */
+async function deleteExpense(expenseId, userId) {
+  const result = await query(
+    'DELETE FROM expenses WHERE id = ? AND user_id = ?',
+    [expenseId, userId]
+  );
+  return result.affectedRows > 0;
+}
+
 module.exports = {
   getPool,
   testConnection,
@@ -400,6 +526,11 @@ module.exports = {
   createCategory,
   updateCategory,
   deleteCategory,
+  getExpenseById,
+  getExpensesByUserId,
+  createExpense,
+  updateExpense,
+  deleteExpense,
   getDevicesByUserId,
   getDeviceById,
   createDevice,

@@ -1314,7 +1314,11 @@ function updateCategoryList(expenses) {
     const percentage = Math.round((cat.total / maxAmount) * 100);
     const categoryColor = getCategoryColorByName(cat.name);
     return `
-      <li style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--border);gap:12px">
+      <li style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--border);gap:12px;cursor:pointer;transition:background 0.2s" 
+          data-category-name="${cat.name}"
+          onmouseover="this.style.background='#f1f5f9'"
+          onmouseout="this.style.background='transparent'"
+          onclick="openCategoryFilterModal('${cat.name}')">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px">${cat.name}</div>
           <div style="font-size:12px;color:#64748b">${formatCurrency(cat.total)}</div>
@@ -1765,6 +1769,8 @@ function initLogoutHandler() {
 
 // Expose reload function globally for realtime updates
 window.reloadDashboard = reloadDashboardData;
+// Alias for compatibility with callers expecting reloadDashboardData
+window.reloadDashboardData = reloadDashboardData;
 
 // ===== Date Change Detector =====
 // Tự động cập nhật khi đồng hồ chuyển qua 00:00 (nửa đêm)
@@ -1947,7 +1953,12 @@ async function initDashboard() {
     reloadDashboardData();
   });
 
-  // Listen for profile updates (for same-page updates)
+  /**
+   * @brief Lắng nghe sự kiện cập nhật hồ sơ để hiển thị ngay số tiền đã lưu trên trang chủ
+   * @note Sự kiện 'profileUpdated' được phát từ hoso.js sau khi người dùng lưu hồ sơ.
+   *       Tại đây ta: (1) đồng bộ localStorage, (2) cập nhật phần tử #balanceAmount trên UI.
+   *       Nếu chưa có #balanceAmount trong DOM, sẽ tạo tối giản để đảm bảo hiển thị.
+   */
   window.addEventListener('profileUpdated', async (event) => {
     console.log('Profile updated event received, updating dashboard...', event);
 
@@ -1965,11 +1976,17 @@ async function initDashboard() {
       }
 
       // Cập nhật UI ngay lập tức
-      const balanceAmount = document.getElementById('balanceAmount');
-      if (balanceAmount) {
-        balanceAmount.textContent = formatCurrency(balanceFromEvent);
-        balanceAmount.style.color = '#10b981';
+      let balanceAmount = document.getElementById('balanceAmount');
+      if (!balanceAmount) {
+        // Nếu phần tử hiển thị chưa tồn tại, tạo nhanh để đảm bảo người dùng thấy số tiền đã lưu
+        balanceAmount = document.createElement('span');
+        balanceAmount.id = 'balanceAmount';
+        balanceAmount.style.marginLeft = '4px';
+        // Gắn vào body như một fallback tối giản; dự án có thể thay thế bằng khu vực UI phù hợp
+        document.body.appendChild(balanceAmount);
       }
+      balanceAmount.textContent = formatCurrency(balanceFromEvent);
+      balanceAmount.style.color = '#10b981';
 
       // Tính lại số tiền còn lại = balance - chi tiêu THÁNG
       let monthlyExpenseForEvent = 0;
@@ -2191,78 +2208,166 @@ function closeCategoryModal() {
   const modal = document.getElementById('categoryModal');
   if (modal) {
     modal.classList.remove('open');
+    // Reset filter mode
+    modal.removeAttribute('data-filter-mode');
+    modal.removeAttribute('data-filter-category');
+    // Reset title
+    const title = modal.querySelector('.category-modal-title');
+    if (title) {
+      title.textContent = 'Chọn hạng mục';
+    }
   }
   currentExpenseId = null;
 }
 
 // Handle category selection
 async function selectCategory(categoryKey, categoryName) {
-  if (!currentExpenseId) return;
+  // Check if in filter mode (changing category for multiple expenses)
+  const modal = document.getElementById('categoryModal');
+  const isFilterMode = modal && modal.getAttribute('data-filter-mode') === 'true';
+  const oldCategoryName = modal ? modal.getAttribute('data-filter-category') : null;
+
+  if (!isFilterMode && !currentExpenseId) return;
 
   try {
-    // Find expense in allExpenses
-    const expense = allExpenses.find(e => e.id == currentExpenseId);
-    if (!expense) {
-      console.error('Expense not found:', currentExpenseId);
-      return;
-    }
+    if (isFilterMode && oldCategoryName) {
+      // Change category for ALL expenses with oldCategoryName
+      const expensesToUpdate = allExpenses.filter(e => e.categoryName === oldCategoryName && e.type === 'expense');
+      
+      if (expensesToUpdate.length === 0) {
+        alert('Không tìm thấy chi tiêu nào cho hạng mục này');
+        closeCategoryModal();
+        return;
+      }
 
-    // First, check if category exists in database, if not create it
-    let categoryId = null;
-    try {
-      // Try to find existing category
-      const categoriesResult = await apiRequest('/api/categories');
-      if (categoriesResult && categoriesResult.ok && categoriesResult.data && categoriesResult.data.items) {
-        const existingCategory = categoriesResult.data.items.find(cat => cat.name === categoryName);
-        if (existingCategory) {
-          categoryId = existingCategory.id;
-        } else {
-          // Create new category
-          const createResult = await apiRequest('/api/categories', {
-            method: 'POST',
-            body: JSON.stringify({
-              name: categoryName,
-              color: getCategoryColor(categoryKey)
-            })
-          });
-          if (createResult && createResult.ok && createResult.data) {
-            categoryId = createResult.data.id;
-            // Update allCategories array
-            if (allCategories) {
-              allCategories.push(createResult.data);
+      // Get category ID
+      let categoryId = null;
+      try {
+        const categoriesResult = await apiRequest('/api/categories');
+        if (categoriesResult && categoriesResult.ok && categoriesResult.data && categoriesResult.data.items) {
+          const existingCategory = categoriesResult.data.items.find(cat => cat.name === categoryName);
+          if (existingCategory) {
+            categoryId = existingCategory.id;
+          } else {
+            // Create new category
+            const createResult = await apiRequest('/api/categories', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: categoryName,
+                color: getCategoryColor(categoryKey)
+              })
+            });
+            if (createResult && createResult.ok && createResult.data) {
+              categoryId = createResult.data.id;
+              if (allCategories) {
+                allCategories.push(createResult.data);
+              }
             }
           }
         }
+      } catch (error) {
+        console.warn('Error handling category:', error);
       }
-    } catch (error) {
-      console.warn('Error handling category:', error);
-    }
 
-    // Update expense with category
-    const updateResult = await apiRequest(`/api/expenses/${currentExpenseId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        categoryId: categoryId,
-        categoryName: categoryName
-      })
-    });
+      // Update all expenses with old category to new category
+      let updateCount = 0;
+      for (const expense of expensesToUpdate) {
+        try {
+          const updateResult = await apiRequest(`/api/expenses/${expense.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              categoryId: categoryId,
+              categoryName: categoryName
+            })
+          });
 
-    if (updateResult && updateResult.ok) {
-      // Update expense in allExpenses array
-      const expenseIndex = allExpenses.findIndex(e => e.id == currentExpenseId);
-      if (expenseIndex >= 0) {
-        allExpenses[expenseIndex].categoryId = categoryId;
-        allExpenses[expenseIndex].categoryName = categoryName;
+          if (updateResult && updateResult.ok) {
+            // Update in allExpenses
+            const expenseIndex = allExpenses.findIndex(e => e.id == expense.id);
+            if (expenseIndex >= 0) {
+              allExpenses[expenseIndex].categoryId = categoryId;
+              allExpenses[expenseIndex].categoryName = categoryName;
+            }
+            updateCount++;
+          }
+        } catch (error) {
+          console.error(`Error updating expense ${expense.id}:`, error);
+        }
       }
 
       // Update UI
       updateRecentExpenses(allExpenses);
       updateCategoryList(allExpenses);
-
-      // Close modal
+      alert(`Đã cập nhật ${updateCount} chi tiêu từ "${oldCategoryName}" sang "${categoryName}"`);
       closeCategoryModal();
     } else {
-      throw new Error(updateResult?.data?.message || 'Lỗi khi cập nhật hạng mục');
+      // Original behavior: change category for single expense
+      if (!currentExpenseId) return;
+
+      // Find expense in allExpenses
+      const expense = allExpenses.find(e => e.id == currentExpenseId);
+      if (!expense) {
+        console.error('Expense not found:', currentExpenseId);
+        return;
+      }
+
+      // First, check if category exists in database, if not create it
+      let categoryId = null;
+      try {
+        // Try to find existing category
+        const categoriesResult = await apiRequest('/api/categories');
+        if (categoriesResult && categoriesResult.ok && categoriesResult.data && categoriesResult.data.items) {
+          const existingCategory = categoriesResult.data.items.find(cat => cat.name === categoryName);
+          if (existingCategory) {
+            categoryId = existingCategory.id;
+          } else {
+            // Create new category
+            const createResult = await apiRequest('/api/categories', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: categoryName,
+                color: getCategoryColor(categoryKey)
+              })
+            });
+            if (createResult && createResult.ok && createResult.data) {
+              categoryId = createResult.data.id;
+              // Update allCategories array
+              if (allCategories) {
+                allCategories.push(createResult.data);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error handling category:', error);
+      }
+
+      // Update expense with category
+      const updateResult = await apiRequest(`/api/expenses/${currentExpenseId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          categoryId: categoryId,
+          categoryName: categoryName
+        })
+      });
+
+      if (updateResult && updateResult.ok) {
+        // Update expense in allExpenses array
+        const expenseIndex = allExpenses.findIndex(e => e.id == currentExpenseId);
+        if (expenseIndex >= 0) {
+          allExpenses[expenseIndex].categoryId = categoryId;
+          allExpenses[expenseIndex].categoryName = categoryName;
+        }
+
+        // Update UI
+        updateRecentExpenses(allExpenses);
+        updateCategoryList(allExpenses);
+
+        // Close modal
+        closeCategoryModal();
+      } else {
+        throw new Error(updateResult?.data?.message || 'Lỗi khi cập nhật hạng mục');
+      }
     }
   } catch (error) {
     console.error('Error updating category:', error);
@@ -2290,6 +2395,26 @@ function getCategoryColorByName(categoryName) {
     'Khác': '#95a5a6'
   };
   return nameColorMap[categoryName] || '#2563eb';
+}
+
+// Open category filter modal (when clicking on a category in "Theo hạng mục")
+function openCategoryFilterModal(selectedCategoryName) {
+  // Store selected category to filter expenses
+  window.selectedCategoryFilter = selectedCategoryName;
+  
+  // Open the modal to select new category
+  const modal = document.getElementById('categoryModal');
+  if (modal) {
+    modal.classList.add('open');
+    modal.setAttribute('data-filter-mode', 'true');
+    modal.setAttribute('data-filter-category', selectedCategoryName);
+    
+    // Update modal title
+    const title = modal.querySelector('.category-modal-title');
+    if (title) {
+      title.textContent = `Thay đổi hạng mục "${selectedCategoryName}" thành`;
+    }
+  }
 }
 
 // Initialize category modal

@@ -240,6 +240,11 @@
       </div>
     </div>
 
+    <!-- Thiết lập API base (nếu backend chạy trên cổng khác) -->
+    <script>
+      // Đặt thủ công API base để tránh cache hoặc giá trị mặc định cũ
+      window.SMARTEXPENSE_API = 'http://127.0.0.1:5000';
+    </script>
     <!-- Tiện ích - tải trước login.js để apiRequest có sẵn -->
     <script src="js/utils.js"></script>
     <!-- JavaScript đăng nhập - phải tải trước Google script để định nghĩa callback -->

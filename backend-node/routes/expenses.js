@@ -3,43 +3,48 @@ const { authRequired } = require('../middleware/auth');
 
 const router = express.Router();
 
-// In-memory stores (same as Flask version)
-const expenses = [];
-const categoriesById = new Map();
-
-function nextExpenseId() {
-  return expenses.length > 0 ? Math.max(...expenses.map(e => e.id)) + 1 : 1;
-}
-
-function getExpenseOwned(expenseId, userId) {
-  return expenses.find(e => e.id === expenseId && e.userId === userId);
+// Import database module
+let db = null;
+try {
+  db = require('../database');
+} catch (error) {
+  console.log('⚠️ Database module not available for expenses');
 }
 
 // List expenses with filters
-router.get('/', authRequired, (req, res) => {
+router.get('/', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const userId = req.user.id;
-    let filteredExpenses = expenses.filter(e => e.userId === userId);
+    const filters = {};
 
     // Apply filters
-    const { date_from, date_to, categoryId } = req.query;
+    const { date_from, date_to, categoryId, type } = req.query;
+    if (date_from) filters.date_from = date_from;
+    if (date_to) filters.date_to = date_to;
+    if (categoryId) filters.categoryId = parseInt(categoryId);
+    if (type) filters.type = type;
 
-    if (date_from) {
-      filteredExpenses = filteredExpenses.filter(e => e.date >= date_from);
-    }
+    const expenses = await db.getExpensesByUserId(userId, filters);
+    
+    // Convert snake_case to camelCase for frontend
+    const formattedExpenses = expenses.map(e => ({
+      id: e.id,
+      userId: e.user_id,
+      date: e.date,
+      amount: e.amount,
+      type: e.type,
+      categoryId: e.category_id,
+      categoryName: e.category_name,
+      note: e.note,
+      created_at: e.created_at,
+      updated_at: e.updated_at
+    }));
 
-    if (date_to) {
-      filteredExpenses = filteredExpenses.filter(e => e.date <= date_to);
-    }
-
-    if (categoryId) {
-      const catId = parseInt(categoryId);
-      if (!isNaN(catId)) {
-        filteredExpenses = filteredExpenses.filter(e => e.categoryId === catId);
-      }
-    }
-
-    res.json({ items: filteredExpenses });
+    res.json({ items: formattedExpenses });
   } catch (error) {
     console.error('List expenses error:', error);
     res.status(500).json({ message: 'Lỗi lấy danh sách chi tiêu' });
@@ -62,9 +67,13 @@ function getCurrentDateVietnam() {
 }
 
 // Create expense
-router.post('/', authRequired, (req, res) => {
+router.post('/', authRequired, async (req, res) => {
   try {
-    let { date, amount, type, categoryId, note } = req.body;
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
+    let { date, amount, type, categoryId, categoryName, note } = req.body;
 
     // Nếu không có ngày từ client, lấy ngày hiện tại từ server
     if (!date || !date.trim()) {
@@ -77,18 +86,28 @@ router.post('/', authRequired, (req, res) => {
       return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
     }
 
-    const expense = {
-      id: nextExpenseId(),
-      userId: req.user.id,
+    const expense = await db.createExpense(req.user.id, {
       date: date,
       amount: parseFloat(amount),
       type: type || 'expense',
       categoryId: categoryId ? parseInt(categoryId) : null,
-      note: note ? note.trim() : ''
+      categoryName: categoryName || null,
+      note: note ? note.trim() : null
+    });
+
+    // Convert snake_case to camelCase for frontend
+    const formatted = {
+      id: expense.id,
+      userId: expense.user_id,
+      date: expense.date,
+      amount: expense.amount,
+      type: expense.type,
+      categoryId: expense.category_id,
+      categoryName: expense.category_name,
+      note: expense.note
     };
 
-    expenses.push(expense);
-    res.status(201).json(expense);
+    res.status(201).json(formatted);
   } catch (error) {
     console.error('Create expense error:', error);
     res.status(500).json({ message: 'Lỗi tạo chi tiêu' });
@@ -212,16 +231,32 @@ router.get('/stats', authRequired, async (req, res) => {
 });
 
 // Get single expense
-router.get('/:id', authRequired, (req, res) => {
+router.get('/:id', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const expenseId = parseInt(req.params.id);
-    const expense = getExpenseOwned(expenseId, req.user.id);
+    const expense = await db.getExpenseById(expenseId, req.user.id);
 
     if (!expense) {
       return res.status(404).json({ message: 'Không tìm thấy' });
     }
 
-    res.json(expense);
+    // Convert snake_case to camelCase for frontend
+    const formatted = {
+      id: expense.id,
+      userId: expense.user_id,
+      date: expense.date,
+      amount: expense.amount,
+      type: expense.type,
+      categoryId: expense.category_id,
+      categoryName: expense.category_name,
+      note: expense.note
+    };
+
+    res.json(formatted);
   } catch (error) {
     console.error('Get expense error:', error);
     res.status(500).json({ message: 'Lỗi lấy chi tiêu' });
@@ -238,7 +273,7 @@ router.put('/:id', authRequired, (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy' });
     }
 
-    const { date, amount, type, categoryId, note } = req.body;
+    const { date, amount, type, categoryId, categoryName, note } = req.body;
 
     if (date !== undefined) expense.date = date;
     if (amount !== undefined) expense.amount = parseFloat(amount);
@@ -246,6 +281,7 @@ router.put('/:id', authRequired, (req, res) => {
     if (categoryId !== undefined) {
       expense.categoryId = categoryId ? parseInt(categoryId) : null;
     }
+    if (categoryName !== undefined) expense.categoryName = categoryName;
     if (note !== undefined) expense.note = note;
 
     res.json(expense);
