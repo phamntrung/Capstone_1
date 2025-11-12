@@ -709,13 +709,29 @@ let serverDateCache = {
 
 // Get current date from server (with caching)
 async function getCurrentDateFromServer(useCache = true) {
+  const now = Date.now();
+  
   // Check cache first
-  if (useCache && serverDateCache.date && serverDateCache.timestamp) {
-    const now = Date.now();
+  if (useCache && serverDateCache.date && serverDateCache.cacheTime) {
     const cacheAge = now - serverDateCache.cacheTime;
     if (cacheAge < serverDateCache.cacheDuration) {
-      console.log('📅 Đang sử dụng ngày server đã cache:', serverDateCache.date);
-      return serverDateCache.date;
+      // Kiểm tra xem ngày có thay đổi không bằng cách so sánh với client date
+      const clientDate = getClientDateVietnam();
+      if (serverDateCache.date === clientDate) {
+        // Ngày vẫn giống nhau, dùng cache
+        console.log('📅 Đang sử dụng ngày server đã cache:', serverDateCache.date);
+        return serverDateCache.date;
+      } else {
+        // Ngày đã thay đổi, clear cache và lấy lại từ server
+        console.log('📅 Ngày đã thay đổi, clear cache và lấy lại từ server');
+        serverDateCache.date = null;
+        serverDateCache.cacheTime = 0;
+      }
+    } else {
+      // Cache đã hết hạn
+      console.log('📅 Cache đã hết hạn, lấy lại từ server');
+      serverDateCache.date = null;
+      serverDateCache.cacheTime = 0;
     }
   }
 
@@ -723,9 +739,9 @@ async function getCurrentDateFromServer(useCache = true) {
   try {
     const auth = checkAuth();
     if (!auth || typeof window.apiRequest !== 'function') {
-      // Fallback to client date if not authenticated
+      // Fallback to client date if not authenticated (dùng timezone VN)
       console.warn('⚠️ Chưa xác thực, đang sử dụng ngày từ client');
-      return new Date().toISOString().split('T')[0];
+      return getClientDateVietnam();
     }
 
     const result = await window.apiRequest('/api/utils/current-date', {
@@ -743,9 +759,29 @@ async function getCurrentDateFromServer(useCache = true) {
     console.error('Lỗi khi lấy ngày từ server:', error);
   }
 
-  // Fallback to client date
+  // Fallback to client date (dùng timezone VN)
   console.warn('⚠️ Không thể lấy ngày từ server, đang sử dụng ngày từ client');
-  return new Date().toISOString().split('T')[0];
+  return getClientDateVietnam();
+}
+
+// Helper function: Lấy ngày từ client theo timezone Việt Nam
+function getClientDateVietnam() {
+  const now = new Date();
+  const vietnamOffset = 7 * 60; // UTC+7 tính bằng phút
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const vietnamTime = new Date(utc + (vietnamOffset * 60000));
+  const year = vietnamTime.getFullYear();
+  const month = String(vietnamTime.getMonth() + 1).padStart(2, '0');
+  const day = String(vietnamTime.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Clear server date cache (useful when date changes)
+function clearServerDateCache() {
+  serverDateCache.date = null;
+  serverDateCache.timestamp = null;
+  serverDateCache.cacheTime = 0;
+  console.log('🗑️ Đã clear cache ngày server');
 }
 
 // Make functions globally available
@@ -755,3 +791,4 @@ window.checkAuth = checkAuth;
 window.apiRequest = apiRequest;
 window.logout = logout;
 window.getCurrentDateFromServer = getCurrentDateFromServer;
+window.clearServerDateCache = clearServerDateCache;

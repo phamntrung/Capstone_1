@@ -53,17 +53,67 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Security middleware
-app.use(helmet());
+// Explicit CSP to allow frontend to load external images and call local API
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: [
+        "'self'",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "https://accounts.google.com",
+        "https://accounts.gstatic.com",
+        "ws:",
+        "wss:"
+      ],
+      // Allow Google Sign-In SDK and related scripts
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://accounts.google.com",
+        "https://accounts.gstatic.com"
+      ],
+      scriptSrcAttr: [
+        "'self'",
+        "'unsafe-inline'"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://accounts.google.com",
+        "https://accounts.gstatic.com"
+      ],
+      fontSrc: ["'self'", "https:", "data:"],
+      // Allow rendering Google's Sign-In iframe
+      frameSrc: [
+        "'self'",
+        "https://accounts.google.com",
+        "https://accounts.gstatic.com"
+      ],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'self'"]
+    }
+  }
+}));
 app.use(compression());
 
 // CORS configuration
 // In development, allow all localhost origins for easier testing
 const corsOptions = process.env.NODE_ENV === 'production' ? {
   origin: [
+  
     'http://localhost:5500',
     'http://127.0.0.1:5500',
     'http://localhost:8080',
     'http://127.0.0.1:8080'
+      
+
   ],
   credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],

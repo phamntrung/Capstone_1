@@ -264,27 +264,66 @@ router.get('/:id', authRequired, async (req, res) => {
 });
 
 // Update expense
-router.put('/:id', authRequired, (req, res) => {
+router.put('/:id', authRequired, async (req, res) => {
   try {
-    const expenseId = parseInt(req.params.id);
-    const expense = getExpenseOwned(expenseId, req.user.id);
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
 
-    if (!expense) {
+    const expenseId = parseInt(req.params.id);
+
+    if (Number.isNaN(expenseId)) {
+      return res.status(400).json({ message: 'ID không hợp lệ' });
+    }
+
+    const { date, amount, type, categoryId, note } = req.body;
+    const updates = {};
+
+    if (date !== undefined) {
+      updates.date = String(date).trim();
+    }
+
+    if (amount !== undefined) {
+      const parsedAmount = parseFloat(amount);
+      if (Number.isNaN(parsedAmount)) {
+        return res.status(400).json({ message: 'Số tiền không hợp lệ' });
+      }
+      updates.amount = parsedAmount;
+    }
+
+    if (type !== undefined) {
+      updates.type = type;
+    }
+
+    if (categoryId !== undefined) {
+      updates.categoryId = categoryId ? parseInt(categoryId) : null;
+      if (updates.categoryId !== null && Number.isNaN(updates.categoryId)) {
+        return res.status(400).json({ message: 'Hạng mục không hợp lệ' });
+      }
+    }
+
+    if (note !== undefined) {
+      updates.note = note;
+    }
+
+    const updatedExpense = await db.updateExpense(expenseId, req.user.id, updates);
+
+    if (!updatedExpense) {
       return res.status(404).json({ message: 'Không tìm thấy' });
     }
 
-    const { date, amount, type, categoryId, categoryName, note } = req.body;
+    const formatted = {
+      id: updatedExpense.id,
+      userId: updatedExpense.user_id,
+      date: updatedExpense.date,
+      amount: updatedExpense.amount,
+      type: updatedExpense.type,
+      categoryId: updatedExpense.category_id,
+      categoryName: updatedExpense.category_name,
+      note: updatedExpense.note
+    };
 
-    if (date !== undefined) expense.date = date;
-    if (amount !== undefined) expense.amount = parseFloat(amount);
-    if (type !== undefined) expense.type = type;
-    if (categoryId !== undefined) {
-      expense.categoryId = categoryId ? parseInt(categoryId) : null;
-    }
-    if (categoryName !== undefined) expense.categoryName = categoryName;
-    if (note !== undefined) expense.note = note;
-
-    res.json(expense);
+    res.json(formatted);
   } catch (error) {
     console.error('Update expense error:', error);
     res.status(500).json({ message: 'Lỗi cập nhật chi tiêu' });

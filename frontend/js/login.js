@@ -467,33 +467,123 @@ async function handleLogin(event) {
 
 // Show success message
 function showSuccessMessage(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 9999;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        animation: slideIn 0.3s ease-out;
-    `;
-    notification.textContent = message;
+	// Ensure a single container (center-top) for stacking toasts
+	let container = document.getElementById('toast-container');
+	if (!container) {
+		container = document.createElement('div');
+		container.id = 'toast-container';
+		container.style.cssText = `
+			position: fixed;
+			top: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			align-items: center;
+			width: calc(100% - 32px);
+			max-width: 520px;
+			z-index: 9999;
+			pointer-events: none;
+		`;
+		document.body.appendChild(container);
+	}
 
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(notification);
-    setTimeout(() => notification.parentElement && notification.remove(), 3000);
+	// Create a toast
+	const toast = document.createElement('div');
+	toast.style.cssText = `
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		width: 100%;
+		box-sizing: border-box;
+		background: linear-gradient(135deg, #10b981, #059669);
+		color: #ffffff;
+		padding: 14px 16px;
+		border-radius: 12px;
+		box-shadow: 0 10px 24px rgba(16,185,129,0.35), 0 2px 8px rgba(0,0,0,0.08);
+		font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+		font-size: 15px;
+		line-height: 1.4;
+		pointer-events: auto;
+		opacity: 0;
+		transform: translateY(-8px);
+		animation: toastEnter 280ms ease-out forwards;
+	`;
+
+	// Icon
+	const icon = document.createElement('div');
+	icon.innerHTML = `
+		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.25)"/>
+			<path d="M8 12.5l2.2 2.2L16 9" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	`;
+
+	// Text
+	const text = document.createElement('div');
+	text.style.cssText = `
+		flex: 1;
+		font-weight: 600;
+		letter-spacing: 0.2px;
+		word-break: break-word;
+	`;
+	text.textContent = message;
+
+	// Close button
+	const closeBtn = document.createElement('button');
+	closeBtn.setAttribute('aria-label', 'Đóng thông báo');
+	closeBtn.style.cssText = `
+		all: unset;
+		cursor: pointer;
+		padding: 6px;
+		border-radius: 8px;
+		transition: background 0.15s ease;
+	`;
+	closeBtn.innerHTML = `
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path d="M7 7l10 10M17 7L7 17" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+		</svg>
+	`;
+	closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.15)'; };
+	closeBtn.onmouseleave = () => { closeBtn.style.background = 'transparent'; };
+
+	toast.appendChild(icon);
+	toast.appendChild(text);
+	toast.appendChild(closeBtn);
+	container.appendChild(toast);
+
+	// Keyframes (inject once)
+	if (!document.getElementById('toast-animations')) {
+		const style = document.createElement('style');
+		style.id = 'toast-animations';
+		style.textContent = `
+			@keyframes toastEnter {
+				from { opacity: 0; transform: translateY(-8px); }
+				to { opacity: 1; transform: translateY(0); }
+			}
+			@keyframes toastExit {
+				from { opacity: 1; transform: translateY(0); }
+				to { opacity: 0; transform: translateY(-8px); }
+			}
+		`;
+		document.head.appendChild(style);
+	}
+
+	// Auto remove after delay
+	let removed = false;
+	const removeToast = () => {
+		if (removed) return;
+		removed = true;
+		toast.style.animation = 'toastExit 200ms ease-in forwards';
+		setTimeout(() => toast.parentElement && toast.remove(), 180);
+	};
+
+	const timeoutId = setTimeout(removeToast, 2800);
+	closeBtn.addEventListener('click', () => {
+		clearTimeout(timeoutId);
+		removeToast();
+	});
 }
 
 // Check if already logged in - với verify từ server để tránh vòng lặp

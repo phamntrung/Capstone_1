@@ -8,27 +8,66 @@ class BaoCaoManager {
     this.dailyData = [];
     this.monthlyData = [];
     this.currentServerDate = null; // Cache ngày từ server
+    this.serverDateCacheTime = 0; // Timestamp khi cache được tạo
+    this.CACHE_DURATION = 60000; // Cache 1 phút
     this.init();
   }
 
-  // Lấy ngày hiện tại từ server (với cache)
+  // Lấy ngày hiện tại từ server (với cache có thời gian hết hạn)
   async getTodayDate() {
-    // Nếu đã có cache và còn mới (< 1 phút), dùng cache
-    if (this.currentServerDate) {
-      return this.currentServerDate;
+    const now = Date.now();
+    
+    // Kiểm tra cache: chỉ dùng nếu còn hiệu lực (< 1 phút) và ngày chưa thay đổi
+    if (this.currentServerDate && this.serverDateCacheTime) {
+      const cacheAge = now - this.serverDateCacheTime;
+      
+      // Nếu cache còn mới (< 1 phút), kiểm tra xem ngày có thay đổi không
+      if (cacheAge < this.CACHE_DURATION) {
+        // Kiểm tra xem ngày có thay đổi không bằng cách so sánh với client date
+        const clientDate = this.getClientDateVietnam();
+        if (this.currentServerDate === clientDate) {
+          // Ngày vẫn giống nhau, dùng cache
+          return this.currentServerDate;
+        } else {
+          // Ngày đã thay đổi, clear cache và lấy lại từ server
+          console.log('📅 Ngày đã thay đổi, clear cache và lấy lại từ server');
+          this.currentServerDate = null;
+          this.serverDateCacheTime = 0;
+        }
+      } else {
+        // Cache đã hết hạn, clear và lấy lại
+        console.log('📅 Cache đã hết hạn, lấy lại từ server');
+        this.currentServerDate = null;
+        this.serverDateCacheTime = 0;
+      }
     }
     
-    // Lấy từ server
+    // Lấy từ server (không dùng cache của utils.js để đảm bảo luôn mới)
     if (typeof window !== 'undefined' && typeof window.getCurrentDateFromServer === 'function') {
       try {
-        this.currentServerDate = await window.getCurrentDateFromServer();
-        return this.currentServerDate;
+        // Force refresh từ server (không dùng cache)
+        const serverDate = await window.getCurrentDateFromServer(false);
+        if (serverDate) {
+          this.currentServerDate = serverDate;
+          this.serverDateCacheTime = now;
+          console.log('✅ Đã lấy ngày mới từ server:', serverDate);
+          return serverDate;
+        }
       } catch (error) {
         console.warn('Failed to get server date:', error);
       }
     }
     
     // Fallback: dùng client date nhưng format đúng timezone VN
+    const clientDate = this.getClientDateVietnam();
+    this.currentServerDate = clientDate;
+    this.serverDateCacheTime = now;
+    console.log('⚠️ Dùng ngày từ client (fallback):', clientDate);
+    return clientDate;
+  }
+
+  // Lấy ngày từ client theo timezone Việt Nam
+  getClientDateVietnam() {
     const now = new Date();
     const vietnamOffset = 7 * 60; // UTC+7
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -36,8 +75,7 @@ class BaoCaoManager {
     const year = vietnamTime.getFullYear();
     const month = String(vietnamTime.getMonth() + 1).padStart(2, '0');
     const day = String(vietnamTime.getDate()).padStart(2, '0');
-    this.currentServerDate = `${year}-${month}-${day}`;
-    return this.currentServerDate;
+    return `${year}-${month}-${day}`;
   }
 
   async init() {
@@ -94,7 +132,9 @@ class BaoCaoManager {
     }
     
     // Sử dụng DataManager để lấy dữ liệu thực (fallback)
-    const currentDate = new Date();
+    // Lấy ngày hiện tại từ server để đồng bộ với trang chủ
+    const currentDateStr = await this.getTodayDate();
+    const currentDate = new Date(currentDateStr + 'T00:00:00'); // Chuyển string thành Date object
     const currentYear = currentDate.getFullYear();
 
     // Lấy dữ liệu từ DataManager (with API sync if forceRefresh)
@@ -121,6 +161,7 @@ class BaoCaoManager {
     }
 
     // Tổng hợp theo ngày: 30 ngày gần nhất (để hiển thị đầy đủ hơn)
+    // Sử dụng ngày thực từ server để đồng bộ với trang chủ
     this.dailyData = this.aggregateDailyFromDataManager(userExpenses, currentDate, 30).map(d => {
       // 添加时间部分确保正确解析日期
       const dateObj = new Date(d.date + 'T00:00:00');
@@ -921,32 +962,34 @@ class BaoCaoManager {
     if (!dateString) return '';
     
     try {
+      // Chuẩn hóa định dạng ngày: từ 2025-11-10T17:00:00.000Z → chỉ còn 2025-11-10
+      let normalizedDate = dateString;
+      if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
+        normalizedDate = normalizedDate.split('T')[0];
+      }
+      
       // Nếu dateString là dạng YYYY-MM-DD (không có time), parse trực tiếp
-      if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      if (typeof normalizedDate === 'string' && normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
         // Parse date string trực tiếp (server đã trả về đúng ngày VN)
-        const [year, month, day] = dateString.split('-').map(Number);
+        const [year, month, day] = normalizedDate.split('-').map(Number);
         // Format: DD/MM/YYYY (không có time vì chỉ có ngày)
         return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
       }
       
       // Nếu có time info, parse như bình thường nhưng format theo local VN timezone
-      const date = new Date(dateString);
+      const date = new Date(normalizedDate);
       // Sử dụng local time của client (đã được set theo timezone VN nếu client ở VN)
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
       
-      // Nếu có time info, hiển thị time
-      if (dateString.includes('T') || dateString.includes(' ') && dateString.includes(':')) {
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-      }
-      
-      // Chỉ có ngày
+      // Chỉ hiển thị ngày (không hiển thị time)
       return `${day}/${month}/${year}`;
     } catch (e) {
-      // Fallback: hiển thị raw string
+      // Fallback: chuẩn hóa và hiển thị raw string
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        return dateString.split('T')[0];
+      }
       return dateString;
     }
   }
@@ -1807,16 +1850,23 @@ class BaoCaoManager {
         const amount = Math.abs(expense.amount || 0);
         const note = expense.note || expense.description || '';
         
-        // Format date
+        // Format date - Chuẩn hóa định dạng ngày: từ 2025-11-10T17:00:00.000Z → chỉ còn 2025-11-10
         let dateStr = '';
         let timeStr = '';
         if (expense.date) {
           try {
-            const date = new Date(expense.date);
+            // Chuẩn hóa ngày trước khi parse
+            let normalizedDate = expense.date;
+            if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
+              normalizedDate = normalizedDate.split('T')[0];
+            }
+            const date = new Date(normalizedDate);
             dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-            timeStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            // Không hiển thị time, chỉ hiển thị ngày
+            timeStr = '';
           } catch (e) {
-            dateStr = expense.date.substring(0, 10);
+            // Fallback: lấy phần ngày từ string
+            dateStr = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, 10);
           }
         }
         
@@ -1910,15 +1960,23 @@ class BaoCaoManager {
         const categoryName = this.getCategoryName(expense.categoryId);
         const amount = Math.abs(expense.amount || 0);
         const note = expense.note || expense.description || '';
+        // Format date - Chuẩn hóa định dạng ngày: từ 2025-11-10T17:00:00.000Z → chỉ còn 2025-11-10
         let dateStr = '';
         let timeStr = '';
         if (expense.date) {
           try {
-            const date = new Date(expense.date);
+            // Chuẩn hóa ngày trước khi parse
+            let normalizedDate = expense.date;
+            if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
+              normalizedDate = normalizedDate.split('T')[0];
+            }
+            const date = new Date(normalizedDate);
             dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-            timeStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            // Không hiển thị time, chỉ hiển thị ngày
+            timeStr = '';
           } catch (e) {
-            dateStr = expense.date.substring(0, 10);
+            // Fallback: lấy phần ngày từ string
+            dateStr = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, 10);
           }
         }
         return [index + 1, dateStr, categoryName, note, amount, timeStr];
