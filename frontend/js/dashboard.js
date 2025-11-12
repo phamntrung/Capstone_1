@@ -77,6 +77,157 @@ let cachedTodayDate = null;
 let cachedTodayTimestamp = 0;
 const CACHE_DURATION = 60000; // Cache 1 phút
 
+// ===== Helpers xử lý ngày theo múi giờ Việt Nam =====
+const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: VIETNAM_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+/**
+ * Chuẩn hóa ngày về dạng yyyy-mm-dd theo timezone Việt Nam
+ * @param {string|Date|number} dateInput
+ * @returns {string}
+ */
+function normalizeDateToVietnamString(dateInput) {
+  if (!dateInput) return '';
+
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+
+    // Dạng chuẩn yyyy-mm-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Dạng số nguyên yyyymmdd
+    if (/^\d{8}$/.test(trimmed)) {
+      const year = trimmed.slice(0, 4);
+      const month = trimmed.slice(4, 6);
+      const day = trimmed.slice(6, 8);
+      return `${year}-${month}-${day}`;
+    }
+
+    // Thử parse các định dạng khác
+    const parsedFromTrimmed = new Date(trimmed);
+    if (!Number.isNaN(parsedFromTrimmed.getTime())) {
+      return vietnamDateFormatter.format(parsedFromTrimmed);
+    }
+
+    // Thử thay khoảng trắng bằng 'T' (trường hợp 2025-01-12 08:00:00)
+    if (trimmed.includes(' ')) {
+      const isoLike = trimmed.replace(' ', 'T');
+      const parsedIsoLike = new Date(isoLike);
+      if (!Number.isNaN(parsedIsoLike.getTime())) {
+        return vietnamDateFormatter.format(parsedIsoLike);
+      }
+    }
+
+    // Fallback: lấy 10 ký tự đầu nếu phù hợp
+    if (trimmed.length >= 10) {
+      return trimmed.substring(0, 10);
+    }
+    return '';
+  }
+
+  let dateObj = null;
+  if (dateInput instanceof Date) {
+    dateObj = dateInput;
+  } else if (typeof dateInput === 'number') {
+    dateObj = new Date(dateInput);
+  }
+
+  if (!dateObj || Number.isNaN(dateObj.getTime())) {
+    return '';
+  }
+
+  return vietnamDateFormatter.format(dateObj);
+}
+
+/**
+ * Trả về khóa tháng dạng yyyy-mm từ giá trị bất kỳ
+ * @param {string|Date|number} dateInput
+ * @returns {string}
+ */
+function extractVietnamMonthKey(dateInput) {
+  if (!dateInput && dateInput !== 0) return '';
+
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{2}\/\d{4}$/.test(trimmed)) {
+      const [month, year] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{4}\/\d{2}$/.test(trimmed)) {
+      const [year, month] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{2}-\d{4}$/.test(trimmed)) {
+      const [month, year] = trimmed.split('-');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{6}$/.test(trimmed)) {
+      return `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}`;
+    }
+  }
+
+  const normalizedDate = normalizeDateToVietnamString(dateInput);
+  if (normalizedDate) {
+    return normalizedDate.substring(0, 7);
+  }
+
+  return '';
+}
+
+/**
+ * Chuẩn hóa dữ liệu expense: đảm bảo có định dạng ngày theo VN
+ * @param {object} expense
+ * @returns {object}
+ */
+function normalizeExpenseRecord(expense) {
+  if (!expense || typeof expense !== 'object') return expense;
+  const normalized = { ...expense };
+
+  if (expense.date) {
+    const vietnamDate = normalizeDateToVietnamString(expense.date);
+    if (vietnamDate) {
+      normalized.date = vietnamDate;
+      normalized.monthKey = vietnamDate.substring(0, 7);
+    }
+  }
+
+  if (!normalized.monthKey) {
+    normalized.monthKey = extractVietnamMonthKey(expense.date);
+  }
+
+  return normalized;
+}
+
+/**
+ * Chuẩn hóa danh sách giao dịch
+ * @param {Array} expenses
+ * @returns {Array}
+ */
+function normalizeExpensesArray(expenses) {
+  if (!Array.isArray(expenses)) return [];
+  return expenses.map(expense => normalizeExpenseRecord(expense));
+}
+
+if (typeof window !== 'undefined') {
+  window.normalizeDateToVietnamString = normalizeDateToVietnamString;
+  window.extractVietnamMonthKey = extractVietnamMonthKey;
+}
+
 /**
  * Lấy ngày hôm nay theo timezone Việt Nam (UTC+7)
  * Ưu tiên lấy từ server, fallback về client date với timezone VN
@@ -159,10 +310,9 @@ async function updateSummaryStats(data) {
       // Monthly expense - tính từ allExpenses
       let monthlyExpense = 0;
       if (allExpenses.length > 0) {
-        const monthExpenses = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === currentMonth && e.type === 'expense';
-        });
+        const monthExpenses = allExpenses.filter(e =>
+          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+        );
         monthlyExpense = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
       // Fallback to API data if allExpenses is empty
@@ -173,19 +323,9 @@ async function updateSummaryStats(data) {
       // Today expense - tính từ allExpenses với ngày thực từ server
       let todayExpense = 0;
       if (allExpenses.length > 0) {
-        const todayExpenses = allExpenses.filter(e => {
-          // Chuẩn hóa định dạng ngày để so sánh chính xác
-          let expDate = e.date || '';
-          if (expDate && typeof expDate === 'string') {
-            // Loại bỏ phần thời gian nếu có (2025-01-15T00:00:00.000Z -> 2025-01-15)
-            expDate = expDate.substring(0, 10);
-          } else if (expDate && expDate.getFullYear) {
-            // Nếu là Date object, chuyển sang string
-            const d = expDate;
-            expDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          }
-          return expDate === todayStr && e.type === 'expense';
-        });
+        const todayExpenses = allExpenses.filter(e =>
+          e && e.type === 'expense' && normalizeDateToVietnamString(e.date) === todayStr
+        );
         todayExpense = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
         console.log('💰 Tổng chi tiêu hôm nay (' + todayStr + '):', formatCurrency(todayExpense), 'từ', todayExpenses.length, 'giao dịch');
       }
@@ -193,10 +333,9 @@ async function updateSummaryStats(data) {
       // Calculate monthly income from expenses
       let monthlyIncome = 0;
       if (allExpenses.length > 0) {
-        const monthExpenses = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === currentMonth && e.type === 'income';
-        });
+        const monthExpenses = allExpenses.filter(e =>
+          e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+        );
         monthlyIncome = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
 
@@ -280,10 +419,9 @@ async function updateSummaryStats(data) {
   // Calculate monthly expense from allExpenses
   let monthlyExpense = 0;
   if (allExpenses.length > 0) {
-    const monthExpenses = allExpenses.filter(e => {
-      const expDate = e.date ? e.date.substring(0, 7) : '';
-      return expDate === currentMonth && e.type === 'expense';
-    });
+    const monthExpenses = allExpenses.filter(e =>
+      e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+    );
     monthlyExpense = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   }
   // Fallback to API data
@@ -294,17 +432,9 @@ async function updateSummaryStats(data) {
   // Calculate today expense from allExpenses với ngày thực
   let todayExpense = 0;
   if (allExpenses.length > 0) {
-    const todayExpenses = allExpenses.filter(e => {
-      // Chuẩn hóa định dạng ngày để so sánh chính xác
-      let expDate = e.date || '';
-      if (expDate && typeof expDate === 'string') {
-        expDate = expDate.substring(0, 10);
-      } else if (expDate && expDate.getFullYear) {
-        const d = expDate;
-        expDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      }
-      return expDate === todayStr && e.type === 'expense';
-    });
+    const todayExpenses = allExpenses.filter(e =>
+      e && e.type === 'expense' && normalizeDateToVietnamString(e.date) === todayStr
+    );
     todayExpense = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   }
   
@@ -317,10 +447,9 @@ async function updateSummaryStats(data) {
 
   let monthlyIncome = 0;
   if (allExpenses.length > 0) {
-    const monthExpenses = allExpenses.filter(e => {
-      const expDate = e.date ? e.date.substring(0, 7) : '';
-      return expDate === currentMonth && e.type === 'income';
-    });
+    const monthExpenses = allExpenses.filter(e =>
+      e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+    );
     monthlyIncome = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
   }
 
@@ -467,10 +596,9 @@ async function updateSummaryStats(data) {
       const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
       let currentMonthExpense = 0;
       if (allExpenses.length > 0) {
-        const currentMonthExpenses = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === currentMonthStr && e.type === 'expense';
-        });
+        const currentMonthExpenses = allExpenses.filter(e =>
+          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonthStr
+        );
         currentMonthExpense = currentMonthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
 
@@ -484,10 +612,9 @@ async function updateSummaryStats(data) {
       const previousMonthStr = `${previousYear}-${String(previousMonth).padStart(2, '0')}`;
       let previousMonthExpense = 0;
       if (allExpenses.length > 0) {
-        const previousMonthExpenses = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === previousMonthStr && e.type === 'expense';
-        });
+        const previousMonthExpenses = allExpenses.filter(e =>
+          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === previousMonthStr
+        );
         previousMonthExpense = previousMonthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
 
@@ -523,10 +650,9 @@ async function updateSummaryStats(data) {
       const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
       let currentMonthIncome = 0;
       if (allExpenses.length > 0) {
-        const currentMonthIncomes = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === currentMonthStr && e.type === 'income';
-        });
+        const currentMonthIncomes = allExpenses.filter(e =>
+          e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonthStr
+        );
         currentMonthIncome = currentMonthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
 
@@ -540,10 +666,9 @@ async function updateSummaryStats(data) {
       const previousMonthStr = `${previousYear}-${String(previousMonth).padStart(2, '0')}`;
       let previousMonthIncome = 0;
       if (allExpenses.length > 0) {
-        const previousMonthIncomes = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === previousMonthStr && e.type === 'income';
-        });
+        const previousMonthIncomes = allExpenses.filter(e =>
+          e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === previousMonthStr
+        );
         previousMonthIncome = previousMonthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       }
 
@@ -598,15 +723,20 @@ function filterExpenses(expenses) {
         return expenseCategoryName === (decodedName || 'Khác');
       });
     } else if (currentFilter.startsWith('category:')) {
-      const categoryIdStr = currentFilter.split(':')[1];
-      const categoryIdNum = parseInt(categoryIdStr);
-      filtered = filtered.filter(e => {
-        // Match by categoryId (can be number or string)
-        // Normalize both values to strings for comparison
-        const expenseCategoryId = e.categoryId != null ? String(e.categoryId) : null;
-        const filterCategoryId = String(categoryIdNum);
-        return expenseCategoryId === filterCategoryId;
-      });
+      const categoryIdValue = currentFilter.split(':')[1];
+      if (categoryIdValue === '__uncategorized__') {
+        filtered = filtered.filter(e => {
+          const name = (e.categoryName || '').trim();
+          return (e.categoryId === null || e.categoryId === undefined || e.categoryId === '') && !name;
+        });
+      } else {
+        filtered = filtered.filter(e => {
+          // Match by categoryId (đưa về dạng chuỗi để so sánh ổn định)
+          const expenseCategoryId = e.categoryId != null ? String(e.categoryId) : null;
+          const filterCategoryId = String(categoryIdValue);
+          return expenseCategoryId === filterCategoryId;
+        });
+      }
     } else {
       // Apply time filter - sử dụng ngày thực theo timezone Việt Nam (UTC+7)
       // Sử dụng cached date nếu có, nếu không tính toán sync theo timezone VN
@@ -625,13 +755,7 @@ function filterExpenses(expenses) {
 
       if (currentFilter === 'today') {
         filtered = filtered.filter(e => {
-          let expDate = e.date || '';
-          if (expDate && typeof expDate === 'string') {
-            expDate = expDate.substring(0, 10);
-          } else if (expDate && expDate.getFullYear) {
-            const d = expDate;
-            expDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          }
+          const expDate = normalizeDateToVietnamString(e.date);
           return expDate === todayStr;
         });
       } else if (currentFilter === 'week') {
@@ -641,19 +765,13 @@ function filterExpenses(expenses) {
         weekAgoDate.setDate(todayDate.getDate() - 7);
         const weekAgoStr = `${weekAgoDate.getFullYear()}-${String(weekAgoDate.getMonth() + 1).padStart(2, '0')}-${String(weekAgoDate.getDate()).padStart(2, '0')}`;
         filtered = filtered.filter(e => {
-          let expDate = e.date || '';
-          if (expDate && typeof expDate === 'string') {
-            expDate = expDate.substring(0, 10);
-          } else if (expDate && expDate.getFullYear) {
-            const d = expDate;
-            expDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          }
-          return expDate >= weekAgoStr && expDate <= todayStr;
+          const expDate = normalizeDateToVietnamString(e.date);
+          return expDate && expDate >= weekAgoStr && expDate <= todayStr;
         });
       } else if (currentFilter === 'month') {
         filtered = filtered.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === currentMonth;
+          const expMonth = e.monthKey || extractVietnamMonthKey(e.date);
+          return expMonth && expMonth === currentMonth;
         });
       }
     }
@@ -683,7 +801,7 @@ async function quickUpdateUIWithNewExpense(newExpense) {
     try {
       const expensesResult = await apiRequest('/api/expenses');
       if (expensesResult && expensesResult.ok && expensesResult.data && expensesResult.data.items) {
-        allExpenses = expensesResult.data.items || [];
+        allExpenses = normalizeExpensesArray(expensesResult.data.items || []);
         console.log(`✅ Reloaded ${allExpenses.length} expenses from API`);
       }
     } catch (e) {
@@ -694,24 +812,16 @@ async function quickUpdateUIWithNewExpense(newExpense) {
   // Normalize expense data before adding
   // Ensure date is in yyyy-mm-dd format
   let normalizedExpense = { ...newExpense };
-  if (normalizedExpense.date) {
-    if (typeof normalizedExpense.date === 'string') {
-      // Already a string, ensure it's yyyy-mm-dd format
-      normalizedExpense.date = normalizedExpense.date.substring(0, 10);
-    } else if (normalizedExpense.date.getFullYear) {
-      // Date object - convert to yyyy-mm-dd
-      const d = normalizedExpense.date;
-      normalizedExpense.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
+  // Ensure amount là số dương (để hiển thị dễ đọc)
+  if (normalizedExpense.amount !== undefined && normalizedExpense.amount !== null) {
+    normalizedExpense.amount = Math.abs(Number(normalizedExpense.amount) || 0);
   }
-  // Ensure amount is positive number for display (we use Math.abs when calculating)
-  if (normalizedExpense.amount) {
-    normalizedExpense.amount = Math.abs(Number(normalizedExpense.amount));
-  }
-  // Ensure type is 'expense'
+  // Default type = 'expense'
   if (!normalizedExpense.type) {
     normalizedExpense.type = 'expense';
   }
+  // Chuẩn hóa ngày theo múi giờ Việt Nam
+  normalizedExpense = normalizeExpenseRecord(normalizedExpense);
 
   // Store new expense ID for debugging
   const newExpenseId = normalizedExpense.id;
@@ -741,22 +851,10 @@ async function quickUpdateUIWithNewExpense(newExpense) {
       if (e) console.log('❌ Filtered out (not expense):', e.type);
       return false;
     }
-    // Handle different date formats
-    let expDate = '';
-    if (e.date) {
-      if (typeof e.date === 'string') {
-        expDate = e.date.substring(0, 7); // yyyy-mm-dd -> yyyy-mm
-      } else if (e.date.getFullYear) {
-        // Date object
-        expDate = `${e.date.getFullYear()}-${String(e.date.getMonth() + 1).padStart(2, '0')}`;
-      }
-    } else {
-      console.log('❌ Expense has no date:', e);
-      return false;
-    }
-    const matches = expDate === currentMonth;
+    const expMonth = e.monthKey || extractVietnamMonthKey(e.date);
+    const matches = expMonth === currentMonth;
     if (matches) {
-      console.log('✓ Expense matches month:', { id: e.id, date: e.date, expDate, currentMonth, amount: e.amount });
+      console.log('✓ Expense matches month:', { id: e.id, date: e.date, monthKey: expMonth, currentMonth, amount: e.amount });
     }
     return matches;
   });
@@ -769,34 +867,22 @@ async function quickUpdateUIWithNewExpense(newExpense) {
       if (e) console.log('❌ Filtered out (not expense):', e.type);
       return false;
     }
-    // Handle different date formats
-    let expDate = '';
-    if (e.date) {
-      if (typeof e.date === 'string') {
-        expDate = e.date.substring(0, 10); // yyyy-mm-dd
-      } else if (e.date.getFullYear) {
-        // Date object - convert to yyyy-mm-dd
-        const d = e.date;
-        expDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      }
-    } else {
-      console.warn('⚠️ Expense missing date:', e);
+    const expDate = normalizeDateToVietnamString(e.date);
+    if (!expDate) {
+      console.warn('⚠️ Expense missing parsable date:', e);
       return false;
     }
     const isToday = expDate === todayStr;
     if (isToday) {
       console.log('✓✓✓ Today expense found:', { id: e.id, date: e.date, expDate, todayStr, amount: e.amount, matches: expDate === todayStr });
-    } else {
-      // Log why it doesn't match (for debugging)
-      if (e.id === newExpenseId) {
-        console.warn('⚠️⚠️⚠️ New expense date mismatch!', {
-          expenseId: e.id,
-          expenseDate: e.date,
-          expDate,
-          todayStr,
-          match: expDate === todayStr
-        });
-      }
+    } else if (e.id === newExpenseId) {
+      console.warn('⚠️⚠️⚠️ New expense date mismatch!', {
+        expenseId: e.id,
+        expenseDate: e.date,
+        parsed: expDate,
+        todayStr,
+        match: expDate === todayStr
+      });
     }
     return isToday;
   });
@@ -939,12 +1025,13 @@ async function quickUpdateUIWithNewExpense(newExpense) {
 }
 
 // Update recent expenses
-function updateRecentExpenses(expenses) {
-  // Store all expenses globally
-  allExpenses = expenses;
+async function updateRecentExpenses(expenses) {
+  // Chuẩn hóa và lưu toàn bộ giao dịch
+  const normalizedExpenses = normalizeExpensesArray(expenses);
+  allExpenses = normalizedExpenses;
 
   // Apply filters
-  const filtered = filterExpenses(expenses);
+  const filtered = filterExpenses(normalizedExpenses);
 
   // Calculate pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
@@ -997,11 +1084,7 @@ function updateRecentExpenses(expenses) {
         const categoryAttr = (safeCategoryName || 'Khác').replace(/"/g, '&quot;');
         const note = expense.note || 'Không có ghi chú';
         const amount = Math.abs(expense.amount);
-        // Chuẩn hóa định dạng ngày: từ 2025-11-10T17:00:00.000Z → chỉ còn 2025-11-10
-        let date = expense.date || '';
-        if (date && date.includes('T')) {
-          date = date.split('T')[0];
-        }
+        const date = normalizeDateToVietnamString(expense.date) || '';
         const typeClass = expense.type === 'income' ? 'income' : 'expense';
         const sign = expense.type === 'income' ? '+' : '-';
 
@@ -1063,22 +1146,32 @@ function updateRecentExpenses(expenses) {
   }
 
   // Calculate today's expenses
-  const today = new Date().toISOString().split('T')[0];
-  const todayExpenses = expenses.filter(e => e.date === today && e.type === 'expense');
-  const todayTotal = todayExpenses.reduce((sum, e) => sum + Math.abs(e.amount), 0);
-  const todayExpenseInput = document.getElementById('todayExpenseInput');
-  if (todayExpenseInput) {
-    todayExpenseInput.value = formatCurrency(todayTotal);
+  try {
+    const todayStr = await getTodayDateVietnam();
+    const todayExpenses = normalizedExpenses.filter(e =>
+      e && e.type === 'expense' && normalizeDateToVietnamString(e.date) === todayStr
+    );
+
+    const todayTotal = todayExpenses.reduce((sum, e) => {
+      const amount = Math.abs(Number(e.amount) || 0);
+      return sum + amount;
+    }, 0);
+
+    const todayExpenseInput = document.getElementById('todayExpenseInput');
+    if (todayExpenseInput) {
+      todayExpenseInput.value = formatCurrency(todayTotal);
+    }
+  } catch (error) {
+    console.warn('Không thể cập nhật tổng chi tiêu hôm nay:', error);
   }
 
   // Defensive: also refresh remaining = balance - MONTHLY expense (avoid any accidental today-only calc)
   try {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthExpenses = expenses.filter(e => {
-      const expDate = e.date ? e.date.substring(0, 7) : '';
-      return expDate === currentMonth && e.type === 'expense';
-    });
+    const monthExpenses = normalizedExpenses.filter(e =>
+      e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+    );
     const monthlyTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
 
     // Get balance from stored profile/UI
@@ -1109,7 +1202,7 @@ function updateRecentExpenses(expenses) {
   } catch (_) { }
 
   // Update category list after updating expenses
-  updateCategoryList(expenses);
+  updateCategoryList(normalizedExpenses);
 }
 
 // Update pagination UI
@@ -1250,7 +1343,7 @@ async function loadDashboardData() {
     const expensesResult = await apiRequest('/api/expenses');
     if (expensesResult && expensesResult.ok) {
       // Update global allExpenses array with API data
-      allExpenses = expensesResult.data.items || [];
+      allExpenses = normalizeExpensesArray(expensesResult.data.items || []);
       console.log(`✅ Loaded ${allExpenses.length} expenses from API`);
 
       // Update recent expenses display
@@ -1396,6 +1489,8 @@ function updateFilterDropdown() {
     categoryOptions.push({ value, text });
   };
 
+  let hasUncategorized = false; // Đánh dấu xem có giao dịch chưa gán danh mục hay không
+
   if (Array.isArray(allCategories)) {
     allCategories.forEach(cat => {
       if (!cat) return;
@@ -1419,14 +1514,13 @@ function updateFilterDropdown() {
       } else if (name) {
         addOption(`category-name:${encodeURIComponent(name)}`, name);
       } else {
-        addOption(`category-name:${encodeURIComponent('Khác')}`, 'Khác');
+        hasUncategorized = true;
       }
     });
   }
 
-  // Ensure "Khác" option exists so users can filter uncategorised items
-  if (!categoryOptions.some(opt => opt.text === 'Khác')) {
-    addOption(`category-name:${encodeURIComponent('Khác')}`, 'Khác');
+  if (hasUncategorized) {
+    addOption('category:__uncategorized__', 'Chưa phân loại');
   }
 
   // Sort options alphabetically by text for predictable order
@@ -1482,16 +1576,17 @@ function updateCategoryList(expenses) {
   const categoryList = document.getElementById('categoryList');
   if (!categoryList) return;
 
+  const sourceExpenses = normalizeExpensesArray(expenses);
+
   // Calculate expenses by category
   const categoryTotals = {};
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
   // Filter expenses for current month only
-  const monthExpenses = expenses.filter(e => {
-    const expDate = e.date ? e.date.substring(0, 7) : '';
-    return expDate === currentMonth && e.type === 'expense';
-  });
+  const monthExpenses = sourceExpenses.filter(e =>
+    e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+  );
 
   monthExpenses.forEach(expense => {
     const catId = expense.categoryId;
@@ -1638,7 +1733,7 @@ async function handleQuickAddExpense() {
       today = await window.getCurrentDateFromServer();
     } else {
       // Fallback nếu helper không có
-      today = new Date().toISOString().split('T')[0];
+      today = await getTodayDateVietnam();
     }
 
     // Create expense data
@@ -1790,7 +1885,15 @@ async function loadChartData() {
   try {
     const result = await apiRequest(`/api/expenses/stats?period=${chartPeriod}&groupBy=day`);
     if (result && result.ok) {
-      chartData = result.data.items || [];
+      const items = Array.isArray(result.data?.items) ? result.data.items : [];
+      chartData = items.map(item => {
+        const normalizedDate = normalizeDateToVietnamString(item.date || item.day || item.period);
+        return {
+          ...item,
+          date: normalizedDate || (item.date || item.day || ''),
+          amount: Math.abs(Number(item.amount || 0))
+        };
+      });
       renderChart();
     }
   } catch (error) {
@@ -1996,16 +2099,35 @@ window.reloadDashboardData = reloadDashboardData;
 let dateChangeDetector = null;
 let currentTrackedDate = null;
 
-function initDateChangeDetector() {
-  // Lưu ngày hiện tại
-  const today = new Date();
-  currentTrackedDate = today.toISOString().split('T')[0];
+async function initDateChangeDetector() {
+  const getVietnamDateString = (date = new Date()) => {
+    const vietnamOffset = 7 * 60; // phút
+    const utc = date.getTime() + date.getTimezoneOffset() * 60000;
+    const vietnamTime = new Date(utc + vietnamOffset * 60000);
+    const year = vietnamTime.getFullYear();
+    const month = String(vietnamTime.getMonth() + 1).padStart(2, '0');
+    const day = String(vietnamTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  try {
+    currentTrackedDate = await getTodayDateVietnam();
+  } catch (error) {
+    console.warn('Không thể lấy ngày từ server khi khởi tạo detector, dùng client timezone:', error);
+    currentTrackedDate = getVietnamDateString();
+  }
+
   console.log('📅 Tracking date:', currentTrackedDate);
 
   // Hàm kiểm tra ngày thay đổi
-  function checkDateChange() {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+  const checkDateChange = async () => {
+    let todayStr;
+    try {
+      todayStr = await getTodayDateVietnam();
+    } catch (error) {
+      console.warn('Không thể lấy ngày mới từ server, dùng client timezone:', error);
+      todayStr = getVietnamDateString();
+    }
 
     // Nếu ngày đã thay đổi (qua nửa đêm)
     if (todayStr !== currentTrackedDate) {
@@ -2019,16 +2141,20 @@ function initDateChangeDetector() {
       const filterSelect = document.getElementById('expenseFilterSelect');
       if (filterSelect && filterSelect.value === 'today') {
         // Trigger filter update để refresh danh sách giao dịch
-        updateRecentExpenses(allExpenses);
+        try {
+          await updateRecentExpenses(allExpenses);
+        } catch (error) {
+          console.warn('Không thể cập nhật danh sách giao dịch sau khi đổi ngày:', error);
+        }
       }
 
       // Hiển thị thông báo nhẹ nhàng (tùy chọn)
       console.log('✅ Dashboard updated for new day:', todayStr);
     }
-  }
+  };
 
   // Tính toán thời gian đến nửa đêm tiếp theo và set timeout chính xác
-  function scheduleNextMidnightCheck() {
+  const scheduleNextMidnightCheck = () => {
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -2038,30 +2164,34 @@ function initDateChangeDetector() {
 
     // Set timeout để check ngay khi đến nửa đêm
     setTimeout(() => {
-      checkDateChange();
+      checkDateChange().catch((error) => console.warn('Lỗi khi kiểm tra đổi ngày (timeout):', error));
       // Sau khi check xong, schedule lại cho nửa đêm tiếp theo
       scheduleNextMidnightCheck();
     }, msUntilMidnight);
 
     console.log(`⏰ Scheduled next date check at midnight (in ${Math.round(msUntilMidnight / 1000 / 60)} minutes)`);
-  }
+  };
 
   // Schedule check đầu tiên
   scheduleNextMidnightCheck();
 
   // Kiểm tra mỗi phút để phát hiện khi ngày thay đổi (backup, phòng khi timeout bị miss)
   // (Kiểm tra mỗi phút đủ để catch khi qua nửa đêm)
-  dateChangeDetector = setInterval(checkDateChange, 60000); // 60 giây
+  dateChangeDetector = setInterval(() => {
+    checkDateChange().catch((error) => console.warn('Lỗi khi kiểm tra đổi ngày (interval):', error));
+  }, 60000); // 60 giây
 
   // Kiểm tra ngay lập tức khi trang được focus lại (khi user quay lại tab)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      checkDateChange();
+      checkDateChange().catch((error) => console.warn('Lỗi khi kiểm tra đổi ngày (visibility):', error));
     }
   });
 
   // Kiểm tra khi window được focus
-  window.addEventListener('focus', checkDateChange);
+  window.addEventListener('focus', () => {
+    checkDateChange().catch((error) => console.warn('Lỗi khi kiểm tra đổi ngày (focus):', error));
+  });
 
   console.log('✅ Date change detector initialized');
 }
@@ -2084,7 +2214,7 @@ async function initDashboard() {
   setupAvatarUpdateListener();
 
   // Initialize date change detector
-  initDateChangeDetector();
+  await initDateChangeDetector();
 
   // Initialize BroadcastChannel for fast cross-tab communication
   try {
@@ -2212,10 +2342,9 @@ async function initDashboard() {
       if (allExpenses.length > 0) {
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const monthExpenses = allExpenses.filter(e => {
-          const expMonth = e.date ? e.date.substring(0, 7) : '';
-          return expMonth === currentMonth && e.type === 'expense';
-        });
+        const monthExpenses = allExpenses.filter(e =>
+          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonth
+        );
         monthlyExpenseForEvent = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       } else {
         // Fallback: lấy từ monthlyExpenseInput nếu có
@@ -2690,15 +2819,10 @@ function closeIncomeDetailModal() {
 // Format date helper function
 function formatDate(dateString) {
   if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch (e) {
-    return dateString;
-  }
+  const normalized = normalizeDateToVietnamString(dateString);
+  if (!normalized) return dateString;
+  const [year, month, day] = normalized.split('-');
+  return `${day}/${month}/${year}`;
 }
 
 async function loadIncomeDetailData() {
@@ -2765,11 +2889,12 @@ async function loadIncomeDetailData() {
       allExpenses = [];
     }
 
+    allExpenses = normalizeExpensesArray(allExpenses);
+
     // Filter income for current month
-    const currentMonthIncomes = allExpenses.filter(e => {
-      const expDate = e.date ? e.date.substring(0, 7) : '';
-      return expDate === currentMonthStr && e.type === 'income';
-    });
+    const currentMonthIncomes = allExpenses.filter(e =>
+      e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === currentMonthStr
+    );
 
     // Calculate total income
     const totalIncome = currentMonthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
@@ -2782,10 +2907,9 @@ async function loadIncomeDetailData() {
       const month = date.getMonth() + 1;
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-      const monthIncomes = allExpenses.filter(e => {
-        const expDate = e.date ? e.date.substring(0, 7) : '';
-        return expDate === monthStr && e.type === 'income';
-      });
+      const monthIncomes = allExpenses.filter(e =>
+        e && e.type === 'income' && (e.monthKey || extractVietnamMonthKey(e.date)) === monthStr
+      );
 
       const monthTotal = monthIncomes.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
       last6Months.push({
@@ -2919,7 +3043,8 @@ async function loadBudgetSetData() {
     const expensesResult = await apiRequest('/api/expenses');
     let suggestedBudget = 0;
     if (expensesResult && expensesResult.ok) {
-      const allExpenses = expensesResult.data.items || [];
+      const rawExpenses = expensesResult.data.items || [];
+      const normalizedExpenses = normalizeExpensesArray(rawExpenses);
 
       const last3MonthsExpenses = [];
       for (let i = 2; i >= 0; i--) {
@@ -2928,10 +3053,9 @@ async function loadBudgetSetData() {
         const month = date.getMonth() + 1;
         const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-        const monthExpenses = allExpenses.filter(e => {
-          const expDate = e.date ? e.date.substring(0, 7) : '';
-          return expDate === monthStr && e.type === 'expense';
-        });
+        const monthExpenses = normalizedExpenses.filter(e =>
+          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === monthStr
+        );
 
         const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
         last3MonthsExpenses.push(monthTotal);
@@ -3193,7 +3317,8 @@ async function autoSetBudgetForNextMonth() {
     if (nextMonthBudget <= 0) {
       const expensesResult = await apiRequest('/api/expenses');
       if (expensesResult && expensesResult.ok) {
-        const allExpenses = expensesResult.data.items || [];
+        const rawExpenses = expensesResult.data.items || [];
+        const normalizedExpenses = normalizeExpensesArray(rawExpenses);
         const last3MonthsExpenses = [];
 
         for (let i = 2; i >= 0; i--) {
@@ -3202,10 +3327,9 @@ async function autoSetBudgetForNextMonth() {
           const month = date.getMonth() + 1;
           const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-          const monthExpenses = allExpenses.filter(e => {
-            const expDate = e.date ? e.date.substring(0, 7) : '';
-            return expDate === monthStr && e.type === 'expense';
-          });
+          const monthExpenses = normalizedExpenses.filter(e =>
+            e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === monthStr
+          );
 
           const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
           last3MonthsExpenses.push(monthTotal);

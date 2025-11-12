@@ -3,6 +3,158 @@
  * Bao gồm: Biểu đồ, thống kê theo ngày/tháng, xuất báo cáo, lọc dữ liệu
  */
 
+const REPORT_VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const reportVietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: REPORT_VIETNAM_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+function normalizeReportDate(dateInput) {
+  if (!dateInput && dateInput !== 0) return '';
+
+  if (typeof window !== 'undefined' && typeof window.normalizeDateToVietnamString === 'function') {
+    const reused = window.normalizeDateToVietnamString(dateInput);
+    if (reused) return reused;
+  }
+
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{8}$/.test(trimmed)) {
+      const year = trimmed.slice(0, 4);
+      const month = trimmed.slice(4, 6);
+      const day = trimmed.slice(6, 8);
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('/');
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('-');
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{4}\/\d{2}\/\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('/');
+      return `${year}-${month}-${day}`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed.replace(/\./g, '-'))) {
+      const normalized = trimmed.replace(/\./g, '-');
+      const [year, month, day] = normalized.split('-');
+      return `${year}-${month}-${day}`;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return reportVietnamDateFormatter.format(parsed);
+    }
+
+    if (trimmed.includes(' ')) {
+      const isoLike = trimmed.replace(' ', 'T');
+      const parsedIsoLike = new Date(isoLike);
+      if (!Number.isNaN(parsedIsoLike.getTime())) {
+        return reportVietnamDateFormatter.format(parsedIsoLike);
+      }
+    }
+
+    if (trimmed.length >= 10) {
+      return trimmed.substring(0, 10);
+    }
+    return '';
+  }
+
+  if (dateInput instanceof Date) {
+    if (!Number.isNaN(dateInput.getTime())) {
+      return reportVietnamDateFormatter.format(dateInput);
+    }
+    return '';
+  }
+
+  if (typeof dateInput === 'number') {
+    const date = new Date(dateInput);
+    if (!Number.isNaN(date.getTime())) {
+      return reportVietnamDateFormatter.format(date);
+    }
+  }
+
+  return '';
+}
+
+function extractReportMonthKey(dateInput) {
+  if (!dateInput && dateInput !== 0) return '';
+
+  if (typeof window !== 'undefined' && typeof window.extractVietnamMonthKey === 'function') {
+    const reused = window.extractVietnamMonthKey(dateInput);
+    if (reused) return reused;
+  }
+
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{2}\/\d{4}$/.test(trimmed)) {
+      const [month, year] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{4}\/\d{2}$/.test(trimmed)) {
+      const [year, month] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{2}-\d{4}$/.test(trimmed)) {
+      const [month, year] = trimmed.split('-');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{6}$/.test(trimmed)) {
+      return `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}`;
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('-');
+      return `${year}-${month}`;
+    }
+
+    if (/^\d{4}\/\d{2}\/\d{2}$/.test(trimmed)) {
+      const [year, month] = trimmed.split('/');
+      return `${year}-${month}`;
+    }
+  }
+
+  const normalizedDate = normalizeReportDate(dateInput);
+  if (normalizedDate) {
+    return normalizedDate.substring(0, 7);
+  }
+
+  return '';
+}
+
+function formatReportMonthLabel(monthKey) {
+  if (!monthKey) return '';
+  const [year, month] = monthKey.split('-');
+  if (!year || !month) return monthKey;
+  return `${month}/${year}`;
+}
+
 class BaoCaoManager {
   constructor() {
     this.dailyData = [];
@@ -102,19 +254,30 @@ class BaoCaoManager {
           const categories = Array.isArray(res.data.categories) ? res.data.categories : [];
           
           // Chuẩn hoá vào định dạng đang dùng
-          this.dailyData = daily.map(d => ({
-            date: d.date,
-            label: d.label || d.date, // backend có thể không trả label
-            amount: Number(d.amount || 0),
-            transactions: Number(d.transactions || 0)
-          }));
+          this.dailyData = daily.map(d => {
+            const normalizedDate = normalizeReportDate(d.date);
+            const safeDate = normalizedDate || (typeof d.date === 'string' ? d.date.substring(0, 10) : '');
+            const label = d.label || (safeDate ? this.formatDailyLabel(safeDate) : '');
+            return {
+              date: safeDate,
+              label: label || safeDate,
+              amount: Number(d.amount || 0),
+              transactions: Number(d.transactions || 0)
+            };
+          });
           
-          this.monthlyData = monthly.map(m => ({
-            month: m.month, // dạng MM/YYYY theo backend
-            amount: Number(m.amount || 0),
-            budget: Number(m.budget || 0),
-            transactions: Number(m.transactions || 0)
-          }));
+          this.monthlyData = monthly.map(m => {
+            const monthKey = extractReportMonthKey(m.month || m.monthKey || m.period || m.date);
+            const monthLabel = formatReportMonthLabel(monthKey) || m.month || '';
+            return {
+              month: monthLabel,
+              monthKey,
+              amount: Number(m.amount || 0),
+              budget: Number(m.budget || 0),
+              transactions: Number(m.transactions || 0)
+            };
+          });
+          this.monthlyData.sort((a, b) => (b.monthKey || '').localeCompare(a.monthKey || ''));
           
           this.categoryData = categories.map(c => ({
             name: c.name || c.categoryName || 'Khác',
@@ -122,9 +285,14 @@ class BaoCaoManager {
             percentage: Number(c.percentage || 0),
             color: c.color || '#3b82f6'
           }));
-          
-          console.log('✅ Loaded report summary from API and saved to DB by backend');
-          return; // Đã có dữ liệu, không cần fallback
+
+          const monthlyHasData = this.monthlyData.some(m => m.amount > 0);
+          if (monthlyHasData) {
+            console.log('✅ Loaded report summary from API and saved to DB by backend');
+            return; // Đã có dữ liệu, không cần fallback
+          }
+
+          console.warn('⚠️ API trả về dữ liệu tháng = 0, fallback sang DataManager để tính lại');
         }
       }
     } catch (e) {
@@ -163,34 +331,72 @@ class BaoCaoManager {
     // Tổng hợp theo ngày: 30 ngày gần nhất (để hiển thị đầy đủ hơn)
     // Sử dụng ngày thực từ server để đồng bộ với trang chủ
     this.dailyData = this.aggregateDailyFromDataManager(userExpenses, currentDate, 30).map(d => {
-      // 添加时间部分确保正确解析日期
-      const dateObj = new Date(d.date + 'T00:00:00');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const year = dateObj.getFullYear();
-      const weekday = this.getWeekdayVi(dateObj);
-      
+      const normalizedDate = normalizeReportDate(d.date);
+      const dateObj = new Date((normalizedDate || d.date) + 'T00:00:00');
       return {
-        date: d.date,
-        label: `${weekday}, ${day}/${month}/${year}`, // Format: "Thứ Hai, 15/01/2024"
+        date: normalizedDate || d.date,
+        label: this.formatDailyLabel(normalizedDate || d.date),
         amount: d.amount,
         transactions: d.transactions
       };
     });
 
     // Tổng hợp theo tháng: 6 tháng gần nhất
-    this.monthlyData = this.aggregateMonthlyFromDataManager(userExpenses, currentYear, 6).map(m => ({
-      month: m.month,
-      amount: m.amount,
-      budget: m.budget,
-      transactions: m.transactions
-    }));
+    this.monthlyData = this.aggregateMonthlyFromDataManager(userExpenses, currentYear, 6).map(m => {
+      const monthKey = m.monthKey || extractReportMonthKey(m.month);
+      return {
+        month: formatReportMonthLabel(monthKey) || m.month,
+        monthKey,
+        amount: m.amount,
+        budget: m.budget,
+        transactions: m.transactions
+      };
+    });
+    this.monthlyData.sort((a, b) => (b.monthKey || '').localeCompare(a.monthKey || ''));
 
     // Phân bổ danh mục từ dữ liệu thực
     this.categoryData = this.aggregateCategoriesFromDataManager(userExpenses, userCategories);
     
     const daysWithData = this.dailyData.filter(d => d.amount > 0).length;
     const monthsWithData = this.monthlyData.filter(m => m.amount > 0).length;
+    if (monthsWithData === 0 && userExpenses.length > 0) {
+      // Khi 6 tháng gần nhất không có giao dịch, tự mở rộng phạm vi để lấy các tháng có dữ liệu
+      console.warn('⚠️ Không có chi tiêu trong 6 tháng gần nhất, mở rộng phạm vi để lấy dữ liệu có giao dịch');
+
+      const expenseMonths = Array.from(new Set(
+        userExpenses
+          .filter(expense => this.isExpenseTransaction(expense))
+          .map(expense => extractReportMonthKey(expense.date))
+          .filter(Boolean)
+      ));
+
+      if (expenseMonths.length > 0) {
+        expenseMonths.sort((a, b) => b.localeCompare(a));
+        const limitedMonths = expenseMonths.slice(0, 12);
+
+        this.monthlyData = limitedMonths.map(monthKey => {
+          const relatedExpenses = userExpenses.filter(expense => {
+            if (!this.isExpenseTransaction(expense)) return false;
+            return extractReportMonthKey(expense.date) === monthKey;
+          });
+
+          const amount = relatedExpenses.reduce((sum, expense) => sum + Math.abs(expense.amount || 0), 0);
+          const budgetGetterAvailable = window.dataManager && typeof window.dataManager.getBudget === 'function';
+          const budget = budgetGetterAvailable ? window.dataManager.getBudget(monthKey.replace('-', '')) : 8000000;
+
+          return {
+            month: formatReportMonthLabel(monthKey) || monthKey,
+            monthKey,
+            amount,
+            budget,
+            transactions: relatedExpenses.length
+          };
+        });
+        this.monthlyData.sort((a, b) => (b.monthKey || '').localeCompare(a.monthKey || ''));
+
+        console.log('📊 Đã mở rộng tháng hiển thị:', this.monthlyData.map(m => `${m.month}:${m.amount}`).join(', '));
+      }
+    }
     
     console.log('✅ Report data loaded:', { 
       daily: this.dailyData.length, 
@@ -455,9 +661,9 @@ class BaoCaoManager {
     // Hiển thị TẤT CẢ các tháng (kể cả khi amount = 0) để giống giao diện 2
     // Sort by month (newest first) - mới nhất lên trên
     const sortedMonths = [...this.monthlyData].sort((a, b) => {
-      const aDate = new Date(a.month.split('/').reverse().join('-'));
-      const bDate = new Date(b.month.split('/').reverse().join('-'));
-      return bDate - aDate;
+      const aKey = a.monthKey || extractReportMonthKey(a.month);
+      const bKey = b.monthKey || extractReportMonthKey(b.month);
+      return (bKey || '').localeCompare(aKey || '');
     });
     
     // Lấy maxAmount từ các tháng có dữ liệu để tính phần trăm
@@ -483,7 +689,8 @@ class BaoCaoManager {
       row.className = 'row';
       row.style.cursor = hasData ? 'pointer' : 'default';
       row.style.opacity = hasData ? '1' : '0.6';
-      row.title = hasData ? `Click để xem chi tiết ${month.month}` : `${month.month} - Chưa có chi tiêu`;
+      const displayMonth = month.month || formatReportMonthLabel(month.monthKey);
+      row.title = hasData ? `Click để xem chi tiết ${displayMonth}` : `${displayMonth} - Chưa có chi tiêu`;
       
       // Hiển thị phần trăm so với tháng trước nếu có
       const percentageDisplay = percentageChange !== null 
@@ -493,7 +700,7 @@ class BaoCaoManager {
         : '';
       
       row.innerHTML = `
-        <div>${month.month}</div>
+        <div>${displayMonth}</div>
         <div class="mbar">
           ${hasData ? `<i style="width:${percentage}%; background: ${budgetPercentage > 100 ? '#ef4444' : '#22c55e'}"></i>` : ''}
         </div>
@@ -516,8 +723,8 @@ class BaoCaoManager {
         // Click handler chỉ khi có data
         row.addEventListener('click', (e) => {
           e.stopPropagation();
-          console.log('Monthly row clicked:', month.month);
-          this.showMonthDetail(month.month);
+          console.log('Monthly row clicked:', displayMonth);
+          this.showMonthDetail(displayMonth);
         });
       }
       
@@ -637,6 +844,26 @@ class BaoCaoManager {
     return null;
   }
 
+  // Hàm xác định nhanh một giao dịch có phải chi tiêu hay không
+  isExpenseTransaction(expense) {
+    if (!expense) return false;
+    
+    const rawType = expense.type;
+    if (typeof rawType === 'string') {
+      const normalizedType = rawType.trim().toLowerCase();
+      
+      if (['expense', 'chi tiêu', 'chi-tieu', 'chi'].includes(normalizedType)) {
+        return true;
+      }
+      if (['income', 'thu nhập', 'thu-nhap', 'thu'].includes(normalizedType)) {
+        return false;
+      }
+    }
+    
+    const amountNumber = Number(expense.amount || 0);
+    return !Number.isNaN(amountNumber) && amountNumber < 0;
+  }
+
   // Aggregate daily data from DataManager
   aggregateDailyFromDataManager(expenses, toDate, days) {
     const result = [];
@@ -660,11 +887,7 @@ class BaoCaoManager {
     for (let i = 0; i < days; i++) {
       const d = new Date(end);
       d.setDate(end.getDate() - i);
-      // 使用本地时间格式化，避免UTC时区问题
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const dayNum = String(d.getDate()).padStart(2, '0');
-      const iso = `${year}-${month}-${dayNum}`; // Format: yyyy-mm-dd (local time)
+      const iso = normalizeReportDate(d);
       
       // Lấy tất cả chi tiêu trong ngày
       // Kiểm tra cả date string và các format khác
@@ -672,21 +895,11 @@ class BaoCaoManager {
         if (!expense || !expense.date) return false;
         
         // Normalize expense date to yyyy-mm-dd format
-        let expenseDate = expense.date;
-        if (typeof expenseDate === 'string') {
-          // Nếu có thời gian, chỉ lấy phần ngày
-          expenseDate = expenseDate.substring(0, 10);
-        } else if (expenseDate && typeof expenseDate.getFullYear === 'function') {
-          // Date object - 使用本地时间格式化
-          const year = expenseDate.getFullYear();
-          const month = String(expenseDate.getMonth() + 1).padStart(2, '0');
-          const dayNum = String(expenseDate.getDate()).padStart(2, '0');
-          expenseDate = `${year}-${month}-${dayNum}`;
-        }
+        const expenseDate = normalizeReportDate(expense.date);
         
         // Chỉ lấy expense (không lấy income)
         // 注意：expense的amount可能是正数（绝对值），需要检查type
-        const isExpense = expense.type === 'expense' || (expense.type !== 'income' && expense.amount < 0);
+        const isExpense = this.isExpenseTransaction(expense);
         const isSameDate = expenseDate === iso;
         
         // Debug: 记录匹配失败的expense
@@ -745,27 +958,9 @@ class BaoCaoManager {
       
       // Filter expenses by month, handling different date formats
       const monthExpenses = expenses.filter(expense => {
-        if (!expense || expense.type !== 'expense') return false;
-        
-        // Normalize expense date
-        let expenseDate = expense.date;
-        if (typeof expenseDate === 'string') {
-          // Extract yyyy-mm from date string
-          if (expenseDate.length >= 7) {
-            expenseDate = expenseDate.substring(0, 7); // yyyy-mm
-          } else {
-            return false; // Invalid date format
-          }
-        } else if (expenseDate && expenseDate.getFullYear) {
-          // Date object
-          const expYear = expenseDate.getFullYear();
-          const expMonth = String(expenseDate.getMonth() + 1).padStart(2, '0');
-          expenseDate = `${expYear}-${expMonth}`;
-        } else {
-          return false; // Invalid date format
-        }
-        
-        return expenseDate === monthPrefix;
+        if (!this.isExpenseTransaction(expense)) return false;
+        const expenseMonth = extractReportMonthKey(expense.date);
+        return expenseMonth === monthPrefix;
       });
       
       const amount = monthExpenses.reduce((sum, expense) => sum + Math.abs(expense.amount || 0), 0);
@@ -773,6 +968,7 @@ class BaoCaoManager {
       
       result.push({ 
         month: monthStr, 
+        monthKey: monthPrefix,
         amount, 
         budget, 
         transactions: monthExpenses.length 
@@ -787,31 +983,118 @@ class BaoCaoManager {
 
   // Aggregate categories from DataManager
   aggregateCategoriesFromDataManager(expenses, categories) {
-    const categoryTotals = {};
-    
-    // Calculate totals by category
-    expenses.forEach(expense => {
-      if (expense.type === 'expense') {
-        const categoryId = expense.categoryId || 0;
-        const categoryName = categories.find(cat => cat.id === categoryId)?.name || 'Khác';
-        
-        if (!categoryTotals[categoryName]) {
-          categoryTotals[categoryName] = 0;
+    // Chuẩn hóa danh sách danh mục để dễ tra cứu theo id
+    const normalizedCategories = Array.isArray(categories)
+      ? categories.map(cat => ({
+          id: cat?.id ?? cat?.categoryId ?? cat?._id ?? null,
+          name: (cat?.name || cat?.categoryName || '').trim()
+        }))
+      : [];
+
+    // Hàm lấy tên danh mục ưu tiên dữ liệu từ giao dịch trước khi fallback
+    // Giống logic ở trang chủ để đảm bảo hiển thị nhất quán
+    const resolveCategoryName = (expense) => {
+      if (!expense) return 'Khác';
+
+      // Ưu tiên lấy tên trực tiếp từ giao dịch
+      const rawName = (
+        expense.categoryName ||
+        expense.category_name ||
+        expense.category?.name ||
+        expense.category ||
+        ''
+      ).toString().trim();
+      if (rawName) return rawName;
+
+      // Nếu không có tên, thử tra cứu theo ID
+      const rawId = expense.categoryId ??
+        expense.category_id ??
+        expense.categoryID ??
+        expense.category?.id ??
+        null;
+      if (rawId !== null && rawId !== undefined) {
+        const rawIdStr = String(rawId);
+        const matched = normalizedCategories.find(cat => {
+          if (cat.id === null || cat.id === undefined) return false;
+          return String(cat.id) === rawIdStr;
+        });
+        if (matched && matched.name) {
+          return matched.name;
         }
-        categoryTotals[categoryName] += Math.abs(expense.amount);
       }
+
+      return 'Khác';
+    };
+
+    const normalizeAmount = (value) => {
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? Math.abs(value) : 0;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return 0;
+        const numericPortion = trimmed.replace(/[^\d.,-]/g, '');
+        if (!numericPortion) return 0;
+
+        let parsed = parseFloat(numericPortion);
+        if (numericPortion.includes(',') && numericPortion.includes('.')) {
+          parsed = parseFloat(numericPortion.replace(/,/g, ''));
+        } else if (numericPortion.includes(',') && !numericPortion.includes('.')) {
+          parsed = parseFloat(numericPortion.replace(/,/g, '.'));
+        }
+
+        return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
+      }
+      return 0;
+    };
+
+    // Gom nhóm theo categoryId (giống logic trang chủ) thay vì theo tên
+    // Điều này đảm bảo tất cả giao dịch không có danh mục đều được gom vào một mục "Khác"
+    const categoryTotals = {};
+
+    expenses.forEach(expense => {
+      if (!this.isExpenseTransaction(expense)) return;
+      const normalizedAmount = normalizeAmount(expense?.amount);
+      if (normalizedAmount === 0) return;
+
+      // Lấy categoryId từ giao dịch (giống logic trang chủ)
+      const catId = expense.categoryId ??
+        expense.category_id ??
+        expense.categoryID ??
+        expense.category?.id ??
+        null;
+      
+      // Lấy tên danh mục để hiển thị
+      const catName = resolveCategoryName(expense) || 'Khác';
+      
+      // Sử dụng categoryId làm key, hoặc 'other' nếu không có categoryId (giống trang chủ)
+      // Điều này đảm bảo tất cả giao dịch không có danh mục đều được gom vào một mục "Khác"
+      const key = catId !== null && catId !== undefined ? catId : 'other';
+
+      if (!categoryTotals[key]) {
+        categoryTotals[key] = {
+          id: catId,
+          name: catName,
+          total: 0
+        };
+      }
+      categoryTotals[key].total += normalizedAmount;
     });
 
-    // Convert to array and calculate percentages
-    const total = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
+    // Chuyển đổi object thành array và sắp xếp theo tổng tiền giảm dần
+    const sortedEntries = Object.values(categoryTotals)
+      .filter(cat => cat.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const total = sortedEntries.reduce((sum, cat) => sum + cat.total, 0);
     const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
-    
-    return Object.entries(categoryTotals).map(([name, amount], index) => ({
-      name,
-      amount,
-      percentage: total > 0 ? Math.round((amount / total) * 100) : 0,
+
+    return sortedEntries.map((cat, index) => ({
+      name: cat.name,
+      amount: cat.total,
+      percentage: total > 0 ? Math.round((cat.total / total) * 100) : 0,
       color: colors[index % colors.length]
-    })).sort((a, b) => b.amount - a.amount);
+    }));
   }
 
   aggregateDaily(transactions, toDate, days) {
@@ -826,6 +1109,17 @@ class BaoCaoManager {
       result.push({ date: iso, amount, transactions: dayTx.length });
     }
     return result;
+  }
+
+  formatDailyLabel(dateStr) {
+    if (!dateStr) return '';
+    const normalized = normalizeReportDate(dateStr) || dateStr;
+    const dateObj = new Date(normalized + 'T00:00:00');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    const weekday = this.getWeekdayVi(dateObj);
+    return `${weekday}, ${day}/${month}/${year}`;
   }
 
   aggregateMonthly(transactions, year, monthsBack) {
@@ -874,22 +1168,13 @@ class BaoCaoManager {
     }
     
     // Normalize date string to yyyy-mm-dd
-    const targetDate = dateString.length >= 10 ? dateString.substring(0, 10) : dateString;
+    const targetDate = normalizeReportDate(dateString) || (dateString.length >= 10 ? dateString.substring(0, 10) : dateString);
     
     // Filter expenses for this date
     const dayExpenses = allExpenses.filter(expense => {
-      if (!expense || expense.type !== 'expense') return false;
+      if (!this.isExpenseTransaction(expense)) return false;
       
-      let expenseDate = expense.date;
-      if (typeof expenseDate === 'string') {
-        expenseDate = expenseDate.substring(0, 10);
-      } else if (expenseDate && expenseDate.getFullYear) {
-        const year = expenseDate.getFullYear();
-        const month = String(expenseDate.getMonth() + 1).padStart(2, '0');
-        const day = String(expenseDate.getDate()).padStart(2, '0');
-        expenseDate = `${year}-${month}-${day}`;
-      }
-      
+      const expenseDate = normalizeReportDate(expense.date);
       return expenseDate === targetDate;
     });
     
@@ -916,22 +1201,17 @@ class BaoCaoManager {
     }
     
     // Filter expenses for this month
-    const monthExpenses = allExpenses.filter(expense => {
-      if (!expense || expense.type !== 'expense') return false;
-      
-      let expenseDate = expense.date;
-      if (typeof expenseDate === 'string') {
-        if (expenseDate.length >= 7) {
-          expenseDate = expenseDate.substring(0, 7); // yyyy-mm
-        }
-      } else if (expenseDate && expenseDate.getFullYear) {
-        const year = expenseDate.getFullYear();
-        const month = String(expenseDate.getMonth() + 1).padStart(2, '0');
-        expenseDate = `${year}-${month}`;
-      }
-      
-      return expenseDate === monthPrefix;
-    });
+    const monthExpenses = allExpenses
+      .map(expense => {
+        if (!expense) return expense;
+        const normalizedDate = normalizeReportDate(expense.date);
+        return {
+          ...expense,
+          date: normalizedDate || expense.date,
+          monthKey: extractReportMonthKey(expense.date)
+        };
+      })
+      .filter(expense => this.isExpenseTransaction(expense) && expense.monthKey === monthPrefix);
     
     return monthExpenses.sort((a, b) => {
       // Sort by date descending, then by time/id
@@ -947,11 +1227,25 @@ class BaoCaoManager {
 
   // Get category name
   getCategoryName(categoryId) {
-    if (!categoryId && categoryId !== 0) return 'Khác';
-    
-    if (window.dataManager && window.dataManager.data && window.dataManager.data.categories) {
-      const category = window.dataManager.data.categories.find(c => c.id === categoryId);
-      return category ? category.name : 'Khác';
+    if (categoryId === null || categoryId === undefined || categoryId === '') return 'Khác';
+
+    const targetId = String(categoryId);
+
+    if (
+      window.dataManager &&
+      window.dataManager.data &&
+      Array.isArray(window.dataManager.data.categories)
+    ) {
+      const category = window.dataManager.data.categories.find(c => {
+        if (!c) return false;
+        const candidateId = c.id ?? c.categoryId ?? c._id;
+        if (candidateId === null || candidateId === undefined) return false;
+        return String(candidateId) === targetId;
+      });
+      if (category) {
+        const name = (category.name || category.categoryName || '').trim();
+        if (name) return name;
+      }
     }
     
     return 'Khác';
@@ -960,38 +1254,19 @@ class BaoCaoManager {
   // Format date time (xử lý đúng timezone VN)
   formatDateTime(dateString) {
     if (!dateString) return '';
-    
-    try {
-      // Chuẩn hóa định dạng ngày: từ 2025-11-10T17:00:00.000Z → chỉ còn 2025-11-10
-      let normalizedDate = dateString;
-      if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
-        normalizedDate = normalizedDate.split('T')[0];
-      }
-      
-      // Nếu dateString là dạng YYYY-MM-DD (không có time), parse trực tiếp
-      if (typeof normalizedDate === 'string' && normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Parse date string trực tiếp (server đã trả về đúng ngày VN)
-        const [year, month, day] = normalizedDate.split('-').map(Number);
-        // Format: DD/MM/YYYY (không có time vì chỉ có ngày)
-        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-      }
-      
-      // Nếu có time info, parse như bình thường nhưng format theo local VN timezone
-      const date = new Date(normalizedDate);
-      // Sử dụng local time của client (đã được set theo timezone VN nếu client ở VN)
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      
-      // Chỉ hiển thị ngày (không hiển thị time)
-      return `${day}/${month}/${year}`;
-    } catch (e) {
-      // Fallback: chuẩn hóa và hiển thị raw string
+    const normalized = normalizeReportDate(dateString);
+    if (!normalized) {
       if (typeof dateString === 'string' && dateString.includes('T')) {
-        return dateString.split('T')[0];
+        const fallback = dateString.split('T')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(fallback)) {
+          const [y, m, d] = fallback.split('-');
+          return `${d}/${m}/${y}`;
+        }
       }
       return dateString;
     }
+    const [year, month, day] = normalized.split('-');
+    return `${day}/${month}/${year}`;
   }
 
   async showDayDetail(dateLabel) {
@@ -1865,8 +2140,22 @@ class BaoCaoManager {
             // Không hiển thị time, chỉ hiển thị ngày
             timeStr = '';
           } catch (e) {
-            // Fallback: lấy phần ngày từ string
-            dateStr = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, 10);
+            // Fallback: normalize bằng helper
+            const normalized = normalizeReportDate(expense.date);
+            if (normalized) {
+              const [year, month, day] = normalized.split('-');
+              dateStr = `${day}/${month}/${year}`;
+            } else if (typeof expense.date === 'string') {
+              const raw = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, Math.min(10, expense.date.length));
+              if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                const [y, m, d] = raw.split('-');
+                dateStr = `${d}/${m}/${y}`;
+              } else {
+                dateStr = raw;
+              }
+            } else {
+              dateStr = '';
+            }
           }
         }
         
@@ -1975,8 +2264,21 @@ class BaoCaoManager {
             // Không hiển thị time, chỉ hiển thị ngày
             timeStr = '';
           } catch (e) {
-            // Fallback: lấy phần ngày từ string
-            dateStr = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, 10);
+            const normalized = normalizeReportDate(expense.date);
+            if (normalized) {
+              const [year, month, day] = normalized.split('-');
+              dateStr = `${day}/${month}/${year}`;
+            } else if (typeof expense.date === 'string') {
+              const raw = expense.date.includes('T') ? expense.date.split('T')[0] : expense.date.substring(0, Math.min(10, expense.date.length));
+              if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                const [y, m, d] = raw.split('-');
+                dateStr = `${d}/${m}/${y}`;
+              } else {
+                dateStr = raw;
+              }
+            } else {
+              dateStr = '';
+            }
           }
         }
         return [index + 1, dateStr, categoryName, note, amount, timeStr];

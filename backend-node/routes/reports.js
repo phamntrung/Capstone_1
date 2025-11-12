@@ -16,6 +16,71 @@ const expenses = require('../data/expenses');
 const categoriesById = require('../data/categories');
 const budgetsByKey = require('../data/budgets');
 
+// Định dạng ngày theo múi giờ Việt Nam để đồng bộ dữ liệu giữa backend và frontend
+const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: VIETNAM_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+// Chuẩn hoá ngày về dạng YYYY-MM-DD (múi giờ Việt Nam)
+function toVietnamDateString(value) {
+  if (!value && value !== 0) return '';
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{8}$/.test(trimmed)) {
+      return `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`;
+    }
+
+    const replaced = trimmed.includes(' ') ? trimmed.replace(' ', 'T') : trimmed;
+    const parsedFromString = new Date(replaced);
+    if (!Number.isNaN(parsedFromString.getTime())) {
+      return vietnamDateFormatter.format(parsedFromString);
+    }
+
+    if (trimmed.length >= 10) {
+      return trimmed.slice(0, 10);
+    }
+    return '';
+  }
+
+  if (value instanceof Date) {
+    if (!Number.isNaN(value.getTime())) {
+      return vietnamDateFormatter.format(value);
+    }
+    return '';
+  }
+
+  if (typeof value === 'number') {
+    const parsedFromNumber = new Date(value);
+    if (!Number.isNaN(parsedFromNumber.getTime())) {
+      return vietnamDateFormatter.format(parsedFromNumber);
+    }
+  }
+
+  return '';
+}
+
+// Tạo Date (UTC) từ chuỗi YYYY-MM-DD, đảm bảo tính toán không lệch ngày
+function createUTCDateFromVietnamString(dateString) {
+  if (!dateString) return null;
+  const parts = dateString.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+}
+
+// Lấy ngày hiện tại theo múi giờ Việt Nam
+function getTodayVietnam() {
+  const todayStr = toVietnamDateString(new Date());
+  const todayDate = createUTCDateFromVietnamString(todayStr) || new Date();
+  return { todayStr, todayDate };
+}
+
 function budgetKey(userId, yyyymm) {
   return `${userId}:${yyyymm}`;
 }
@@ -142,14 +207,17 @@ async function getUserExpenses(userId) {
   if (db && db.query) {
     try {
       const results = await db.query(
-        'SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC',
+        `SELECT id, user_id, DATE_FORMAT(date, '%Y-%m-%d') AS date_vn, amount, type, category_id, note
+         FROM expenses
+         WHERE user_id = ?
+         ORDER BY date DESC`,
         [userId]
       );
       if (results.length > 0) {
         return results.map(e => ({
           id: e.id,
           userId: e.user_id,
-          date: e.date ? e.date.toISOString().split('T')[0] : null,
+          date: toVietnamDateString(e.date_vn || e.date),
           amount: parseFloat(e.amount) || 0,
           type: e.type || (e.amount < 0 ? 'expense' : 'income'),
           categoryId: e.category_id || null,
@@ -162,14 +230,19 @@ async function getUserExpenses(userId) {
   }
   
   // Fallback to in-memory
-  return expenses.filter(e => e.userId === userId);
+  return expenses
+    .filter(e => e.userId === userId)
+    .map(e => ({
+      ...e,
+      date: toVietnamDateString(e.date)
+    }));
 }
 
 // Get summary report
 router.get('/summary', authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
-    const today = new Date();
+    const { todayStr, todayDate } = getTodayVietnam();
     
     // Check cache first
     const cacheKey = 'summary';
@@ -185,9 +258,9 @@ router.get('/summary', authRequired, async (req, res) => {
     // Daily data - last 10 days
     const daily = [];
     for (let i = 0; i < 10; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const date = new Date(todayDate);
+      date.setUTCDate(date.getUTCDate() - i);
+      const dateStr = toVietnamDateString(date);
       
       const dayExpenses = userExpenses.filter(e => 
         e.date === dateStr && (e.type === 'expense' || e.amount < 0)
@@ -205,14 +278,14 @@ router.get('/summary', authRequired, async (req, res) => {
     
     // Monthly data - last 6 months
     const monthly = [];
-    const baseDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const baseDate = createUTCDateFromVietnamString(`${todayStr.slice(0, 7)}-01`) || new Date(todayDate);
     
     for (let i = 0; i < 6; i++) {
       const monthDate = new Date(baseDate);
-      monthDate.setMonth(baseDate.getMonth() - i);
+      monthDate.setUTCMonth(monthDate.getUTCMonth() - i);
       
-      const year = monthDate.getFullYear();
-      const month = monthDate.getMonth() + 1;
+      const year = monthDate.getUTCFullYear();
+      const month = monthDate.getUTCMonth() + 1;
       const yyyymm = `${year}-${month.toString().padStart(2, '0')}`;
       const label = `${month.toString().padStart(2, '0')}/${year}`;
       

@@ -666,7 +666,7 @@
     </style>
   </head>
   <body>
-    <script src="/frontend/js/ai.js"></script>
+    <script src="../js/ai.js"></script>
 
     <aside class="sidebar">
       <div class="brand">
@@ -961,6 +961,37 @@
       }
 
       /* ===== Load transactions from DataManager or API ===== */
+      function normalizeAmountValue(value) {
+        if (typeof value === "number") {
+          return Number.isFinite(value) ? value : 0;
+        }
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return 0;
+          // Loại bỏ các ký tự không phải số, dấu trừ, dấu phẩy hoặc dấu chấm
+          const numericPortion = trimmed.replace(/[^\d.,-]/g, "");
+          if (!numericPortion) return 0;
+
+          // Nếu có cả dấu phẩy và dấu chấm, giả định dấu phẩy là phân tách hàng nghìn
+          if (numericPortion.includes(",") && numericPortion.includes(".")) {
+            const cleaned = numericPortion.replace(/,/g, "");
+            const parsed = parseFloat(cleaned);
+            return Number.isFinite(parsed) ? parsed : 0;
+          }
+
+          // Nếu chỉ có dấu phẩy, chuyển thành dấu chấm để parseFloat hiểu là phần thập phân
+          if (numericPortion.includes(",") && !numericPortion.includes(".")) {
+            const normalized = numericPortion.replace(/,/g, ".");
+            const parsed = parseFloat(normalized);
+            return Number.isFinite(parsed) ? parsed : 0;
+          }
+
+          const parsed = parseFloat(numericPortion);
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+        return 0;
+      }
+
       async function getTransactions(forceRefresh = false) {
         // Priority 1: Force refresh from API if requested
         if (
@@ -983,7 +1014,7 @@
               }
               // Convert expenses to transaction format
               return expenses.map((e) => {
-                const rawAmt = typeof e.amount === "number" ? e.amount : 0;
+                const rawAmt = normalizeAmountValue(e.amount);
                 const normalizedAmount = Math.abs(rawAmt);
                 // Default to 'expense' if type is missing/invalid to avoid dropping data
                 const normalizedType =
@@ -1009,7 +1040,7 @@
           const expenses = window.dataManager.data.expenses;
           // Convert expenses to transaction format
           return expenses.map((e) => {
-            const rawAmt = typeof e.amount === "number" ? e.amount : 0;
+            const rawAmt = normalizeAmountValue(e.amount);
             const normalizedAmount = Math.abs(rawAmt);
             const normalizedType =
               e.type === "income" || e.type === "expense" ? e.type : "expense";
@@ -1028,7 +1059,7 @@
             if (result && result.ok && result.data && result.data.items) {
               const expenses = result.data.items;
               return expenses.map((e) => {
-                const rawAmt = typeof e.amount === "number" ? e.amount : 0;
+                const rawAmt = normalizeAmountValue(e.amount);
                 const normalizedAmount = Math.abs(rawAmt);
                 const normalizedType =
                   e.type === "income" || e.type === "expense" ? e.type : "expense";
@@ -2161,10 +2192,10 @@
         window.location.href = "login.html";
       });
     </script>
-    <script src="/frontend/js/utils.js"></script>
-    <script src="/frontend/js/dataManager.js"></script>
-    <!-- SheetJS for Excel export -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <script src="/frontend/js/baocao.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/dataManager.js"></script>
+    <!-- SheetJS bản cục bộ để tránh vi phạm CSP -->
+    <script src="../libs/xlsx.full.min.js"></script>
+    <script src="../js/baocao.js"></script>
   </body>
 </html>

@@ -51,19 +51,67 @@ router.get('/', authRequired, async (req, res) => {
   }
 });
 
-// Helper function to get current date in Vietnam timezone
-function getCurrentDateVietnam() {
-  const now = new Date();
-  // Convert to Vietnam timezone (UTC+7)
-  const vietnamOffset = 7 * 60; // 7 hours in minutes
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const vietnamTime = new Date(utc + (vietnamOffset * 60000));
+// Định dạng ngày theo múi giờ Việt Nam để tránh lệch ngày khi lấy dữ liệu từ DB
+const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: VIETNAM_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
 
-  // Format as YYYY-MM-DD
-  const year = vietnamTime.getFullYear();
-  const month = String(vietnamTime.getMonth() + 1).padStart(2, '0');
-  const day = String(vietnamTime.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// Chuẩn hoá ngày về dạng YYYY-MM-DD (múi giờ Việt Nam)
+function toVietnamDateString(value) {
+  if (!value && value !== 0) return '';
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{8}$/.test(trimmed)) {
+      return `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`;
+    }
+
+    const replaced = trimmed.includes(' ') ? trimmed.replace(' ', 'T') : trimmed;
+    const parsedFromString = new Date(replaced);
+    if (!Number.isNaN(parsedFromString.getTime())) {
+      return vietnamDateFormatter.format(parsedFromString);
+    }
+
+    if (trimmed.length >= 10) {
+      return trimmed.slice(0, 10);
+    }
+    return '';
+  }
+
+  if (value instanceof Date) {
+    if (!Number.isNaN(value.getTime())) {
+      return vietnamDateFormatter.format(value);
+    }
+    return '';
+  }
+
+  if (typeof value === 'number') {
+    const parsedFromNumber = new Date(value);
+    if (!Number.isNaN(parsedFromNumber.getTime())) {
+      return vietnamDateFormatter.format(parsedFromNumber);
+    }
+  }
+
+  return '';
+}
+
+// Tạo đối tượng Date (UTC) từ chuỗi ngày YYYY-MM-DD
+function createUTCDateFromVietnamString(dateString) {
+  if (!dateString) return null;
+  const parts = dateString.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+}
+
+// Lấy ngày hiện tại theo múi giờ Việt Nam
+function getCurrentDateVietnam() {
+  return toVietnamDateString(new Date());
 }
 
 // Create expense
@@ -131,16 +179,17 @@ router.get('/stats', authRequired, async (req, res) => {
       return res.json({ items: [], groupBy });
     }
 
-    // Calculate start date
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - period);
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
+    // Tính khoảng ngày theo múi giờ Việt Nam để không bị chậm 1 ngày
+    const todayStr = toVietnamDateString(new Date());
+    const today = createUTCDateFromVietnamString(todayStr);
+    const startDate = today ? new Date(today) : new Date();
+    startDate.setUTCDate(startDate.getUTCDate() - period);
+    const startDateStr = toVietnamDateString(startDate) || toVietnamDateString(new Date(todayStr));
 
     // Get expenses from database
     const expenses = await db.query(
-      `SELECT * FROM expenses
+      `SELECT *, DATE_FORMAT(date, '%Y-%m-%d') AS date_vn
+       FROM expenses
        WHERE user_id = ? AND date >= ? AND date <= ?
        ORDER BY date ASC`,
       [userId, startDateStr, todayStr]
@@ -180,10 +229,12 @@ router.get('/stats', authRequired, async (req, res) => {
       const weekStats = {};
       for (const e of expenses) {
         if (e.type === 'expense' || e.amount < 0) {
-          const date = new Date(e.date);
+          const normalizedDate = toVietnamDateString(e.date_vn || e.date);
+          if (!normalizedDate) continue;
+          const date = createUTCDateFromVietnamString(normalizedDate) || new Date(e.date);
           const weekStart = new Date(date);
-          weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-          const weekKey = weekStart.toISOString().split('T')[0];
+          weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay()); // Chủ nhật đầu tuần
+          const weekKey = toVietnamDateString(weekStart);
 
           if (!weekStats[weekKey]) {
             weekStats[weekKey] = { date: weekKey, amount: 0, count: 0 };
@@ -200,7 +251,8 @@ router.get('/stats', authRequired, async (req, res) => {
       const dayStats = {};
       for (const e of expenses) {
         if (e.type === 'expense' || e.amount < 0) {
-          const dayKey = e.date instanceof Date ? e.date.toISOString().split('T')[0] : e.date;
+          const dayKey = toVietnamDateString(e.date_vn || e.date);
+          if (!dayKey) continue;
           if (!dayStats[dayKey]) {
             dayStats[dayKey] = { date: dayKey, amount: 0, count: 0 };
           }
@@ -211,15 +263,16 @@ router.get('/stats', authRequired, async (req, res) => {
 
       // Fill missing days with 0
       const result = [];
-      const current = new Date(startDate);
-      while (current <= today) {
-        const dayKey = current.toISOString().split('T')[0];
+      const loopDate = createUTCDateFromVietnamString(startDateStr) || new Date(startDate);
+      const endDate = createUTCDateFromVietnamString(todayStr) || new Date(today);
+      while (loopDate.getTime() <= endDate.getTime()) {
+        const dayKey = toVietnamDateString(loopDate);
         if (dayStats[dayKey]) {
           result.push(dayStats[dayKey]);
         } else {
           result.push({ date: dayKey, amount: 0, count: 0 });
         }
-        current.setDate(current.getDate() + 1);
+        loopDate.setUTCDate(loopDate.getUTCDate() + 1);
       }
 
       return res.json({ items: result, groupBy: 'day' });
