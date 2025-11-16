@@ -6,6 +6,12 @@ const usersByEmail = new Map();
 
 // Helper functions
 function createToken(user) {
+  // Validate user.id
+  if (!user.id || user.id === null || user.id === undefined) {
+    console.error('❌ createToken called with invalid user.id:', user);
+    throw new Error('Invalid user.id when creating token');
+  }
+  
   const payload = {
     sub: user.id,
     email: user.email,
@@ -13,6 +19,14 @@ function createToken(user) {
     role: user.role || 'user',
     exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30 days (khớp với cookie maxAge)
   };
+  
+  console.log('🎫 Creating token for user:', {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role
+  });
+  
   return jwt.sign(payload, process.env.JWT_SECRET || 'dev_secret');
 }
 
@@ -78,8 +92,20 @@ async function authRequired(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const userId = payload.sub;
+    
+    // Log để debug - kiểm tra user_id có đúng không
+    console.log('🔐 Auth middleware - User authenticated:', {
+      userId: userId,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role || 'user',
+      path: req.path,
+      method: req.method
+    });
+    
     req.user = {
-      id: payload.sub,
+      id: userId,
       email: payload.email,
       name: payload.name,
       role: payload.role || 'user'

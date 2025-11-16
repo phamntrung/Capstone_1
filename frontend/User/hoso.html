@@ -231,7 +231,7 @@
           </div>
           <label class="switch"><input id="dailyReportToggle" type="checkbox"><span class="slider"></span></label>
         </div>
-        <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" onclick="if(typeof window.saveProfile === 'function'){window.saveProfile().catch(e=>{console.error('Save error:',e); alert('Lỗi khi lưu: '+ (e.message||'Vui lòng thử lại'));});} else {console.error('saveProfile function not found! Please wait for page to finish loading.'); alert('Vui lòng đợi trang tải xong rồi thử lại.');} return false;">Lưu</button></div>
+        <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" disabled style="opacity:0.6;cursor:not-allowed">Lưu</button></div>
       </div>
     </section>
   </main>
@@ -264,7 +264,7 @@
       console.warn('⚠️ saveProfile called but real function not ready yet. Retrying...');
       return new Promise((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 60; // Increased to 60 attempts (3 seconds)
+        const maxAttempts = 100; // 5 seconds (100 * 50ms)
         const checkInterval = setInterval(() => {
           attempts++;
           // Check if real function has replaced the stub
@@ -281,13 +281,25 @@
             console.log('window._saveProfileStub:', typeof window._saveProfileStub);
             console.log('Are they equal?', window.saveProfile === window._saveProfileStub);
             console.log('Document readyState:', document.readyState);
-            // Check if script exists
+            // Check if script exists and loaded
             const scripts = Array.from(document.querySelectorAll('script[src*="hoso.js"]'));
             console.log('hoso.js scripts found:', scripts.length);
             scripts.forEach((s, i) => {
-              console.log(`Script ${i}:`, s.src, 'loaded:', s.complete || s.readyState === 'complete');
+              console.log(`Script ${i}:`, {
+                src: s.src,
+                readyState: s.readyState,
+                complete: s.complete,
+                async: s.async,
+                defer: s.defer
+              });
             });
-            reject(new Error('Vui lòng đợi trang tải xong rồi thử lại.'));
+            // Check for errors
+            if (window._hosoJsError) {
+              console.error('❌ hoso.js error:', window._hosoJsError);
+              reject(new Error('Lỗi khi tải script hoso.js: ' + window._hosoJsError.message));
+            } else {
+              reject(new Error('Vui lòng đợi trang tải xong rồi thử lại. Nếu vấn đề vẫn tiếp tục, vui lòng làm mới trang.'));
+            }
           }
         }, 50); // Check every 50ms
       });
@@ -475,20 +487,60 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="../js/utils.js"></script>
   <script>
-  // Add timestamp to force reload
-  const script = document.createElement('script');
-  script.src = 'js/hoso.js?v=' + Date.now();
-  script.onerror = function() { console.error('❌ Error loading hoso.js:', this.src); };
-  script.onload = function() {
-    console.log('✅ hoso.js loaded successfully');
+  // Load hoso.js with correct path
+  (function() {
+    const script = document.createElement('script');
+    script.src = '../js/hoso.js?v=' + Date.now();
+    script.async = false; // Load synchronously to ensure it executes before page interaction
+    script.onerror = function() { 
+      console.error('❌ Error loading hoso.js:', this.src);
+      window._hosoJsError = new Error('Failed to load hoso.js from: ' + this.src);
+      // Enable button anyway with stub function as fallback
+      setTimeout(function() {
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = '1';
+          saveBtn.style.cursor = 'pointer';
+          console.warn('⚠️ Save button enabled with stub function (script failed to load)');
+        }
+      }, 500);
+    };
+    script.onload = function() {
+      console.log('✅ hoso.js loaded successfully');
+      // Wait a bit for IIFE to execute
+      setTimeout(function() {
+        console.log('🔍 [hoso.html] After script load - window.saveProfile:', typeof window.saveProfile);
+        console.log('🔍 [hoso.html] isStub:', window.saveProfile === window._saveProfileStub);
+        console.log('🔍 [hoso.html] window._hosoJsError:', window._hosoJsError);
+        if (window.saveProfile === window._saveProfileStub) {
+          console.warn('⚠️ [hoso.html] Real saveProfile function not found after script load!');
+        } else {
+          console.log('✅ [hoso.html] Real saveProfile function is ready');
+          // Enable save button once function is ready
+          const saveBtn = document.getElementById('saveBtn');
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            console.log('✅ Save button enabled');
+          }
+        }
+      }, 300);
+    };
+    document.head.appendChild(script);
+    
+    // Fallback: Enable button after 3 seconds even if check fails
     setTimeout(function() {
-      console.log('🔍 [hoso.html] After script load - window.saveProfile:', typeof window.saveProfile, 'isStub:', window.saveProfile === window._saveProfileStub);
-      // Check if logs from hoso.js exist
-      console.log('🔍 [hoso.html] Checking for hoso.js logs...');
-      console.log('🔍 [hoso.html] window._hosoJsError:', window._hosoJsError);
-    }, 100);
-  };
-  document.head.appendChild(script);
+      const saveBtn = document.getElementById('saveBtn');
+      if (saveBtn && saveBtn.disabled) {
+        console.warn('⚠️ Fallback: Enabling save button after timeout');
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '1';
+        saveBtn.style.cursor = 'pointer';
+      }
+    }, 3000);
+  })();
   </script>
   <script>
   // Debug script loading

@@ -4,6 +4,14 @@ const aiService = require('../ai/aiService');
 
 const router = express.Router();
 
+// Import database module
+let db = null;
+try {
+  db = require('../database');
+} catch (error) {
+  console.log('⚠️ Database module not available for AI routes');
+}
+
 // Keyword to category mapping (same as Flask version)
 const KEYWORD_TO_CATEGORY = {
   'grab': 'Di chuyển',
@@ -31,18 +39,16 @@ const KEYWORD_TO_CATEGORY = {
   'tiền nhà': 'Nhà ở',
 };
 
-// Import data stores
-const expenses = require('../data/expenses');
-const categoriesById = require('../data/categories');
-const budgetsByKey = require('../data/budgets');
-
-function findCategoryIdByName(userId, name) {
-  for (const [id, cat] of categoriesById.entries()) {
-    if (cat.userId === userId && cat.name.toLowerCase() === name.toLowerCase()) {
-      return id;
-    }
+async function findCategoryIdByName(userId, name) {
+  if (!db) return null;
+  try {
+    const categories = await db.getCategoriesByUserId(userId);
+    const found = categories.find(cat => cat.name.toLowerCase() === name.toLowerCase());
+    return found ? found.id : null;
+  } catch (error) {
+    console.error('Error finding category by name:', error);
+    return null;
   }
-  return null;
 }
 
 function budgetKey(userId, yyyymm) {
@@ -56,8 +62,12 @@ function monthEnd(date) {
 }
 
 // Auto-categorize
-router.post('/categorize', authRequired, (req, res) => {
+router.post('/categorize', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const { description, merchant } = req.body;
     const text = `${description || ''} ${merchant || ''}`.toLowerCase();
     
@@ -71,17 +81,17 @@ router.post('/categorize', authRequired, (req, res) => {
     }
     
     let confidence = matchedName ? 0.6 : 0.2;
-    let categoryId = matchedName ? findCategoryIdByName(req.user.id, matchedName) : null;
+    let categoryId = matchedName ? await findCategoryIdByName(req.user.id, matchedName) : null;
     
     // Try ML model if available and no rule matched
     if (!categoryId && aiService.isModelAvailable()) {
       try {
         const [predCategoryId, prob] = aiService.predictCategory(text);
         if (predCategoryId) {
-          const userHasCategory = categoriesById.get(predCategoryId);
-          if (userHasCategory && userHasCategory.userId === req.user.id) {
+          const userCategory = await db.getCategoryById(predCategoryId, req.user.id);
+          if (userCategory) {
             categoryId = predCategoryId;
-            matchedName = userHasCategory.name;
+            matchedName = userCategory.name;
             confidence = prob;
           }
         }
@@ -103,8 +113,12 @@ router.post('/categorize', authRequired, (req, res) => {
 });
 
 // Forecast spending
-router.get('/forecast', authRequired, (req, res) => {
+router.get('/forecast', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const userId = req.user.id;
     const today = new Date();
     const year = today.getFullYear();
@@ -112,9 +126,13 @@ router.get('/forecast', authRequired, (req, res) => {
     const yyyymm = `${year}-${month.toString().padStart(2, '0')}`;
     const endOfMonth = monthEnd(today);
     
-    // Get month expenses
-    const monthExpenses = expenses.filter(e => 
-      e.userId === userId && 
+    // Get month expenses from database
+    const allExpenses = await db.getExpensesByUserId(userId, {
+      date_from: `${yyyymm}-01`,
+      date_to: `${yyyymm}-31`
+    });
+    
+    const monthExpenses = allExpenses.filter(e => 
       e.date && 
       e.date.startsWith(yyyymm) &&
       (e.type === 'expense' || e.amount < 0)
@@ -126,9 +144,8 @@ router.get('/forecast', authRequired, (req, res) => {
     const daysTotal = endOfMonth.getDate();
     const forecast = avgPerDay * daysTotal;
     
-    // Get budget
-    const budgetKey = `${userId}:${yyyymm.replace('-', '')}`;
-    const budget = budgetsByKey.get(budgetKey) || { amount: 0 };
+    // Budget is not implemented in database yet, return 0
+    const budget = { amount: 0 };
     
     res.json({
       month: yyyymm,
@@ -144,8 +161,12 @@ router.get('/forecast', authRequired, (req, res) => {
 });
 
 // Budget alerts
-router.get('/alerts', authRequired, (req, res) => {
+router.get('/alerts', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     // Get forecast data
     const userId = req.user.id;
     const today = new Date();
@@ -153,8 +174,13 @@ router.get('/alerts', authRequired, (req, res) => {
     const month = today.getMonth() + 1;
     const yyyymm = `${year}-${month.toString().padStart(2, '0')}`;
     
-    const monthExpenses = expenses.filter(e => 
-      e.userId === userId && 
+    // Get month expenses from database
+    const allExpenses = await db.getExpensesByUserId(userId, {
+      date_from: `${yyyymm}-01`,
+      date_to: `${yyyymm}-31`
+    });
+    
+    const monthExpenses = allExpenses.filter(e => 
       e.date && 
       e.date.startsWith(yyyymm) &&
       (e.type === 'expense' || e.amount < 0)
@@ -166,8 +192,8 @@ router.get('/alerts', authRequired, (req, res) => {
     const endOfMonth = monthEnd(today);
     const forecast = avgPerDay * endOfMonth.getDate();
     
-    const budgetKey = `${userId}:${yyyymm.replace('-', '')}`;
-    const budget = budgetsByKey.get(budgetKey) || { amount: 0 };
+    // Budget is not implemented in database yet, return 0
+    const budget = { amount: 0 };
     
     const alerts = [];
     if (budget.amount > 0 && forecast > 0) {
@@ -203,8 +229,12 @@ router.get('/alerts', authRequired, (req, res) => {
 });
 
 // Insights
-router.get('/insights', authRequired, (req, res) => {
+router.get('/insights', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const userId = req.user.id;
     const today = new Date();
     const insights = [];
@@ -227,12 +257,15 @@ router.get('/insights', authRequired, (req, res) => {
       prev7Days.push(dateStr);
     }
     
-    const last7Amount = expenses
-      .filter(e => e.userId === userId && last7Days.includes(e.date) && (e.type === 'expense' || e.amount < 0))
+    // Get expenses from database
+    const allExpenses = await db.getExpensesByUserId(userId);
+    
+    const last7Amount = allExpenses
+      .filter(e => last7Days.includes(e.date) && (e.type === 'expense' || e.amount < 0))
       .reduce((sum, e) => sum + Math.abs(e.amount), 0);
     
-    const prev7Amount = expenses
-      .filter(e => e.userId === userId && prev7Days.includes(e.date) && (e.type === 'expense' || e.amount < 0))
+    const prev7Amount = allExpenses
+      .filter(e => prev7Days.includes(e.date) && (e.type === 'expense' || e.amount < 0))
       .reduce((sum, e) => sum + Math.abs(e.amount), 0);
     
     if (prev7Amount > 0) {
@@ -251,10 +284,10 @@ router.get('/insights', authRequired, (req, res) => {
     const yyyymm = `${year}-${month.toString().padStart(2, '0')}`;
     
     const categoryTotals = new Map();
-    expenses
-      .filter(e => e.userId === userId && e.date && e.date.startsWith(yyyymm) && (e.type === 'expense' || e.amount < 0))
+    allExpenses
+      .filter(e => e.date && e.date.startsWith(yyyymm) && (e.type === 'expense' || e.amount < 0))
       .forEach(e => {
-        const categoryId = e.categoryId || 0;
+        const categoryId = e.category_id || 0;
         const current = categoryTotals.get(categoryId) || 0;
         categoryTotals.set(categoryId, current + Math.abs(e.amount));
       });
@@ -263,8 +296,17 @@ router.get('/insights', authRequired, (req, res) => {
       const topCategoryId = Array.from(categoryTotals.entries())
         .reduce((max, [id, amount]) => amount > max.amount ? { id, amount } : max, { id: 0, amount: 0 }).id;
       
-      const topCategory = categoriesById.get(topCategoryId);
-      const topName = topCategory ? topCategory.name : 'Khác';
+      let topName = 'Khác';
+      if (topCategoryId > 0) {
+        try {
+          const topCategory = await db.getCategoryById(topCategoryId, userId);
+          if (topCategory) {
+            topName = topCategory.name;
+          }
+        } catch (error) {
+          console.warn('Error getting top category:', error);
+        }
+      }
       
       insights.push({
         type: 'category',
@@ -292,8 +334,12 @@ router.get('/insights', authRequired, (req, res) => {
 });
 
 // Smart chat
-router.post('/chat', authRequired, (req, res) => {
+router.post('/chat', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const { text } = req.body;
     
     if (!text || !text.trim()) {
@@ -306,21 +352,26 @@ router.post('/chat', authRequired, (req, res) => {
     const createMatch = textLower.match(/tạo\s+chi\s+(\d+)/);
     if (createMatch) {
       const amount = -parseInt(createMatch[1]);
-      const expense = {
-        id: Math.max(...expenses.map(e => e.id), 0) + 1,
-        userId: req.user.id,
+      const expense = await db.createExpense(req.user.id, {
         date: new Date().toISOString().split('T')[0],
-        amount,
+        amount: Math.abs(amount),
         type: 'expense',
         categoryId: null,
+        categoryName: null,
         note: 'chat-created'
-      };
-      
-      expenses.push(expense);
+      });
       
       return res.json({
         reply: `Đã tạo chi tiêu ${Math.abs(amount).toLocaleString()}đ hôm nay.`,
-        created: expense
+        created: {
+          id: expense.id,
+          userId: expense.user_id,
+          date: expense.date,
+          amount: expense.amount,
+          type: expense.type,
+          categoryId: expense.category_id,
+          note: expense.note
+        }
       });
     }
     
@@ -335,10 +386,15 @@ router.post('/chat', authRequired, (req, res) => {
 });
 
 // Admin training endpoint
-router.post('/admin/train_categories', authRequired, (req, res) => {
+router.post('/admin/train_categories', authRequired, async (req, res) => {
   try {
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
+
     const userId = req.user.id;
-    const labeledExpenses = expenses.filter(e => e.userId === userId && e.categoryId);
+    const allExpenses = await db.getExpensesByUserId(userId);
+    const labeledExpenses = allExpenses.filter(e => e.category_id);
     
     if (labeledExpenses.length < 5) {
       return res.status(400).json({ message: 'Chưa đủ dữ liệu có nhãn (>=5)' });
@@ -347,7 +403,7 @@ router.post('/admin/train_categories', authRequired, (req, res) => {
     const texts = labeledExpenses.map(e => 
       `${e.note || ''} ${e.date} ${e.amount}`.trim()
     );
-    const labels = labeledExpenses.map(e => e.categoryId);
+    const labels = labeledExpenses.map(e => e.category_id);
     
     aiService.trainCategoryModel(texts, labels);
     

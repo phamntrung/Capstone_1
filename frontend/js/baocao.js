@@ -179,7 +179,7 @@ class BaoCaoManager {
         const clientDate = this.getClientDateVietnam();
         if (this.currentServerDate === clientDate) {
           // Ngày vẫn giống nhau, dùng cache
-          return this.currentServerDate;
+      return this.currentServerDate;
         } else {
           // Ngày đã thay đổi, clear cache và lấy lại từ server
           console.log('📅 Ngày đã thay đổi, clear cache và lấy lại từ server');
@@ -261,8 +261,8 @@ class BaoCaoManager {
             return {
               date: safeDate,
               label: label || safeDate,
-              amount: Number(d.amount || 0),
-              transactions: Number(d.transactions || 0)
+            amount: Number(d.amount || 0),
+            transactions: Number(d.transactions || 0)
             };
           });
           
@@ -272,9 +272,9 @@ class BaoCaoManager {
             return {
               month: monthLabel,
               monthKey,
-              amount: Number(m.amount || 0),
-              budget: Number(m.budget || 0),
-              transactions: Number(m.transactions || 0)
+            amount: Number(m.amount || 0),
+            budget: Number(m.budget || 0),
+            transactions: Number(m.transactions || 0)
             };
           });
           this.monthlyData.sort((a, b) => (b.monthKey || '').localeCompare(a.monthKey || ''));
@@ -285,11 +285,11 @@ class BaoCaoManager {
             percentage: Number(c.percentage || 0),
             color: c.color || '#3b82f6'
           }));
-
+          
           const monthlyHasData = this.monthlyData.some(m => m.amount > 0);
           if (monthlyHasData) {
-            console.log('✅ Loaded report summary from API and saved to DB by backend');
-            return; // Đã có dữ liệu, không cần fallback
+          console.log('✅ Loaded report summary from API and saved to DB by backend');
+          return; // Đã có dữ liệu, không cần fallback
           }
 
           console.warn('⚠️ API trả về dữ liệu tháng = 0, fallback sang DataManager để tính lại');
@@ -347,9 +347,9 @@ class BaoCaoManager {
       return {
         month: formatReportMonthLabel(monthKey) || m.month,
         monthKey,
-        amount: m.amount,
-        budget: m.budget,
-        transactions: m.transactions
+      amount: m.amount,
+      budget: m.budget,
+      transactions: m.transactions
       };
     });
     this.monthlyData.sort((a, b) => (b.monthKey || '').localeCompare(a.monthKey || ''));
@@ -983,48 +983,8 @@ class BaoCaoManager {
 
   // Aggregate categories from DataManager
   aggregateCategoriesFromDataManager(expenses, categories) {
-    // Chuẩn hóa danh sách danh mục để dễ tra cứu theo id
-    const normalizedCategories = Array.isArray(categories)
-      ? categories.map(cat => ({
-          id: cat?.id ?? cat?.categoryId ?? cat?._id ?? null,
-          name: (cat?.name || cat?.categoryName || '').trim()
-        }))
-      : [];
-
-    // Hàm lấy tên danh mục ưu tiên dữ liệu từ giao dịch trước khi fallback
-    // Giống logic ở trang chủ để đảm bảo hiển thị nhất quán
-    const resolveCategoryName = (expense) => {
-      if (!expense) return 'Khác';
-
-      // Ưu tiên lấy tên trực tiếp từ giao dịch
-      const rawName = (
-        expense.categoryName ||
-        expense.category_name ||
-        expense.category?.name ||
-        expense.category ||
-        ''
-      ).toString().trim();
-      if (rawName) return rawName;
-
-      // Nếu không có tên, thử tra cứu theo ID
-      const rawId = expense.categoryId ??
-        expense.category_id ??
-        expense.categoryID ??
-        expense.category?.id ??
-        null;
-      if (rawId !== null && rawId !== undefined) {
-        const rawIdStr = String(rawId);
-        const matched = normalizedCategories.find(cat => {
-          if (cat.id === null || cat.id === undefined) return false;
-          return String(cat.id) === rawIdStr;
-        });
-        if (matched && matched.name) {
-          return matched.name;
-        }
-      }
-
-      return 'Khác';
-    };
+    // Logic giống hệt dashboard.js: chỉ dùng expense.categoryName || 'Khác'
+    // Không cần tra cứu từ categories list vì backend đã populate categoryName vào expenses
 
     const normalizeAmount = (value) => {
       if (typeof value === 'number') {
@@ -1051,7 +1011,7 @@ class BaoCaoManager {
     // Gom nhóm theo categoryId (giống logic trang chủ) thay vì theo tên
     // Điều này đảm bảo tất cả giao dịch không có danh mục đều được gom vào một mục "Khác"
     const categoryTotals = {};
-
+    
     expenses.forEach(expense => {
       if (!this.isExpenseTransaction(expense)) return;
       const normalizedAmount = normalizeAmount(expense?.amount);
@@ -1064,13 +1024,15 @@ class BaoCaoManager {
         expense.category?.id ??
         null;
       
-      // Lấy tên danh mục để hiển thị
-      const catName = resolveCategoryName(expense) || 'Khác';
+      // Lấy tên danh mục - giống hệt logic ở dashboard.js để đảm bảo đồng bộ
+      // Dashboard.js chỉ đơn giản dùng: expense.categoryName || 'Khác'
+      const catName = expense.categoryName || 'Khác';
       
       // Sử dụng categoryId làm key, hoặc 'other' nếu không có categoryId (giống trang chủ)
       // Điều này đảm bảo tất cả giao dịch không có danh mục đều được gom vào một mục "Khác"
       const key = catId !== null && catId !== undefined ? catId : 'other';
-
+      
+      // Nếu chưa có nhóm cho categoryId này, tạo mới
       if (!categoryTotals[key]) {
         categoryTotals[key] = {
           id: catId,
@@ -1088,7 +1050,7 @@ class BaoCaoManager {
 
     const total = sortedEntries.reduce((sum, cat) => sum + cat.total, 0);
     const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
-
+    
     return sortedEntries.map((cat, index) => ({
       name: cat.name,
       amount: cat.total,
@@ -1230,7 +1192,7 @@ class BaoCaoManager {
     if (categoryId === null || categoryId === undefined || categoryId === '') return 'Khác';
 
     const targetId = String(categoryId);
-
+    
     if (
       window.dataManager &&
       window.dataManager.data &&
@@ -1261,7 +1223,7 @@ class BaoCaoManager {
         if (/^\d{4}-\d{2}-\d{2}$/.test(fallback)) {
           const [y, m, d] = fallback.split('-');
           return `${d}/${m}/${y}`;
-        }
+      }
       }
       return dateString;
     }

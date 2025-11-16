@@ -4,14 +4,15 @@
  */
 
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
-// Prefer persisted override, then window override, then default 5000
+// Backend chạy trên port 5000, frontend chạy trên port 5050
+// QUAN TRỌNG: Google OAuth chỉ hoạt động khi frontend chạy trên 1 cổng cố định (5050)
 (function initApiBase() {
   try {
     const savedBase = localStorage.getItem('smartexpense_api_base');
-    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:8080';
+    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:5000';
     window.API_BASE = initialBase;
   } catch (e) {
-    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:8080';
+    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
   }
 })();
 
@@ -35,15 +36,14 @@ async function tryDiscoverApiBase() {
     (function () {
       try { return localStorage.getItem('smartexpense_api_base'); } catch (e) { return null; }
     })(),
-    'http://127.0.0.1:8080',
-    'http://localhost:8080',
+    // Backend mặc định chạy trên port 5000
     'http://127.0.0.1:5000',
     'http://localhost:5000',
-    // Thử thêm các cổng phổ biến khác nếu dự án bạn dùng chúng
-    'http://127.0.0.1:5001',
-    'http://localhost:5001',
+    // Các cổng fallback nếu backend chạy trên port khác
     'http://127.0.0.1:5002',
     'http://localhost:5002',
+    'http://127.0.0.1:5003',
+    'http://localhost:5003',
   ]);
 
   const controller = new AbortController();

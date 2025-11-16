@@ -168,10 +168,20 @@ async function updateUser(userId, updates) {
  * Lấy tất cả categories của user
  */
 async function getCategoriesByUserId(userId) {
+  // Validate userId
+  if (!userId || userId === null || userId === undefined) {
+    console.error('❌ getCategoriesByUserId called with invalid userId:', userId);
+    throw new Error('Invalid user_id');
+  }
+  
+  console.log(`🔍 Querying categories for user_id: ${userId}`);
+  
   const results = await query(
     'SELECT * FROM categories WHERE user_id = ? ORDER BY created_at DESC',
     [userId]
   );
+  
+  console.log(`✅ Found ${results.length} categories for user_id: ${userId}`);
   return results;
 }
 
@@ -198,11 +208,21 @@ async function createCategory(userData) {
     isActive = true
   } = userData;
 
+  // Validate userId
+  if (!userId || userId === null || userId === undefined) {
+    console.error('❌ createCategory called with invalid userId:', userId);
+    throw new Error('Invalid user_id');
+  }
+  
+  console.log(`➕ Creating category for user_id: ${userId}, name: ${name}`);
+
   const result = await query(
     `INSERT INTO categories (user_id, name, color, note, is_active, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
     [userId, name.trim(), color, note, isActive ? 1 : 0]
   );
+  
+  console.log(`✅ Category created with ID: ${result.insertId} for user_id: ${userId}`);
 
   return await getCategoryById(result.insertId, userId);
 }
@@ -404,10 +424,18 @@ async function getExpenseById(expenseId, userId) {
  * Lấy danh sách chi tiêu của user
  */
 async function getExpensesByUserId(userId, filters = {}) {
+  // Validate userId
+  if (!userId || userId === null || userId === undefined) {
+    console.error('❌ getExpensesByUserId called with invalid userId:', userId);
+    throw new Error('Invalid user_id');
+  }
+  
   let sql = `SELECT e.*, c.name as category_name FROM expenses e 
              LEFT JOIN categories c ON e.category_id = c.id
              WHERE e.user_id = ?`;
   const params = [userId];
+  
+  console.log(`🔍 Querying expenses for user_id: ${userId}`);
 
   if (filters.date_from) {
     sql += ' AND e.date >= ?';
@@ -438,6 +466,12 @@ async function getExpensesByUserId(userId, filters = {}) {
  * Tạo chi tiêu mới
  */
 async function createExpense(userId, expenseData) {
+  // Validate userId
+  if (!userId || userId === null || userId === undefined) {
+    console.error('❌ createExpense called with invalid userId:', userId);
+    throw new Error('Invalid user_id');
+  }
+  
   const {
     date,
     amount,
@@ -446,11 +480,15 @@ async function createExpense(userId, expenseData) {
     note = null
   } = expenseData;
 
+  console.log(`➕ Creating expense for user_id: ${userId}, amount: ${amount}, type: ${type}`);
+
   const result = await query(
     `INSERT INTO expenses (user_id, date, amount, type, category_id, note, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [userId, date, amount, type, categoryId, note]
   );
+  
+  console.log(`✅ Expense created with ID: ${result.insertId} for user_id: ${userId}`);
 
   return await getExpenseById(result.insertId, userId);
 }

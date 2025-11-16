@@ -384,17 +384,38 @@ router.put('/:id', authRequired, async (req, res) => {
 });
 
 // Delete expense
-router.delete('/:id', authRequired, (req, res) => {
+router.delete('/:id', authRequired, async (req, res) => {
   try {
-    const expenseId = parseInt(req.params.id);
-    const expenseIndex = expenses.findIndex(e => e.id === expenseId && e.userId === req.user.id);
+    if (!db) {
+      return res.status(500).json({ message: 'Database not available' });
+    }
 
-    if (expenseIndex === -1) {
+    const userId = req.user.id;
+    if (!userId) {
+      console.error('❌ Missing user_id when deleting expense!');
+      return res.status(401).json({ message: 'Không xác định được người dùng' });
+    }
+
+    const expenseId = parseInt(req.params.id);
+    console.log(`🗑️ DELETE /api/expenses/${expenseId} - User ID: ${userId}`);
+
+    if (Number.isNaN(expenseId)) {
+      return res.status(400).json({ message: 'ID không hợp lệ' });
+    }
+
+    // Verify expense belongs to user before deleting
+    const expense = await db.getExpenseById(expenseId, userId);
+    if (!expense) {
       return res.status(404).json({ message: 'Không tìm thấy' });
     }
 
-    const deletedExpense = expenses.splice(expenseIndex, 1)[0];
-    res.json({ deleted: deletedExpense });
+    const deleted = await db.deleteExpense(expenseId, userId);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Không tìm thấy' });
+    }
+
+    console.log(`✅ Expense ${expenseId} deleted for user ${userId}`);
+    res.json({ deleted: expenseId });
   } catch (error) {
     console.error('Delete expense error:', error);
     res.status(500).json({ message: 'Lỗi xóa chi tiêu' });

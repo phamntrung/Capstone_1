@@ -2,84 +2,141 @@
 
 ## 🚀 Các Bước Chạy Chương Trình
 
-### Bước 1: Cài Đặt Dependencies (Chỉ cần làm 1 lần)
+### ⚡ Quick Start (Lần Đầu Tiên)
 
-Mở terminal/command prompt và chạy:
+**Chỉ cần làm 1 lần khi mới clone project:**
 
 ```bash
+# 1. Cài đặt dependencies
+cd backend-node
+npm install
+
+# 2. Tạo file cấu hình
+copy env.example .env
+
+# 3. Kiểm tra và chỉnh sửa file .env nếu cần (xem chi tiết bên dưới)
+```
+
+---
+
+### 📋 Hướng Dẫn Chi Tiết
+
+#### Bước 1: Cài Đặt Dependencies (Chỉ cần làm 1 lần)
+
+Mở **PowerShell** hoặc **Command Prompt** và chạy:
+
+```powershell
 cd backend-node
 npm install
 ```
 
-### Bước 2: Cấu Hình Môi Trường
+⏱️ **Thời gian:** Khoảng 1-2 phút tùy vào tốc độ mạng.
 
-1. **Copy file cấu hình mẫu:**
-   ```bash
+#### Bước 2: Cấu Hình Môi Trường (Chỉ cần làm 1 lần)
+
+1. **Tạo file cấu hình từ mẫu:**
+   ```powershell
    cd backend-node
    copy env.example .env
    ```
-   
-   (Trên Linux/Mac: `cp env.example .env`)
 
-2. **Chỉnh sửa file `.env`** (nếu cần):
-   - Mở file `backend-node/.env`
-   - Cập nhật các thông tin sau nếu cần:
+2. **Kiểm tra file `.env` đã được tạo:**
+   - Mở thư mục `backend-node`
+   - Kiểm tra có file `.env` (có thể ẩn, cần bật hiển thị file ẩn)
+
+3. **Chỉnh sửa file `.env`** (nếu cần thay đổi):
+   - Mở file `backend-node/.env` bằng Notepad hoặc VS Code
+   - Các thông tin quan trọng cần kiểm tra:
      - `DB_HOST`: Địa chỉ MySQL (mặc định: `localhost`)
      - `DB_PORT`: Port MySQL (mặc định: `3306`)
      - `DB_USER`: Tên người dùng MySQL (mặc định: `root`)
-     - `DB_PASS`: Mật khẩu MySQL (để trống nếu không có)
+     - `DB_PASS`: Mật khẩu MySQL (để trống nếu không có mật khẩu)
      - `DB_NAME`: Tên database (mặc định: `smart_expense`)
-     - `JWT_SECRET`: Chuỗi bí mật cho JWT (nên thay đổi)
+     - `JWT_SECRET`: Chuỗi bí mật cho JWT (có thể giữ nguyên hoặc thay đổi)
      - `PORT`: Port cho backend (mặc định: `5000`)
 
-### Bước 3: Khởi Động Backend Node.js
+💡 **Lưu ý:** Nếu bạn chưa thay đổi gì, có thể bỏ qua bước này và dùng cấu hình mặc định.
 
-Mở terminal/command prompt và chạy:
+#### Bước 3: Khởi Động Backend Server
 
-```bash
-cd backend-node
-npm run dev
-```
+1. **Mở PowerShell hoặc Command Prompt mới**
 
-**Khi khởi động thành công, bạn sẽ thấy:**
-```
-🚀 SmartExpense API running on http://0.0.0.0:5000
-📊 Environment: development
-```
+2. **Chạy lệnh:**
+   ```powershell
+   cd backend-node
+   npm run dev
+   ```
 
-⚠️ **QUAN TRỌNG:** Đừng đóng terminal này! Backend phải chạy liên tục.
+3. **Kiểm tra khởi động thành công:**
+   Bạn sẽ thấy thông báo tương tự:
+   ```
+   🚀 SmartExpense API running on http://0.0.0.0:5000
+   📊 Environment: development
+   ✅ Database pool created: localhost:3306/smart_expense
+   ```
 
-### Bước 4: Khởi Động Frontend Server
+⚠️ **QUAN TRỌNG:** 
+- **Đừng đóng cửa sổ terminal này!** Backend phải chạy liên tục.
+- Nếu thấy lỗi kết nối database, kiểm tra MySQL đã chạy chưa (xem phần "Xử Lý Lỗi" bên dưới).
 
-Mở một terminal/command prompt **KHÁC** và chạy:
+#### Bước 4: Khởi Động Frontend Server
 
-```bash
-python -m http.server 5050
-```
+1. **Mở PowerShell hoặc Command Prompt MỚI** (giữ nguyên terminal backend đang chạy)
 
-**Khi khởi động thành công, bạn sẽ thấy:**
-```
-Serving HTTP on 0.0.0.0 port 5050 ...
-```
+2. **Chạy lệnh:**
+   ```powershell
+   python -m http.server 5000
+   ```
 
-### Bước 5: Truy Cập Ứng Dụng
+   💡 **Nếu không có Python:** Cài đặt Python từ [python.org](https://www.python.org/downloads/) hoặc dùng:
+   ```powershell
+   py -m http.server 5000
 
-Mở trình duyệt và truy cập:
+3. **Kiểm tra khởi động thành công:**
+   Bạn sẽ thấy:
+   ```
+   Serving HTTP on 127.0.0.1 port 5000 ...
+   ```
 
-**Trang chủ:**
+#### Bước 5: Truy Cập Ứng Dụng
+
+Mở trình duyệt web (Chrome, Edge, Firefox...) và truy cập:
+
+**🔗 Trang chủ:**
 ```
 http://localhost:5050/frontend/User/trangchu.html
 ```
 
-**Trang đăng nhập:**
+**🔗 Trang đăng nhập:**
 ```
 http://localhost:5050/frontend/User/login.html
 ```
 
-**Trang đăng ký:**
+**🔗 Trang đăng ký:**
 ```
 http://localhost:5050/frontend/User/dangki.html
 ```
+
+✅ **Hoàn thành!** Bây giờ bạn có thể sử dụng ứng dụng SmartExpense.
+
+---
+
+### 🔄 Chạy Lại Ứng Dụng (Các Lần Sau)
+
+Sau lần đầu tiên, bạn chỉ cần:
+
+1. **Khởi động Backend** (Terminal 1):
+   ```powershell
+   cd backend-node
+   npm run dev
+   ```
+
+2. **Khởi động Frontend** (Terminal 2):
+   ```powershell
+   python -m http.server 5000
+   ```
+
+3. **Truy cập:** `http://localhost:5000/frontend/User/trangchu.html`
 
 ---
 
@@ -199,35 +256,53 @@ npm install
 
 **Giải pháp:** Sử dụng port khác:
 ```bash
-python -m http.server 8080  # Thay 8080 bằng port khác
+python -m http.server 8080 --bind 127.0.0.1  # Thay 8080 bằng port khác
 ```
 
 Sau đó truy cập: `http://localhost:8080/frontend/User/trangchu.html`
+
+### Lỗi: Google OAuth không hoạt động (403 error)
+
+**Nguyên nhân:** Server chạy trên IPv6 thay vì IPv4, dẫn đến origin không khớp với Google Console.
+
+**Giải pháp:** Luôn dùng `--bind 127.0.0.1` khi chạy Python HTTP server:
+```bash
+python -m http.server 5050 --bind 127.0.0.1
+```
+
+Đảm bảo đã thêm các URI sau vào Google OAuth Console:
+- `http://127.0.0.1:5050`
+- `http://localhost:5050`
 
 ---
 
 ## 📝 Tóm Tắt Lệnh Nhanh
 
-```bash
-# 1. Cài đặt dependencies (chỉ cần làm 1 lần)
+### Lần Đầu Tiên (Setup)
+
+```powershell
+# 1. Cài đặt dependencies
 cd backend-node
 npm install
 
-# 2. Cấu hình (chỉ cần làm 1 lần)
-copy env.example .env  # Windows
-# hoặc
-cp env.example .env    # Linux/Mac
+# 2. Tạo file cấu hình
+copy env.example .env
+```
 
-# 3. Khởi động backend (terminal 1)
+### Chạy Ứng Dụng (Mỗi Lần Sử Dụng)
+
+**Terminal 1 - Backend:**
+```powershell
 cd backend-node
 npm run dev
-
-# 4. Khởi động frontend (terminal 2)
-python -m http.server 5050
-
-# 5. Truy cập ứng dụng
-# http://localhost:5050/frontend/User/trangchu.html
 ```
+
+**Terminal 2 - Frontend:**
+```powershell
+python -m http.server 5050 --bind 127.0.0.1
+```
+
+**Truy cập:** `http://localhost:5050/frontend/User/trangchu.html`
 
 ---
 

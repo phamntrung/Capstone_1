@@ -3,18 +3,13 @@ const { authRequired } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Import database module (optional - fallback to in-memory if not available)
+// Import database module
 let db = null;
 try {
   db = require('../database');
 } catch (error) {
-  console.log('⚠️ Database module not available for reports, using in-memory storage');
+  console.log('⚠️ Database module not available for reports');
 }
-
-// Import in-memory stores (fallback if database not available)
-const expenses = require('../data/expenses');
-const categoriesById = require('../data/categories');
-const budgetsByKey = require('../data/budgets');
 
 // Định dạng ngày theo múi giờ Việt Nam để đồng bộ dữ liệu giữa backend và frontend
 const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
@@ -200,42 +195,28 @@ async function getReportCacheFromDB(userId, cacheKey) {
 }
 
 /**
- * Lấy expenses từ database hoặc in-memory
+ * Lấy expenses từ database
  */
 async function getUserExpenses(userId) {
-  // Try database first
-  if (db && db.query) {
-    try {
-      const results = await db.query(
-        `SELECT id, user_id, DATE_FORMAT(date, '%Y-%m-%d') AS date_vn, amount, type, category_id, note
-         FROM expenses
-         WHERE user_id = ?
-         ORDER BY date DESC`,
-        [userId]
-      );
-      if (results.length > 0) {
-        return results.map(e => ({
-          id: e.id,
-          userId: e.user_id,
-          date: toVietnamDateString(e.date_vn || e.date),
-          amount: parseFloat(e.amount) || 0,
-          type: e.type || (e.amount < 0 ? 'expense' : 'income'),
-          categoryId: e.category_id || null,
-          note: e.note || ''
-        }));
-      }
-    } catch (error) {
-      console.warn('Error loading expenses from DB, using in-memory:', error.message);
-    }
+  if (!db || !db.getExpensesByUserId) {
+    throw new Error('Database not available');
   }
   
-  // Fallback to in-memory
-  return expenses
-    .filter(e => e.userId === userId)
-    .map(e => ({
-      ...e,
-      date: toVietnamDateString(e.date)
+  try {
+    const results = await db.getExpensesByUserId(userId);
+    return results.map(e => ({
+      id: e.id,
+      userId: e.user_id,
+      date: toVietnamDateString(e.date),
+      amount: parseFloat(e.amount) || 0,
+      type: e.type || (e.amount < 0 ? 'expense' : 'income'),
+      categoryId: e.category_id || null,
+      note: e.note || ''
     }));
+  } catch (error) {
+    console.error('Error loading expenses from DB:', error);
+    throw error;
+  }
 }
 
 // Get summary report
@@ -296,9 +277,8 @@ router.get('/summary', authRequired, async (req, res) => {
       const monthAmount = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount), 0);
       const transactionCount = monthExpenses.length;
       
-      // Get budget
-      const budgetKey = `${userId}:${yyyymm.replace('-', '')}`;
-      const budget = budgetsByKey.get(budgetKey) || { amount: 0 };
+      // Budget is not implemented in database yet, return 0
+      const budget = { amount: 0 };
       
       monthly.push({
         month: label,
@@ -321,8 +301,12 @@ router.get('/summary', authRequired, async (req, res) => {
     const categories = [];
     const totalFirstMonth = monthly[0]?.amount || 0;
     
+    // Get all user categories from database
+    const userCategories = await db.getCategoriesByUserId(userId);
+    const categoryMap = new Map(userCategories.map(c => [c.id, c]));
+    
     categoryTotals.forEach((amount, categoryId) => {
-      const category = categoriesById.get(categoryId);
+      const category = categoryMap.get(categoryId);
       const name = category ? category.name : 'Khác';
       const percentage = totalFirstMonth > 0 ? Math.round((amount / totalFirstMonth) * 100) : 0;
       

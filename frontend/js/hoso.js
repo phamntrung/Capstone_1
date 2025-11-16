@@ -948,7 +948,7 @@
           
           // Read file as data URL
           const reader = new FileReader();
-          reader.onload = function(e) {
+          reader.onload = async function(e) {
             const imageDataUrl = e.target.result;
             
             // Save to localStorage
@@ -964,6 +964,32 @@
             
             // Update avatar on home page via storage event
             updateAvatarOnHomePage(imageDataUrl);
+            
+            // Lưu avatar vào database (avatar_url)
+            try {
+              if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+                const profileResult = await window.apiRequest('/api/profile', {
+                  method: 'PUT',
+                  body: JSON.stringify({ avatar_url: imageDataUrl })
+                });
+                
+                if (profileResult && profileResult.ok) {
+                  console.log('✅ Avatar đã được lưu vào database');
+                  // Cập nhật localStorage với avatar_url từ server
+                  const userData = localStorage.getItem('smartexpense_user');
+                  if (userData) {
+                    const user = JSON.parse(userData);
+                    user.avatar = imageDataUrl;
+                    localStorage.setItem('smartexpense_user', JSON.stringify(user));
+                  }
+                } else {
+                  console.warn('⚠️ Không thể lưu avatar vào database:', profileResult);
+                }
+              }
+            } catch (error) {
+              console.warn('⚠️ Lỗi khi lưu avatar vào database:', error);
+              // Vẫn tiếp tục vì avatar đã được lưu vào localStorage
+            }
             
             console.log('✅ Avatar đã được tải lên và lưu');
           };
@@ -1059,7 +1085,7 @@
     }
   }
   
-  function removeAvatar() {
+  async function removeAvatar() {
     try {
       const userData = localStorage.getItem('smartexpense_user');
       if (userData) {
@@ -1086,6 +1112,25 @@
       
       // Update avatar on home page
       updateAvatarOnHomePage(null);
+      
+      // Xóa avatar khỏi database (set avatar_url = null)
+      try {
+        if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
+          const profileResult = await window.apiRequest('/api/profile', {
+            method: 'PUT',
+            body: JSON.stringify({ avatar_url: null })
+          });
+          
+          if (profileResult && profileResult.ok) {
+            console.log('✅ Avatar đã được xóa khỏi database');
+          } else {
+            console.warn('⚠️ Không thể xóa avatar khỏi database:', profileResult);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Lỗi khi xóa avatar khỏi database:', error);
+        // Vẫn tiếp tục vì avatar đã được xóa khỏi localStorage
+      }
       
       console.log('✅ Avatar đã được xóa');
     } catch (error) {

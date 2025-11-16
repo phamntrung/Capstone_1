@@ -1496,6 +1496,8 @@ function updateFilterDropdown() {
       if (!cat) return;
       const id = cat.id != null ? String(cat.id) : null;
       const name = cat.name || (id ? `Danh mục ${id}` : null);
+      // Bỏ qua category "Khác" vì không lọc được
+      if (name === 'Khác') return;
       if (id) {
         addOption(`category:${id}`, name);
       } else if (name) {
@@ -1509,6 +1511,8 @@ function updateFilterDropdown() {
       if (!expense || expense.type !== 'expense') return;
       const id = expense.categoryId != null ? String(expense.categoryId) : null;
       const name = (expense.categoryName || '').trim();
+      // Bỏ qua category "Khác" vì không lọc được
+      if (name === 'Khác') return;
       if (id) {
         addOption(`category:${id}`, name || `Danh mục ${id}`);
       } else if (name) {
@@ -2431,17 +2435,54 @@ async function loadHomeAvatar() {
       }
     }
 
-    // Nếu không có avatar nào (chưa upload), ẩn avatar
-    hideHomeAvatar();
+    // Nếu không có avatar nào, hiển thị avatar mặc định (chữ cái đầu)
+    displayDefaultAvatar(user);
 
   } catch (error) {
     console.warn('Lỗi khi tải avatar trên trang chủ:', error);
-    // Nếu có lỗi, ẩn avatar
-    hideHomeAvatar();
+    // Nếu có lỗi, hiển thị avatar mặc định
+    const userData = localStorage.getItem('smartexpense_user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        displayDefaultAvatar(user);
+      } catch (e) {
+        hideHomeAvatar();
+      }
+    } else {
+      hideHomeAvatar();
+    }
   }
 }
 
-// Hide avatar when user hasn't uploaded one
+// Hiển thị avatar mặc định (chữ cái đầu của tên) khi không có avatar
+function displayDefaultAvatar(user) {
+  const avatarImage = document.getElementById('homeAvatarImage');
+  const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
+  const avatarContainer = document.getElementById('homeAvatar');
+
+  // Hiển thị container avatar
+  if (avatarContainer) {
+    avatarContainer.style.display = '';
+  }
+
+  // Ẩn ảnh avatar
+  if (avatarImage) {
+    avatarImage.src = '';
+    avatarImage.style.display = 'none';
+  }
+
+  // Hiển thị placeholder với chữ cái đầu
+  if (avatarPlaceholder) {
+    // Lấy chữ cái đầu từ tên hoặc email
+    const nameOrEmail = (user?.name || user?.email || 'Q').trim();
+    const initial = nameOrEmail.charAt(0).toUpperCase();
+    avatarPlaceholder.textContent = initial || 'Q';
+    avatarPlaceholder.style.display = '';
+  }
+}
+
+// Hide avatar when user hasn't uploaded one (chỉ dùng khi không có user data)
 function hideHomeAvatar() {
   const avatarImage = document.getElementById('homeAvatarImage');
   const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
@@ -2457,7 +2498,7 @@ function hideHomeAvatar() {
     avatarPlaceholder.style.display = 'none';
   }
 
-  // Ẩn toàn bộ container avatar khi chưa có avatar
+  // Ẩn toàn bộ container avatar khi không có user data
   if (avatarContainer) {
     avatarContainer.style.display = 'none';
   }
