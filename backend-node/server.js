@@ -29,7 +29,7 @@ try {
 // Import routes
 console.log('📦 Loading route modules...');
 let authRoutes, expenseRoutes, categoryRoutes, budgetRoutes, reportRoutes;
-let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes;
+let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes, settingsRoutes;
 
 try {
   authRoutes = require('./routes/auth');
@@ -113,6 +113,13 @@ try {
   console.log('  ✅ admin routes loaded');
 } catch (error) {
   console.error('  ❌ Failed to load admin routes:', error);
+}
+
+try {
+  settingsRoutes = require('./routes/settings');
+  console.log('  ✅ settings routes loaded');
+} catch (error) {
+  console.error('  ❌ Failed to load settings routes:', error);
 }
 
 const app = express();
@@ -504,6 +511,17 @@ if (utilsRoutes) {
   }
 } else {
   console.error('  ❌ /api/utils not mounted (route module not loaded)');
+}
+
+if (settingsRoutes) {
+  try {
+    app.use('/api/settings', settingsRoutes);
+    console.log('  ✅ /api/settings mounted');
+  } catch (error) {
+    console.error('  ❌ Failed to mount /api/settings:', error);
+  }
+} else {
+  console.error('  ❌ /api/settings not mounted (route module not loaded)');
 }
 
 console.log('✅ All API routes mounted successfully');

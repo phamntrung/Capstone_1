@@ -142,6 +142,62 @@
     .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
     .pig-float{right:16px}
   }
+
+  /* Budget Alert Banner Styles */
+  .budget-alert-banner{
+    background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border:2px solid #f59e0b;
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px 20px;
+    animation:slideDown 0.3s ease-out;
+  }
+  .budget-alert-banner.error{
+    background:linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-color:#ef4444;
+  }
+  .budget-alert-banner.warning{
+    background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-color:#f59e0b;
+  }
+  .budget-alert-banner.info{
+    background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-color:#3b82f6;
+  }
+  .budget-alert-content{
+    display:flex;align-items:flex-start;gap:16px;position:relative;
+  }
+  .budget-alert-icon{
+    font-size:32px;flex-shrink:0;
+  }
+  .budget-alert-text{
+    flex:1;
+  }
+  .budget-alert-title{
+    font-size:16px;font-weight:800;margin-bottom:6px;color:var(--text);
+  }
+  .budget-alert-message{
+    font-size:14px;color:#475569;margin-bottom:8px;line-height:1.5;
+  }
+  .budget-alert-details{
+    font-size:13px;color:#64748b;display:flex;gap:16px;flex-wrap:wrap;
+  }
+  .budget-alert-details span{
+    display:flex;align-items:center;gap:4px;
+  }
+  .budget-alert-close{
+    position:absolute;top:0;right:0;background:none;border:none;
+    font-size:28px;color:#64748b;cursor:pointer;width:32px;height:32px;
+    display:flex;align-items:center;justify-content:center;border-radius:6px;
+    transition:all 0.2s;
+  }
+  .budget-alert-close:hover{
+    background:rgba(0,0,0,0.05);color:var(--text);
+  }
+  @keyframes slideDown{
+    from{opacity:0;transform:translateY(-10px)}
+    to{opacity:1;transform:translateY(0)}
+  }
 </style>
 </head>
 <body>
@@ -156,7 +212,6 @@
     <nav class="nav">
       <a href="trangchu.html" class="active"><span class="i">🏠</span> Trang Chủ</a>
       <a href="danhsachchitieu.html"><span class="i">🧾</span> Danh sách chi tiêu</a>
-      <a href="lichsuchitieu.html"><span class="i">🕘</span> Lịch sử chi tiêu</a>
       <a href="lenlichchitieu.html"><span class="i">📅</span> Lên lịch chi tiêu</a>
       <a href="loaichitieu.html"><span class="i">🏷️</span> Loại chi tiêu</a>
       <a href="baocao.html"><span class="i">📊</span> Báo cáo</a>
@@ -170,11 +225,23 @@
     <div class="top">
       <h1>Trang Chủ</h1>
       <div class="search">
-        <input placeholder="Tìm giao dịch…">
         <div class="avatar" id="homeAvatar">
           <img id="homeAvatarImage" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:none">
           <span id="homeAvatarPlaceholder">👩‍💼</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Budget Alert Banner -->
+    <div id="budgetAlertBanner" class="budget-alert-banner" style="display:none;margin-bottom:16px">
+      <div class="budget-alert-content">
+        <div class="budget-alert-icon" id="budgetAlertIcon">⚠️</div>
+        <div class="budget-alert-text">
+          <div class="budget-alert-title" id="budgetAlertTitle">Cảnh báo ngân sách</div>
+          <div class="budget-alert-message" id="budgetAlertMessage"></div>
+          <div class="budget-alert-details" id="budgetAlertDetails"></div>
+        </div>
+        <button class="budget-alert-close" id="budgetAlertClose" onclick="document.getElementById('budgetAlertBanner').style.display='none'">×</button>
       </div>
     </div>
 
@@ -193,14 +260,6 @@
         <h4>Thu tháng này</h4>
         <div class="val" style="color:#10b981" id="monthlyIncome">0</div>
         <div class="sub" id="incomeChange"><span class="up">0%</span> so với tháng trước</div>
-      </div>
-      <div class="card">
-        <h4>Ngân sách tháng này</h4>
-        <div class="val" id="monthlyBudget">0</div>
-        <div class="sub" id="budgetStatus">Chưa đặt ngân sách</div>
-        <div style="height:8px;background:#eef2f7;border-radius:999px;margin-top:8px;overflow:hidden">
-          <div id="budgetProgress" style="width:0%;height:100%;background:#60a5fa;transition:width 0.3s"></div>
-        </div>
       </div>
     </section>
 
@@ -336,38 +395,6 @@
         <ul id="incomeDetailList" style="list-style:none;margin:0;padding:0;max-height:300px;overflow-y:auto">
           <li class="empty-state" style="text-align:center;padding:20px;color:#94a3b8">Đang tải...</li>
         </ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- Budget Set Modal -->
-  <div id="budgetSetModal" class="category-modal">
-    <div class="category-modal-content" style="max-width:500px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h3 class="category-modal-title" style="margin:0">Đặt ngân sách tháng này</h3>
-        <button id="closeBudgetSetModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#64748b">&times;</button>
-      </div>
-      <div style="margin-bottom:20px;padding:16px;background:#fef3c7;border-radius:12px;border:1px solid #fde68a">
-        <div style="font-size:14px;color:#64748b;margin-bottom:8px">Ngân sách hiện tại</div>
-        <div id="budgetSetCurrent" style="font-size:20px;font-weight:700;color:#f59e0b">0đ</div>
-      </div>
-      <div style="margin-bottom:20px;padding:16px;background:#dbeafe;border-radius:12px;border:1px solid #93c5fd">
-        <div style="font-size:14px;color:#64748b;margin-bottom:8px">Gợi ý ngân sách (dựa trên chi tiêu trung bình 3 tháng trước)</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div id="budgetSetSuggested" style="font-size:20px;font-weight:700;color:#2563eb">0đ</div>
-          <button id="useSuggestedBudget" style="padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;display:none">Sử dụng</button>
-        </div>
-      </div>
-      <div style="margin-bottom:20px">
-        <label style="display:block;font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text)">Ngân sách mới (VND)</label>
-        <input id="budgetSetNew" type="text" placeholder="Nhập số tiền" style="width:100%;height:48px;padding:0 16px;border:2px solid var(--border);border-radius:10px;font-size:16px;font-weight:600;outline:none" autocomplete="off">
-      </div>
-      <div style="display:flex;gap:12px;flex-direction:column">
-        <div style="display:flex;gap:12px">
-          <button id="saveBudgetBtn" style="flex:1;height:48px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer">Lưu ngân sách</button>
-          <button id="cancelBudgetBtn" onclick="closeBudgetSetModal()" style="flex:1;height:48px;background:#e5e7eb;color:var(--text);border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer">Hủy</button>
-        </div>
-        <button id="resetBudgetBtn" style="width:100%;height:48px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer">Đặt lại về 0</button>
       </div>
     </div>
   </div>

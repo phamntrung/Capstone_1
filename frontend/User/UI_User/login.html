@@ -247,8 +247,21 @@
     </script>
     <!-- Tiện ích - tải trước login.js để apiRequest có sẵn -->
     <script src="../js/utils.js"></script>
-    <!-- Định tuyến vai trò (tách riêng để không ảnh hưởng file login.js gốc) -->
-    <script src="../Admin/Admin.js/admin-role-routing.js"></script>
+    <!-- Admin role routing - để xác định redirect URL dựa trên role -->
+    <script src="../../Admin/Admin.js/admin-role-routing.js" onerror="console.error('❌ [login.html] Không thể load admin-role-routing.js từ:', this.src); window._adminRoleRoutingError = true;"></script>
+    <script>
+      // Kiểm tra xem admin-role-routing.js đã được load chưa
+      (function() {
+        setTimeout(function() {
+          if (typeof window.getRedirectUrlByRole === 'function') {
+            console.log('✅ [login.html] admin-role-routing.js đã được load thành công');
+          } else {
+            console.error('❌ [login.html] admin-role-routing.js CHƯA được load! window.getRedirectUrlByRole không tồn tại.');
+            console.error('❌ [login.html] Điều này có nghĩa là admin sẽ không thể redirect đúng!');
+          }
+        }, 100);
+      })();
+    </script>
     <!-- JavaScript đăng nhập - phải tải trước Google script để định nghĩa callback -->
     <script src="../js/login.js"></script>
     <!-- Google Sign-In SDK - tải sau khi callback đã được định nghĩa -->
@@ -671,40 +684,7 @@
         const origin = window.location.origin;
         const protocol = window.location.protocol;
         const host = window.location.host;
-        const hostname = window.location.hostname;
         const port = window.location.port;
-
-        // QUAN TRỌNG: Google OAuth chỉ hoạt động khi frontend chạy trên port 5050
-        // Vì Google Console chỉ cấu hình origin cho port 5050
-        const expectedPort = "5050";
-        const isCorrectPort = port === expectedPort || (port === "" && hostname === "localhost" && protocol === "http:");
-        
-        if (port && port !== expectedPort && port !== "5000") {
-          const warningDiv = document.getElementById("oauthWarning");
-          const warningContent = document.getElementById("oauthWarningContent");
-          if (warningDiv && warningContent) {
-            warningContent.innerHTML = `
-      <div style="margin-bottom:8px;"><strong>⚠️ Cảnh báo: Frontend đang chạy trên port ${port || 'mặc định'}</strong></div>
-      <div style="margin-bottom:8px;">Google OAuth chỉ hoạt động khi frontend chạy trên <strong>port 5050</strong> (đã cấu hình trong Google Console).</div>
-      <div><strong>📋 Cách sửa:</strong></div>
-      <ol style="margin:8px 0; padding-left:20px; line-height:1.8;">
-        <li>Dừng server hiện tại (Ctrl + C)</li>
-        <li>Chạy lại với lệnh: <code style="background:#f3f4f6; padding:2px 6px; border-radius:3px;">python -m http.server 5050 --bind 127.0.0.1</code></li>
-        <li>Truy cập lại: <code style="background:#f3f4f6; padding:2px 6px; border-radius:3px;">http://localhost:5050/frontend/User/login.html</code></li>
-      </ol>
-      <div style="margin-top:12px; padding:8px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:4px;">
-        <div style="font-weight:600; margin-bottom:4px;">💡 Lưu ý:</div>
-        <div style="font-size:12px; line-height:1.6;">
-          • Backend chạy trên port <strong>5000</strong><br>
-          • Frontend phải chạy trên port <strong>5050</strong> để Google OAuth hoạt động<br>
-          • Nếu muốn đổi port, cần cập nhật lại trong Google Console
-        </div>
-      </div>
-    `;
-            warningDiv.classList.add("show");
-            console.warn(`⚠️ Frontend đang chạy trên port ${port}, nhưng Google OAuth yêu cầu port 5050`);
-          }
-        }
 
         // Kiểm tra nếu đang dùng protocol file:// (sẽ không hoạt động với Google OAuth)
         if (protocol === "file:") {

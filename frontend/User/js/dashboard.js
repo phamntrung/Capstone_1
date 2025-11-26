@@ -384,13 +384,6 @@ async function updateSummaryStats(data) {
         monthlyIncomeElement.textContent = formatCurrency(monthlyIncome);
       }
 
-      // Monthly budget
-      const monthlyBudget = data.monthly && data.monthly[0] ? data.monthly[0].budget : 0;
-      const monthlyBudgetElement = document.getElementById('monthlyBudget');
-      if (monthlyBudgetElement) {
-        monthlyBudgetElement.textContent = formatCurrency(monthlyBudget);
-      }
-
       // Remaining budget (Số tiền còn lại = Số dư - Chi tiêu THÁNG)
       const remainingBudgetInput = document.getElementById('remainingBudgetInput');
       if (remainingBudgetInput) {
@@ -503,42 +496,6 @@ async function updateSummaryStats(data) {
     }
   }
 
-  // Monthly budget
-  const monthlyBudget = data.monthly && data.monthly[0] ? data.monthly[0].budget : 0;
-  const monthlyBudgetElement = document.getElementById('monthlyBudget');
-  if (monthlyBudgetElement) {
-    monthlyBudgetElement.textContent = formatCurrency(monthlyBudget);
-  }
-
-  // Budget status and progress
-  const budgetStatusElement = document.getElementById('budgetStatus');
-  const budgetProgressElement = document.getElementById('budgetProgress');
-
-  if (monthlyBudget > 0) {
-    const usagePercent = Math.min((monthlyExpense / monthlyBudget) * 100, 100);
-    if (budgetStatusElement) {
-      if (usagePercent >= 100) {
-        budgetStatusElement.textContent = 'Vượt ngân sách';
-      } else {
-        budgetStatusElement.textContent = `${usagePercent.toFixed(0)}% ngân sách`;
-      }
-    }
-    if (budgetProgressElement) {
-      budgetProgressElement.style.width = `${usagePercent}%`;
-      budgetProgressElement.style.background = usagePercent >= 100 ? '#ef4444' : (usagePercent >= 80 ? '#f59e0b' : '#60a5fa');
-    }
-
-    // Remaining budget (using monthly budget for progress bar, but remaining input shows balance - today expense)
-    // Note: This is handled above in the main section
-  } else {
-    if (budgetStatusElement) {
-      budgetStatusElement.textContent = 'Chưa đặt ngân sách';
-    }
-    if (budgetProgressElement) {
-      budgetProgressElement.style.width = '0%';
-    }
-    // Remaining budget still shows balance - today expense (handled in main section above)
-  }
 
   // Ensure today expense and remaining budget are updated even in fallback
   // (already updated above, no need to duplicate)
@@ -692,10 +649,6 @@ async function updateSummaryStats(data) {
     }
   }
 
-  // Check budget warning after updating stats
-  setTimeout(() => {
-    checkBudgetWarning();
-  }, 100);
 }
 
 // Filter expenses based on current filter and search
@@ -1378,6 +1331,9 @@ async function loadDashboardData() {
     // Load chart data
     loadChartData();
 
+    // Load budget alert status
+    loadBudgetAlert();
+
     console.log('✅ Dashboard data loaded successfully');
   } catch (error) {
     console.error('Error loading dashboard data:', error);
@@ -1385,6 +1341,77 @@ async function loadDashboardData() {
     if (recentExpensesElement) {
       recentExpensesElement.innerHTML =
         '<div class="error">Lỗi tải dữ liệu. Vui lòng thử lại.</div>';
+    }
+  }
+}
+
+/**
+ * Load và hiển thị cảnh báo ngân sách trên trang chủ
+ */
+async function loadBudgetAlert() {
+  const auth = checkAuth();
+  if (!auth) {
+    return;
+  }
+
+  try {
+    const result = await apiRequest('/api/settings/budget-status');
+    if (result && result.ok && result.data) {
+      const data = result.data;
+      const banner = document.getElementById('budgetAlertBanner');
+      
+      // Chỉ hiển thị nếu có cảnh báo và cảnh báo được bật
+      if (data.enabled && data.alertLevel !== 'none' && data.budget > 0) {
+        // Cập nhật class cho banner dựa trên mức độ cảnh báo
+        banner.className = 'budget-alert-banner ' + data.alertLevel;
+        
+        // Cập nhật icon
+        const icon = document.getElementById('budgetAlertIcon');
+        if (data.alertLevel === 'error') {
+          icon.textContent = '🚨';
+        } else if (data.alertLevel === 'warning') {
+          icon.textContent = '⚠️';
+        } else {
+          icon.textContent = 'ℹ️';
+        }
+        
+        // Cập nhật tiêu đề
+        const title = document.getElementById('budgetAlertTitle');
+        if (data.alertLevel === 'error') {
+          title.textContent = 'Vượt quá ngân sách!';
+        } else if (data.alertLevel === 'warning') {
+          title.textContent = 'Cảnh báo ngân sách';
+        } else {
+          title.textContent = 'Lưu ý ngân sách';
+        }
+        
+        // Cập nhật thông báo
+        const message = document.getElementById('budgetAlertMessage');
+        message.textContent = data.alertMessage;
+        
+        // Cập nhật chi tiết
+        const details = document.getElementById('budgetAlertDetails');
+        // formatCurrency is available from utils.js
+        details.innerHTML = `
+          <span><strong>Đã chi:</strong> ${formatCurrency(data.spent)}</span>
+          <span><strong>Còn lại:</strong> ${formatCurrency(data.remaining)}</span>
+          <span><strong>Ngân sách:</strong> ${formatCurrency(data.budget)}</span>
+          <span><strong>Phần trăm:</strong> ${data.percentage}%</span>
+        `;
+        
+        // Hiển thị banner
+        banner.style.display = 'block';
+      } else {
+        // Ẩn banner nếu không có cảnh báo
+        banner.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error('Error loading budget alert:', error);
+    // Ẩn banner nếu có lỗi
+    const banner = document.getElementById('budgetAlertBanner');
+    if (banner) {
+      banner.style.display = 'none';
     }
   }
 }
@@ -1496,8 +1523,6 @@ function updateFilterDropdown() {
       if (!cat) return;
       const id = cat.id != null ? String(cat.id) : null;
       const name = cat.name || (id ? `Danh mục ${id}` : null);
-      // Bỏ qua category "Khác" vì không lọc được
-      if (name === 'Khác') return;
       if (id) {
         addOption(`category:${id}`, name);
       } else if (name) {
@@ -1511,8 +1536,6 @@ function updateFilterDropdown() {
       if (!expense || expense.type !== 'expense') return;
       const id = expense.categoryId != null ? String(expense.categoryId) : null;
       const name = (expense.categoryName || '').trim();
-      // Bỏ qua category "Khác" vì không lọc được
-      if (name === 'Khác') return;
       if (id) {
         addOption(`category:${id}`, name || `Danh mục ${id}`);
       } else if (name) {
@@ -2088,7 +2111,22 @@ function initLogoutHandler() {
         localStorage.removeItem('smartexpense_user');
         localStorage.removeItem('smartexpense_token');
       } catch (_) { }
-      window.location.href = 'login.html';
+      // Tính toán đường dẫn login đúng
+      const currentPath = window.location.pathname;
+      let loginPath = 'login.html';
+      if (currentPath.includes('/User/UI_User/')) {
+        loginPath = 'login.html';
+      } else if (currentPath.includes('/User/js/')) {
+        loginPath = '../UI_User/login.html';
+      } else if (currentPath.includes('/User/')) {
+        const afterUser = currentPath.split('/User/')[1];
+        const parts = afterUser.split('/').filter(p => p && !p.includes('.html'));
+        loginPath = '../'.repeat(parts.length) + 'UI_User/login.html';
+      } else {
+        loginPath = '/frontend/User/UI_User/login.html';
+      }
+      console.log('🔍 [dashboard.js fallback] Redirecting to:', loginPath);
+      window.location.href = loginPath;
     }
   });
 }
@@ -2216,6 +2254,9 @@ async function initDashboard() {
   // Load and display avatar
   await loadHomeAvatar();
   setupAvatarUpdateListener();
+  
+  // Load budget alert (sẽ được load lại trong loadDashboardData, nhưng load sớm để hiển thị nhanh)
+  loadBudgetAlert();
 
   // Initialize date change detector
   await initDateChangeDetector();
@@ -2401,9 +2442,25 @@ async function loadHomeAvatar() {
 
     const user = JSON.parse(userData);
 
-    // Ưu tiên 1: Avatar từ localStorage (đã upload)
+    // Ưu tiên 1: Avatar từ localStorage theo user ID (mỗi account có avatar riêng)
+    if (user.id) {
+      const userAvatar = localStorage.getItem(`smartexpense_avatar_${user.id}`);
+      if (userAvatar) {
+        displayHomeAvatar(userAvatar);
+        // Đồng bộ với user object
+        user.avatar = userAvatar;
+        localStorage.setItem('smartexpense_user', JSON.stringify(user));
+        return;
+      }
+    }
+
+    // Ưu tiên 2: Avatar từ user.avatar (backward compatibility)
     if (user.avatar) {
       displayHomeAvatar(user.avatar);
+      // Lưu lại theo user ID nếu có
+      if (user.id) {
+        localStorage.setItem(`smartexpense_avatar_${user.id}`, user.avatar);
+      }
       return;
     }
 
@@ -2423,9 +2480,12 @@ async function loadHomeAvatar() {
               avatarImage.src = profile.avatar_url;
               avatarImage.style.display = 'block';
               avatarPlaceholder.style.display = 'none';
-              // Lưu vào localStorage để dùng lại
+              // Lưu vào localStorage theo user ID để mỗi account có avatar riêng
               user.avatar = profile.avatar_url;
               localStorage.setItem('smartexpense_user', JSON.stringify(user));
+              if (user.id) {
+                localStorage.setItem(`smartexpense_avatar_${user.id}`, profile.avatar_url);
+              }
               return;
             }
           }
@@ -2435,54 +2495,17 @@ async function loadHomeAvatar() {
       }
     }
 
-    // Nếu không có avatar nào, hiển thị avatar mặc định (chữ cái đầu)
-    displayDefaultAvatar(user);
+    // Nếu không có avatar nào (chưa upload), ẩn avatar
+    hideHomeAvatar();
 
   } catch (error) {
     console.warn('Lỗi khi tải avatar trên trang chủ:', error);
-    // Nếu có lỗi, hiển thị avatar mặc định
-    const userData = localStorage.getItem('smartexpense_user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        displayDefaultAvatar(user);
-      } catch (e) {
-        hideHomeAvatar();
-      }
-    } else {
-      hideHomeAvatar();
-    }
+    // Nếu có lỗi, ẩn avatar
+    hideHomeAvatar();
   }
 }
 
-// Hiển thị avatar mặc định (chữ cái đầu của tên) khi không có avatar
-function displayDefaultAvatar(user) {
-  const avatarImage = document.getElementById('homeAvatarImage');
-  const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
-  const avatarContainer = document.getElementById('homeAvatar');
-
-  // Hiển thị container avatar
-  if (avatarContainer) {
-    avatarContainer.style.display = '';
-  }
-
-  // Ẩn ảnh avatar
-  if (avatarImage) {
-    avatarImage.src = '';
-    avatarImage.style.display = 'none';
-  }
-
-  // Hiển thị placeholder với chữ cái đầu
-  if (avatarPlaceholder) {
-    // Lấy chữ cái đầu từ tên hoặc email
-    const nameOrEmail = (user?.name || user?.email || 'Q').trim();
-    const initial = nameOrEmail.charAt(0).toUpperCase();
-    avatarPlaceholder.textContent = initial || 'Q';
-    avatarPlaceholder.style.display = '';
-  }
-}
-
-// Hide avatar when user hasn't uploaded one (chỉ dùng khi không có user data)
+// Hide avatar when user hasn't uploaded one
 function hideHomeAvatar() {
   const avatarImage = document.getElementById('homeAvatarImage');
   const avatarPlaceholder = document.getElementById('homeAvatarPlaceholder');
@@ -2498,7 +2521,7 @@ function hideHomeAvatar() {
     avatarPlaceholder.style.display = 'none';
   }
 
-  // Ẩn toàn bộ container avatar khi không có user data
+  // Ẩn toàn bộ container avatar khi chưa có avatar
   if (avatarContainer) {
     avatarContainer.style.display = 'none';
   }
@@ -3041,386 +3064,16 @@ function drawIncomeTrendChart(container, data) {
   `;
 }
 
-// ========== BUDGET SET MODAL ==========
-function openBudgetSetModal() {
-  const modal = document.getElementById('budgetSetModal');
-  if (!modal) {
-    console.error('Budget set modal not found');
-    return;
-  }
-
-  loadBudgetSetData();
-  modal.classList.add('open');
-}
-
-function closeBudgetSetModal() {
-  const modal = document.getElementById('budgetSetModal');
-  if (modal) {
-    modal.classList.remove('open');
-  }
-}
-
-async function loadBudgetSetData() {
-  try {
-    const currentUser = checkAuth();
-    if (!currentUser) {
-      console.error('User not authenticated');
-      return;
-    }
-
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const currentMonthStr = `${currentYear}${String(currentMonth).padStart(2, '0')}`; // Format: YYYYMM
-
-    // Get current budget using correct API endpoint
-    let currentBudget = 0;
-    const budgetResult = await apiRequest(`/api/budgets/${currentMonthStr}`);
-    if (budgetResult && budgetResult.ok && budgetResult.data) {
-      currentBudget = budgetResult.data.amount || 0;
-    }
-
-    // Get expenses for last 3 months to calculate average
-    const expensesResult = await apiRequest('/api/expenses');
-    let suggestedBudget = 0;
-    if (expensesResult && expensesResult.ok) {
-      const rawExpenses = expensesResult.data.items || [];
-      const normalizedExpenses = normalizeExpensesArray(rawExpenses);
-
-      const last3MonthsExpenses = [];
-      for (let i = 2; i >= 0; i--) {
-        const date = new Date(currentYear, currentMonth - 1 - i, 1);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-
-        const monthExpenses = normalizedExpenses.filter(e =>
-          e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === monthStr
-        );
-
-        const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
-        last3MonthsExpenses.push(monthTotal);
-      }
-
-      if (last3MonthsExpenses.length > 0 && last3MonthsExpenses.some(v => v > 0)) {
-        const sum = last3MonthsExpenses.reduce((a, b) => a + b, 0);
-        const count = last3MonthsExpenses.filter(v => v > 0).length;
-        if (count > 0) {
-          suggestedBudget = Math.ceil((sum / count) * 1.1); // 10% buffer
-        }
-      }
-    }
-
-    // Update modal content
-    const currentBudgetInput = document.getElementById('budgetSetCurrent');
-    const suggestedBudgetElement = document.getElementById('budgetSetSuggested');
-    const newBudgetInput = document.getElementById('budgetSetNew');
-
-    if (currentBudgetInput) {
-      currentBudgetInput.textContent = formatCurrency(currentBudget);
-    }
-
-    if (suggestedBudgetElement) {
-      if (suggestedBudget > 0) {
-        suggestedBudgetElement.textContent = formatCurrency(suggestedBudget);
-        suggestedBudgetElement.parentElement.style.display = 'flex';
-        const useSuggestedBtn = document.getElementById('useSuggestedBudget');
-        if (useSuggestedBtn) {
-          useSuggestedBtn.style.display = 'inline-block';
-          useSuggestedBtn.onclick = () => {
-            if (newBudgetInput) {
-              newBudgetInput.value = suggestedBudget.toLocaleString('vi-VN');
-            }
-          };
-        }
-      } else {
-        suggestedBudgetElement.parentElement.style.display = 'none';
-        const useSuggestedBtn = document.getElementById('useSuggestedBudget');
-        if (useSuggestedBtn) {
-          useSuggestedBtn.style.display = 'none';
-        }
-      }
-    }
-
-    if (newBudgetInput) {
-      newBudgetInput.value = currentBudget > 0 ? currentBudget.toLocaleString('vi-VN') : '';
-    }
-
-  } catch (error) {
-    console.error('Error loading budget set data:', error);
-  }
-}
-
-async function saveBudget() {
-  try {
-    const newBudgetInput = document.getElementById('budgetSetNew');
-    if (!newBudgetInput) {
-      alert('Không tìm thấy input budget');
-      return;
-    }
-
-    const budgetValue = parseFloat(newBudgetInput.value.replace(/[^\d]/g, ''));
-    if (isNaN(budgetValue) || budgetValue <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ');
-      return;
-    }
-
-    const currentUser = checkAuth();
-    if (!currentUser) {
-      alert('Bạn chưa đăng nhập');
-      return;
-    }
-
-    // Lấy tháng hiện tại (định dạng: YYYYMM)
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const currentMonthStr = `${currentYear}${String(currentMonth).padStart(2, '0')}`;
-
-    // Cập nhật ngân sách sử dụng API endpoint
-    const result = await apiRequest(`/api/budgets/${currentMonthStr}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        amount: budgetValue
-      })
-    });
-
-    if (!result || !result.ok) {
-      const errorMsg = result?.data?.message || 'Lỗi khi lưu ngân sách';
-      throw new Error(errorMsg);
-    }
-
-    // Cập nhật localStorage
-    if (currentUser.user) {
-      currentUser.user.monthly_budget = budgetValue;
-      currentUser.user.balance = budgetValue;
-      localStorage.setItem('smartexpense_user', JSON.stringify(currentUser.user));
-      localStorage.setItem('monthly_budget', String(budgetValue));
-    }
-
-    // Đóng modal và tải lại dashboard
-    closeBudgetSetModal();
-    await reloadDashboardData();
-
-    // Hiển thị thông báo thành công
-    alert('Đã cập nhật ngân sách thành công!');
-
-  } catch (error) {
-    console.error('Lỗi khi lưu ngân sách:', error);
-    alert('Lỗi khi lưu ngân sách: ' + (error.message || 'Vui lòng thử lại'));
-  }
-}
-
-async function resetBudget() {
-  try {
-    // Xác nhận trước khi đặt lại
-    const confirmed = confirm('Bạn có chắc chắn muốn đặt lại ngân sách về 0?');
-    if (!confirmed) {
-      return;
-    }
-
-    const currentUser = checkAuth();
-    if (!currentUser) {
-      alert('Bạn chưa đăng nhập');
-      return;
-    }
-
-    // Lấy tháng hiện tại (định dạng: YYYYMM)
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const currentMonthStr = `${currentYear}${String(currentMonth).padStart(2, '0')}`;
-
-    // Cập nhật ngân sách về 0 sử dụng API endpoint
-    const result = await apiRequest(`/api/budgets/${currentMonthStr}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        amount: 0
-      })
-    });
-
-    if (!result || !result.ok) {
-      const errorMsg = result?.data?.message || 'Lỗi khi đặt lại ngân sách';
-      throw new Error(errorMsg);
-    }
-
-    // Cập nhật localStorage
-    if (currentUser.user) {
-      currentUser.user.monthly_budget = 0;
-      currentUser.user.balance = 0;
-      localStorage.setItem('smartexpense_user', JSON.stringify(currentUser.user));
-      localStorage.setItem('monthly_budget', '0');
-    }
-
-    // Đóng modal và tải lại dashboard
-    closeBudgetSetModal();
-    await reloadDashboardData();
-
-    // Hiển thị thông báo thành công
-    alert('Đã đặt lại ngân sách về 0 thành công!');
-
-  } catch (error) {
-    console.error('Lỗi khi đặt lại ngân sách:', error);
-    alert('Lỗi khi đặt lại ngân sách: ' + (error.message || 'Vui lòng thử lại'));
-  }
-}
-
-// ========== BUDGET WARNING ==========
-function checkBudgetWarning() {
-  try {
-    const monthlyBudgetElement = document.getElementById('monthlyBudget');
-    const monthlyExpenseElement = document.getElementById('monthlyExpense');
-    const budgetStatusElement = document.getElementById('budgetStatus');
-    const budgetProgressElement = document.getElementById('budgetProgress');
-
-    if (!monthlyBudgetElement || !monthlyExpenseElement) return;
-
-    const monthlyBudget = parseFloat(monthlyBudgetElement.textContent.replace(/[^\d]/g, '')) || 0;
-    const monthlyExpense = parseFloat(monthlyExpenseElement.textContent.replace(/[^\d]/g, '')) || 0;
-
-    if (monthlyBudget <= 0) return; // No budget set
-
-    const usagePercent = (monthlyExpense / monthlyBudget) * 100;
-    const remaining = monthlyBudget - monthlyExpense;
-
-    // Update progress bar color
-    if (budgetProgressElement) {
-      if (usagePercent >= 100) {
-        budgetProgressElement.style.background = '#ef4444'; // Red
-      } else if (usagePercent >= 80) {
-        budgetProgressElement.style.background = '#f59e0b'; // Orange
-      } else {
-        budgetProgressElement.style.background = '#60a5fa'; // Blue
-      }
-    }
-
-    // Show warning if budget is almost exhausted
-    if (usagePercent >= 90 && usagePercent < 100) {
-      const warningMessage = `⚠️ Cảnh báo: Bạn đã sử dụng ${usagePercent.toFixed(0)}% ngân sách. Còn lại ${formatCurrency(remaining)}.`;
-      console.warn(warningMessage);
-
-      // You can show a toast notification here if you have a toast system
-      // For now, we'll just update the status text
-      if (budgetStatusElement) {
-        budgetStatusElement.innerHTML = `<span style="color:#f59e0b">⚠️ ${usagePercent.toFixed(0)}% - Cảnh báo!</span>`;
-      }
-    } else if (usagePercent >= 100) {
-      if (budgetStatusElement) {
-        budgetStatusElement.innerHTML = `<span style="color:#ef4444">🚨 Vượt ngân sách ${formatCurrency(Math.abs(remaining))}</span>`;
-      }
-    }
-  } catch (error) {
-    console.error('Error checking budget warning:', error);
-  }
-}
-
-// ========== AUTO SET BUDGET FOR NEXT MONTH ==========
-async function autoSetBudgetForNextMonth() {
-  try {
-    const currentUser = checkAuth();
-    if (!currentUser) {
-      return;
-    }
-
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-
-    // Calculate next month (format: YYYYMM)
-    const nextMonthDate = new Date(currentYear, currentMonth, 1);
-    const nextYear = nextMonthDate.getFullYear();
-    const nextMonth = nextMonthDate.getMonth() + 1;
-    const nextMonthStr = `${nextYear}${String(nextMonth).padStart(2, '0')}`;
-
-    // Check if budget for next month already exists
-    const checkResult = await apiRequest(`/api/budgets/${nextMonthStr}`);
-    if (checkResult && checkResult.ok && checkResult.data && checkResult.data.amount > 0) {
-      console.log('Budget for next month already set');
-      return; // Already set
-    }
-
-    // Get current month budget
-    const currentMonthStr = `${currentYear}${String(currentMonth).padStart(2, '0')}`;
-    const currentResult = await apiRequest(`/api/budgets/${currentMonthStr}`);
-
-    let nextMonthBudget = 0;
-    if (currentResult && currentResult.ok && currentResult.data && currentResult.data.amount > 0) {
-      // Use current month budget as next month budget
-      nextMonthBudget = currentResult.data.amount;
-    } else {
-      // Try to get from user profile
-      if (currentUser.user && currentUser.user.monthly_budget) {
-        nextMonthBudget = currentUser.user.monthly_budget;
-      }
-    }
-
-    // If still no budget, calculate from average expenses
-    if (nextMonthBudget <= 0) {
-      const expensesResult = await apiRequest('/api/expenses');
-      if (expensesResult && expensesResult.ok) {
-        const rawExpenses = expensesResult.data.items || [];
-        const normalizedExpenses = normalizeExpensesArray(rawExpenses);
-        const last3MonthsExpenses = [];
-
-        for (let i = 2; i >= 0; i--) {
-          const date = new Date(currentYear, currentMonth - 1 - i, 1);
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-
-          const monthExpenses = normalizedExpenses.filter(e =>
-            e && e.type === 'expense' && (e.monthKey || extractVietnamMonthKey(e.date)) === monthStr
-          );
-
-          const monthTotal = monthExpenses.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
-          last3MonthsExpenses.push(monthTotal);
-        }
-
-        if (last3MonthsExpenses.length > 0 && last3MonthsExpenses.some(v => v > 0)) {
-          const sum = last3MonthsExpenses.reduce((a, b) => a + b, 0);
-          const count = last3MonthsExpenses.filter(v => v > 0).length;
-          if (count > 0) {
-            nextMonthBudget = Math.ceil((sum / count) * 1.1); // 10% buffer
-          }
-        }
-      }
-    }
-
-    // Set budget for next month if we have a value
-    if (nextMonthBudget > 0) {
-      const setResult = await apiRequest(`/api/budgets/${nextMonthStr}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          amount: nextMonthBudget
-        })
-      });
-
-      if (setResult && setResult.ok) {
-        console.log(`✅ Auto-set budget for ${nextMonthStr}: ${formatCurrency(nextMonthBudget)}`);
-      }
-    }
-
-  } catch (error) {
-    console.error('Error auto-setting budget for next month:', error);
-  }
-}
 
 // ========== INITIALIZE MODALS AND CLICK HANDLERS ==========
 function initIncomeAndBudgetModals() {
-  // Add click handlers to income and budget cards
+  // Add click handlers to income card
   const incomeCard = document.querySelector('.kpi .card:nth-child(3)'); // Third card (Thu tháng này)
-  const budgetCard = document.querySelector('.kpi .card:nth-child(4)'); // Fourth card (Ngân sách)
 
   if (incomeCard) {
     incomeCard.style.cursor = 'pointer';
     incomeCard.addEventListener('click', openIncomeDetailModal);
     incomeCard.title = 'Click để xem chi tiết thu nhập';
-  }
-
-  if (budgetCard) {
-    budgetCard.style.cursor = 'pointer';
-    budgetCard.addEventListener('click', openBudgetSetModal);
-    budgetCard.title = 'Click để đặt ngân sách';
   }
 
   // Initialize income detail modal
@@ -3438,63 +3091,12 @@ function initIncomeAndBudgetModals() {
     }
   }
 
-  // Initialize budget set modal
-  const budgetModal = document.getElementById('budgetSetModal');
-  if (budgetModal) {
-    budgetModal.addEventListener('click', function (e) {
-      if (e.target === budgetModal) {
-        closeBudgetSetModal();
-      }
-    });
-
-    const closeBudgetBtn = document.getElementById('closeBudgetSetModal');
-    if (closeBudgetBtn) {
-      closeBudgetBtn.addEventListener('click', closeBudgetSetModal);
-    }
-
-    const saveBudgetBtn = document.getElementById('saveBudgetBtn');
-    if (saveBudgetBtn) {
-      saveBudgetBtn.addEventListener('click', saveBudget);
-    }
-
-    const resetBudgetBtn = document.getElementById('resetBudgetBtn');
-    if (resetBudgetBtn) {
-      resetBudgetBtn.addEventListener('click', resetBudget);
-    }
-
-    // Format budget input
-    const budgetInput = document.getElementById('budgetSetNew');
-    if (budgetInput) {
-      budgetInput.addEventListener('input', function (e) {
-        let value = e.target.value.replace(/[^\d]/g, '');
-        if (value) {
-          value = parseInt(value).toLocaleString('vi-VN');
-        }
-        e.target.value = value;
-      });
-    }
-  }
-
   // Close modals on Escape key
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       closeIncomeDetailModal();
-      closeBudgetSetModal();
     }
   });
-
-  // Check budget warning after data loads
-  setTimeout(() => {
-    checkBudgetWarning();
-  }, 1000);
-
-  // Auto-set budget for next month (run once per day)
-  const lastAutoSetDate = localStorage.getItem('lastAutoSetBudgetDate');
-  const today = new Date().toDateString();
-  if (lastAutoSetDate !== today) {
-    autoSetBudgetForNextMonth();
-    localStorage.setItem('lastAutoSetBudgetDate', today);
-  }
 }
 
 // Initialize when DOM is loaded

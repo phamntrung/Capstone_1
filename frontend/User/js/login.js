@@ -15,68 +15,66 @@ if (typeof window.__REDIRECT_IN_PROGRESS === 'undefined') {
     window.__REDIRECT_IN_PROGRESS = false;
 }
 
-// Helper function to safely redirect (prevents multiple redirects)
-function safeRedirect(target) {
-    // Reset flag if it was set from a previous failed redirect
-    // This ensures redirect can happen even if previous redirect failed
-    if (window.__REDIRECT_IN_PROGRESS) {
-        console.warn('⚠️ Phát hiện redirect đang chờ, reset flag và thực hiện redirect mới');
-        window.__REDIRECT_IN_PROGRESS = false;
-    }
+// Helper function để lấy redirect URL dựa trên role của user
+function getRedirectUrlByUserRole(user) {
+    console.log('🔍 [login.js] getRedirectUrlByUserRole được gọi với user:', {
+        user: user,
+        hasRole: !!user?.role,
+        hasUserRole: !!user?.user_role,
+        role: user?.role,
+        user_role: user?.user_role,
+        userKeys: user ? Object.keys(user) : []
+    });
 
-    window.__REDIRECT_IN_PROGRESS = true;
-    console.log('🔄 Đang chuyển hướng đến:', target);
-
-    // Add timeout to reset flag if redirect doesn't happen (safety measure)
-    setTimeout(() => {
-        if (window.__REDIRECT_IN_PROGRESS) {
-            console.warn('⚠️ Redirect có thể đã thất bại, reset flag');
-            window.__REDIRECT_IN_PROGRESS = false;
-        }
-    }, 2000);
-
-    try {
-        // Use location.href for more reliable redirect
-        window.location.href = target;
-    } catch (e) {
-        console.error('Lỗi khi redirect:', e);
-        try {
-            window.location.replace(target);
-        } catch (e2) {
-            try {
-                window.location.assign(target);
-            } catch (e3) {
-                console.error('Không thể redirect, thử lại sau 100ms');
-                window.__REDIRECT_IN_PROGRESS = false;
-                setTimeout(() => safeRedirect(target), 100);
-            }
-        }
-    }
+    // Kiểm tra xem function getRedirectUrlByRole có sẵn không (từ admin-role-routing.js)
+    if (typeof window.getRedirectUrlByRole === 'function') {
+        const role = user?.role || user?.user_role || null;
+        console.log('🔍 [login.js] Role được trích xuất:', role);
+        const redirectUrl = window.getRedirectUrlByRole(role, user);
+        console.log('📍 [login.js] Xác định redirect URL dựa trên role:', { role, redirectUrl, userObject: user });
+        return redirectUrl;
+    }
+    // Fallback: nếu không có admin-role-routing.js, mặc định về trangchu.html
+    console.warn('⚠️ [login.js] admin-role-routing.js chưa được load, sử dụng trangchu.html mặc định');
+    return 'trangchu.html';
 }
 
-// Xác định trang đích dựa theo vai trò người dùng
-function getHomeUrlForUser(user, fallbackPath = 'trangchu.html') {
-    const profile = user || {};
+// Helper function to safely redirect (prevents multiple redirects)
+function safeRedirect(target) {
+    // Reset flag if it was set from a previous failed redirect
+    // This ensures redirect can happen even if previous redirect failed
+    if (window.__REDIRECT_IN_PROGRESS) {
+        console.warn('⚠️ Phát hiện redirect đang chờ, reset flag và thực hiện redirect mới');
+        window.__REDIRECT_IN_PROGRESS = false;
+    }
 
-    if (typeof window.getRedirectUrlByRole === 'function') {
-        try {
-            const target = window.getRedirectUrlByRole(profile.role, profile);
-            if (target) {
-                return target;
-            }
-        } catch (error) {
-            console.warn('⚠️ Không thể xác định URL theo vai trò, dùng fallback mặc định.', error);
+    window.__REDIRECT_IN_PROGRESS = true;
+    console.log('🔄 Đang chuyển hướng đến:', target);
+
+    // Add timeout to reset flag if redirect doesn't happen (safety measure)
+    setTimeout(() => {
+        if (window.__REDIRECT_IN_PROGRESS) {
+            console.warn('⚠️ Redirect có thể đã thất bại, reset flag');
+            window.__REDIRECT_IN_PROGRESS = false;
         }
-    }
-
-    if (window.AdminRoleRouting && typeof window.AdminRoleRouting.resolvePath === 'function') {
-        return window.AdminRoleRouting.resolvePath(fallbackPath);
-    }
+    }, 2000);
 
     try {
-        return new URL(fallbackPath, window.location.href).href;
-    } catch (error) {
-        return fallbackPath;
+        // Use location.href for more reliable redirect
+        window.location.href = target;
+    } catch (e) {
+        console.error('Lỗi khi redirect:', e);
+        try {
+            window.location.replace(target);
+        } catch (e2) {
+            try {
+                window.location.assign(target);
+            } catch (e3) {
+                console.error('Không thể redirect, thử lại sau 100ms');
+                window.__REDIRECT_IN_PROGRESS = false;
+                setTimeout(() => safeRedirect(target), 100);
+            }
+        }
     }
 }
 
@@ -149,11 +147,18 @@ async function persistSession(user, token) {
         }
     }
 
-    // Avatar sẽ được load từ:
-    // 1. user.avatar trong localStorage (từ smartexpense_user) - đã lưu theo user
-    // 2. avatar_url từ API (từ database) - đã lưu theo user trong DB
-    // 3. Avatar mặc định (chữ cái đầu của tên) nếu không có
-    // KHÔNG restore từ key chung smartexpense_avatar vì nó sẽ làm avatar của user này hiển thị cho user khác
+    // Restore avatar from user-specific key (mỗi account có avatar riêng)
+    try {
+        if (userData.id) {
+            const savedAvatar = localStorage.getItem(`smartexpense_avatar_${userData.id}`);
+            if (savedAvatar) {
+                userData.avatar = savedAvatar;
+                console.log(`✅ Đã khôi phục avatar cho user ID: ${userData.id}`);
+            }
+        }
+    } catch (e) {
+        console.warn('Lỗi khi khôi phục avatar:', e);
+    }
 
     // Ensure profile is saved in database (upsert) so DB and localStorage stay in sync
     if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
@@ -213,8 +218,8 @@ async function persistSession(user, token) {
     } catch (e) {}
 
     // Load data from API after login (ensure data is fresh from server)
-    // Note: Dữ liệu sẽ được tải ở trang đích (tùy theo role), tránh chặn luồng redirect hiện tại
-    // Việc tải song song giúp người dùng cảm nhận tốc độ nhanh hơn
+    // Note: This will be loaded on the next page (trangchu.html), so we don't delay redirect
+    // The data loading will happen in parallel with page navigation for better performance
     if (typeof window !== 'undefined' && window.dataManager && typeof window.dataManager.loadFromAPI === 'function') {
         console.log('🔄 Dữ liệu sẽ được tải trên trang chủ để không làm chậm redirect...');
         // Don't delay redirect - let the next page load the data
@@ -274,17 +279,18 @@ async function handleLogin(event) {
     }
 
     try {
-        if (FRONTEND_ONLY) {
-            const mockUser = { email, name: email.split('@')[0], role: 'user' };
-            const mockToken = 'demo-token';
-            persistSession(mockUser, mockToken);
-            console.log('✅ Đã lưu session (frontend-only), chuẩn bị redirect...');
-            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${mockUser.name}`);
-            const targetUrl = getHomeUrlForUser(mockUser);
-            console.log('🔄 Đang thực hiện redirect (frontend-only) đến:', targetUrl);
-            safeRedirect(targetUrl);
-            return;
-        }
+        if (FRONTEND_ONLY) {
+            const mockUser = { email, name: email.split('@')[0], role: 'user' };
+            const mockToken = 'demo-token';
+            persistSession(mockUser, mockToken);
+            console.log('✅ Đã lưu session (frontend-only), chuẩn bị redirect...');
+            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${mockUser.name}`);
+            // Redirect immediately without delay - kiểm tra role để redirect đúng trang
+            const redirectUrl = getRedirectUrlByUserRole(mockUser);
+            console.log('🔄 Đang thực hiện redirect (frontend-only) đến:', redirectUrl);
+            safeRedirect(redirectUrl);
+            return;
+        }
 
         // Try to use apiRequest from utils.js if available, otherwise use fetch
         let result;
@@ -364,28 +370,29 @@ async function handleLogin(event) {
                 return;
             }
 
-            if (!user || !user.id) {
-                console.error('Dữ liệu người dùng không hợp lệ:', user);
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Đăng nhập';
-                }
-                alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
-                return;
-            }
+            if (!user || !user.id) {
+                console.error('Dữ liệu người dùng không hợp lệ:', user);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Đăng nhập';
+                }
+                alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
+                return;
+            }
 
-            console.log('Đăng nhập thành công, user từ database:', user.email);
-            await persistSession(user, token);
-            console.log('✅ Đã lưu session, chuẩn bị redirect...');
-            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
+            console.log('Đăng nhập thành công, user từ database:', user.email);
+            await persistSession(user, token);
+            console.log('✅ Đã lưu session, chuẩn bị redirect...');
+            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
 
-            // Redirect immediately without delay
-            isRedirecting = true; // Mark that redirect is starting
-            const redirectUrl = getHomeUrlForUser(user);
-            console.log('🔄 Bắt đầu redirect, đích đến:', redirectUrl);
+            // Redirect immediately without delay - kiểm tra role để redirect đúng trang
+            isRedirecting = true; // Mark that redirect is starting
+            const redirectUrl = getRedirectUrlByUserRole(user);
+            console.log('🔄 Bắt đầu redirect đến:', redirectUrl);
+            // Redirect immediately for better performance
             safeRedirect(redirectUrl);
-        } else {
-            // Fallback to direct fetch if apiRequest is not available
+        } else {
+            // Fallback to direct fetch if apiRequest is not available
             console.log('Đang sử dụng fetch trực tiếp để đăng nhập...');
             const res = await fetch(`${getApiBase()}/api/auth/login`, {
                 method: 'POST',
@@ -453,31 +460,32 @@ async function handleLogin(event) {
                 return;
             }
 
-            if (!user || !user.id) {
-                console.error('Dữ liệu người dùng không hợp lệ:', user);
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Đăng nhập';
-                }
-                alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
-                return;
-            }
+            if (!user || !user.id) {
+                console.error('Dữ liệu người dùng không hợp lệ:', user);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Đăng nhập';
+                }
+                alert('Thông tin người dùng không hợp lệ. Vui lòng thử lại.');
+                return;
+            }
 
-            console.log('Đăng nhập thành công, user từ database:', user.email);
-            await persistSession(user, token);
-            console.log('✅ Đã lưu session, chuẩn bị redirect...');
-            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
+            console.log('Đăng nhập thành công, user từ database:', user.email);
+            await persistSession(user, token);
+            console.log('✅ Đã lưu session, chuẩn bị redirect...');
+            showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
 
-            // Redirect immediately without delay
-            isRedirecting = true; // Mark that redirect is starting
-            const redirectUrl = getHomeUrlForUser(user);
-            console.log('🔄 Bắt đầu redirect, đích đến:', redirectUrl);
+            // Redirect immediately without delay - kiểm tra role để redirect đúng trang
+            isRedirecting = true; // Mark that redirect is starting
+            const redirectUrl = getRedirectUrlByUserRole(user);
+            console.log('🔄 Bắt đầu redirect đến:', redirectUrl);
+            // Redirect immediately for better performance
             safeRedirect(redirectUrl);
-        }
-    } catch (error) {
-        console.error('Lỗi đăng nhập:', error);
-        alert('Đã xảy ra lỗi. Vui lòng thử lại.');
-    } finally {
+        }
+    } catch (error) {
+        console.error('Lỗi đăng nhập:', error);
+        alert('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
         // Only reset button if not redirecting (to avoid race condition)
         if (submitBtn && !isRedirecting) {
             submitBtn.disabled = false;
@@ -609,23 +617,33 @@ function showSuccessMessage(message) {
 
 // Check if already logged in - với verify từ server để tránh vòng lặp
 async function checkExistingLogin() {
-    // Tránh check nhiều lần cùng lúc
-    if (window.__CHECKING_EXISTING_LOGIN) {
-        console.log('⏭️ Đang kiểm tra login, bỏ qua request mới');
-        return;
-    }
+    // Tránh check nhiều lần cùng lúc
+    if (window.__CHECKING_EXISTING_LOGIN) {
+        console.log('⏭️ Đang kiểm tra login, bỏ qua request mới');
+        return;
+    }
 
-    window.__CHECKING_EXISTING_LOGIN = true;
+    // QUAN TRỌNG: Kiểm tra flag logout - nếu đang logout thì bỏ qua check
+    const isLoggingOut = localStorage.getItem('smartexpense_logging_out') === 'true';
+    if (isLoggingOut) {
+        console.log('⏭️ [checkExistingLogin] Đang trong quá trình logout, bỏ qua check và xóa flag');
+        // Xóa flag sau khi đã redirect về login
+        localStorage.removeItem('smartexpense_logging_out');
+        window.__CHECKING_EXISTING_LOGIN = false;
+        return;
+    }
 
-    try {
-        const token = localStorage.getItem('smartexpense_token');
-        const user = localStorage.getItem('smartexpense_user');
+    window.__CHECKING_EXISTING_LOGIN = true;
 
-        // Nếu không có cả token và user, không làm gì
-        if (!token && !user) {
-            window.__CHECKING_EXISTING_LOGIN = false;
-            return;
-        }
+    try {
+        const token = localStorage.getItem('smartexpense_token');
+        const user = localStorage.getItem('smartexpense_user');
+
+        // Nếu không có cả token và user, không làm gì
+        if (!token && !user) {
+            window.__CHECKING_EXISTING_LOGIN = false;
+            return;
+        }
 
         // Kiểm tra xem có đang ở trang login không
         const isLoginPage = window.location.pathname.includes('login.html') ||
@@ -663,9 +681,10 @@ async function checkExistingLogin() {
                         return;
                     }
 
-                    const targetUrl = getHomeUrlForUser(userData);
-                    console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến:', targetUrl);
-                    safeRedirect(targetUrl);
+                  // Kiểm tra role để redirect đúng trang
+                  const redirectUrl = getRedirectUrlByUserRole(userData);
+                  console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến:', redirectUrl);
+                  safeRedirect(redirectUrl);
                 } else {
                     // Session không hợp lệ, xóa localStorage
                     console.warn('⚠️ Session không hợp lệ, xóa localStorage');
@@ -683,10 +702,11 @@ async function checkExistingLogin() {
             if (token && user) {
                 try {
                     const userData = JSON.parse(user);
-                    console.log('⚠️ apiRequest chưa sẵn sàng, sử dụng fallback check');
-                    const targetUrl = getHomeUrlForUser(userData);
-                    console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến:', targetUrl);
-                    safeRedirect(targetUrl);
+                  console.log('⚠️ apiRequest chưa sẵn sàng, sử dụng fallback check');
+                  // Kiểm tra role để redirect đúng trang
+                  const redirectUrl = getRedirectUrlByUserRole(userData);
+                  console.log('🔄 Đang chuyển hướng người dùng đã xác thực đến:', redirectUrl);
+                  safeRedirect(redirectUrl);
                 } catch (error) {
                     console.error('Dữ liệu người dùng không hợp lệ, đang xóa localStorage');
                     localStorage.removeItem('smartexpense_user');
@@ -1056,17 +1076,17 @@ if (typeof window.onGoogleCredential === 'undefined') {
                         console.warn('Không thể hiển thị thông báo thành công:', msgError);
                     }
 
-                    const targetUrl = getHomeUrlForUser(mockUser);
-                    console.log('🔄 Chuẩn bị chuyển hướng (frontend-only) đến:', targetUrl);
-                    console.log('   Current location:', window.location.href);
-                    console.log('   Target:', targetUrl);
+                  // Kiểm tra role để redirect đúng trang
+                  const redirectUrl = getRedirectUrlByUserRole(mockUser);
+                  console.log('🔄 Chuẩn bị chuyển hướng đến:', redirectUrl);
+                  console.log('   Current location:', window.location.href);
 
-                    // Reset flag before redirect
-                    window.__GOOGLE_LOGIN_IN_PROGRESS = false;
+                  // Reset flag before redirect
+                  window.__GOOGLE_LOGIN_IN_PROGRESS = false;
 
-                    // Redirect immediately without delay
-                    console.log('🔄 Đang thực hiện redirect (frontend-only Google)...');
-                    safeRedirect(targetUrl);
+                  // Redirect immediately without delay
+                  console.log('🔄 Đang thực hiện redirect (frontend-only Google)...');
+                  safeRedirect(redirectUrl);
                     return; // Return after setting up redirect
                 } catch (e) {
                     console.error('❌ Giải mã thông tin xác thực Google thất bại ở chế độ FRONTEND_ONLY:', e);
@@ -1129,17 +1149,17 @@ if (typeof window.onGoogleCredential === 'undefined') {
                     console.warn('Không thể hiển thị thông báo thành công:', msgError);
                 }
 
-                // Reset flag before redirect
-                window.__GOOGLE_LOGIN_IN_PROGRESS = false;
+                // Reset flag before redirect
+                window.__GOOGLE_LOGIN_IN_PROGRESS = false;
 
-                // Redirect immediately after loading full profile
-                const targetUrl = getHomeUrlForUser(user);
-                console.log('🔄 Chuẩn bị chuyển hướng (apiRequest mode) đến:', targetUrl);
+                // Redirect immediately after loading full profile - kiểm tra role để redirect đúng trang
+                const redirectUrl = getRedirectUrlByUserRole(user);
+                console.log('🔄 Chuẩn bị chuyển hướng đến:', redirectUrl, '(apiRequest mode)');
                 console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
 
-                // Redirect immediately for better performance
+                // Redirect immediately for better performance
                 console.log('🔄 Đang thực hiện redirect Google login...');
-                safeRedirect(targetUrl);
+                safeRedirect(redirectUrl);
             } else {
                 // Fallback to direct fetch if apiRequest is not available
                 console.log('Đang gửi thông tin xác thực Google đến backend:', `${getApiBase()}/api/auth/google`);
@@ -1185,17 +1205,17 @@ if (typeof window.onGoogleCredential === 'undefined') {
                     console.warn('Không thể hiển thị thông báo thành công:', msgError);
                 }
 
-                // Reset flag before redirect
-                window.__GOOGLE_LOGIN_IN_PROGRESS = false;
+                // Reset flag before redirect
+                window.__GOOGLE_LOGIN_IN_PROGRESS = false;
 
-                // Redirect immediately after loading full profile
-                const targetUrl = getHomeUrlForUser(user);
-                console.log('🔄 Chuẩn bị chuyển hướng (fallback fetch mode) đến:', targetUrl);
+                // Redirect immediately after loading full profile - kiểm tra role để redirect đúng trang
+                const redirectUrl = getRedirectUrlByUserRole(user);
+                console.log('🔄 Chuẩn bị chuyển hướng đến:', redirectUrl, '(fallback fetch mode)...');
                 console.log('   Flag __GOOGLE_LOGIN_IN_PROGRESS đã được reset');
 
-                // Redirect immediately for better performance
+                // Redirect immediately for better performance
                 console.log('🔄 Đang thực hiện redirect Google login (fallback)...');
-                safeRedirect(targetUrl);
+                safeRedirect(redirectUrl);
             }
         } catch (error) {
             console.error('Lỗi đăng nhập Google:', error);
@@ -1394,15 +1414,14 @@ if (typeof window.onGoogleCredential === 'undefined') {
                 // Đóng modal
                 overlay.remove();
 
-                // Hiển thị thông báo thành công
-                showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
+                // Hiển thị thông báo thành công
+                showSuccessMessage(`Đăng nhập thành công! Chào mừng ${user.name || user.email}`);
 
-                // Redirect đến trang chủ
-                const targetUrl = getHomeUrlForUser(user);
-                setTimeout(() => {
-                    console.log('🔄 Đang chuyển hướng sau khi xác thực 2FA đến:', targetUrl);
-                    safeRedirect(targetUrl);
-                }, 500);
+                // Redirect đến trang chủ - kiểm tra role để redirect đúng trang
+                const redirectUrl = getRedirectUrlByUserRole(user);
+                setTimeout(() => {
+                    safeRedirect(redirectUrl);
+                }, 500);
             } else {
                 // Lỗi verify
                 const errorMsg = result.data?.message || 'Mã xác thực không đúng. Vui lòng thử lại.';

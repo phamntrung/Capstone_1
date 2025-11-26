@@ -15,6 +15,34 @@ try {
 const memoryExpenses = require('../data/expenses');
 const { usersByEmail } = require('../middleware/auth');
 
+// Cache trạng thái hỗ trợ cột is_blocked trong bảng users (để tránh query lặp lại)
+let hasUsersIsBlockedColumn = null;
+
+/**
+ * Kiểm tra xem bảng users có cột is_blocked hay không.
+ * Giúp tránh lỗi "Unknown column" khi môi trường chưa cập nhật schema.
+ * @returns {Promise<boolean>}
+ */
+async function ensureUsersIsBlockedColumn() {
+  if (!db || typeof db.query !== 'function') {
+    return false;
+  }
+  if (hasUsersIsBlockedColumn !== null) {
+    return hasUsersIsBlockedColumn;
+  }
+  try {
+    const rows = await db.query("SHOW COLUMNS FROM users LIKE 'is_blocked'");
+    hasUsersIsBlockedColumn = Array.isArray(rows) && rows.length > 0;
+    if (!hasUsersIsBlockedColumn) {
+      console.warn('⚠️ Bảng users chưa có cột is_blocked, sẽ fallback về giá trị mặc định.');
+    }
+  } catch (error) {
+    console.warn('⚠️ Không thể kiểm tra cột is_blocked trong bảng users:', error.message);
+    hasUsersIsBlockedColumn = false;
+  }
+  return hasUsersIsBlockedColumn;
+}
+
 /**
  * Chuẩn hoá role về dạng thường và bỏ khoảng trắng để so sánh.
  * @param {string} role
@@ -72,6 +100,7 @@ function stripVietnameseTone(value) {
     .toString()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
     .toLowerCase();
 }
 
@@ -141,13 +170,49 @@ function generateDateSeries(rangeDays) {
 }
 
 /**
+ * Tính phần trăm tăng trưởng giữa hai giá trị.
+ * @param {number} current - Giá trị hiện tại
+ * @param {number} previous - Giá trị trước đó
+ * @returns {number} Phần trăm tăng trưởng (có thể âm nếu giảm)
+ */
+function calculateGrowthPercentage(current, previous) {
+  if (!previous || previous === 0) {
+    // Nếu không có dữ liệu trước đó, trả về 0 (không có thay đổi)
+    return current > 0 ? 100 : 0;
+  }
+  const change = ((current - previous) / previous) * 100;
+  return Math.round(change * 10) / 10; // Làm tròn 1 chữ số thập phân
+}
+
+/**
  * Tổng hợp dữ liệu từ database MySQL.
  */
 async function collectOverviewFromDatabase(rangeDays) {
   const startSeries = generateDateSeries(rangeDays);
   const startDate = startSeries[0];
 
-  const [userRows, txRows, revenueRows, trendRows, categoryRows, recentRows] = await Promise.all([
+  // Tính toán ngày bắt đầu và kết thúc của tuần này và tuần trước
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Tuần này: từ thứ 2 tuần này đến hôm nay
+  const thisWeekStart = new Date(today);
+  const dayOfWeek = today.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Chuyển Chủ nhật thành 6
+  thisWeekStart.setDate(today.getDate() - daysFromMonday);
+  
+  // Tuần trước: 7 ngày trước tuần này
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+  const lastWeekEnd = new Date(thisWeekStart);
+  lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
+  
+  const thisWeekStartStr = formatDate(thisWeekStart);
+  const lastWeekStartStr = formatDate(lastWeekStart);
+  const lastWeekEndStr = formatDate(lastWeekEnd);
+
+  const [userRows, txRows, revenueRows, trendRows, categoryRows, recentRows, 
+         thisWeekUsers, lastWeekUsers, thisWeekTx, lastWeekTx] = await Promise.all([
     db.query('SELECT COUNT(*) AS total_users FROM users'),
     db.query('SELECT COUNT(*) AS total_transactions FROM expenses'),
     db.query(`SELECT
@@ -191,7 +256,35 @@ async function collectOverviewFromDatabase(rangeDays) {
        FROM expenses e
        LEFT JOIN users u ON u.id = e.user_id
        ORDER BY e.date DESC, e.created_at DESC
-       LIMIT 6`
+       LIMIT 500`
+    ),
+    // Query số users được tạo trong tuần này (từ thứ 2 đến hôm nay)
+    db.query(
+      `SELECT COUNT(*) AS count_users 
+       FROM users 
+       WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?`,
+      [thisWeekStartStr, formatDate(today)]
+    ),
+    // Query số users được tạo trong tuần trước (7 ngày trước tuần này)
+    db.query(
+      `SELECT COUNT(*) AS count_users 
+       FROM users 
+       WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?`,
+      [lastWeekStartStr, lastWeekEndStr]
+    ),
+    // Query số transactions trong tuần này
+    db.query(
+      `SELECT COUNT(*) AS count_tx 
+       FROM expenses 
+       WHERE DATE(date) >= ? AND DATE(date) <= ?`,
+      [thisWeekStartStr, formatDate(today)]
+    ),
+    // Query số transactions trong tuần trước
+    db.query(
+      `SELECT COUNT(*) AS count_tx 
+       FROM expenses 
+       WHERE DATE(date) >= ? AND DATE(date) <= ?`,
+      [lastWeekStartStr, lastWeekEndStr]
     )
   ]);
 
@@ -200,6 +293,15 @@ async function collectOverviewFromDatabase(rangeDays) {
   const totalTransactions = Number(txRows?.[0]?.total_transactions || 0);
   const totalRevenue = Number(revenueRows?.[0]?.total_income || 0);
   const totalExpense = Math.abs(Number(revenueRows?.[0]?.total_spending || 0));
+
+  // ===== Tính toán phần trăm tăng trưởng (tuần này vs tuần trước) =====
+  const thisWeekUsersCount = Number(thisWeekUsers?.[0]?.count_users || 0);
+  const lastWeekUsersCount = Number(lastWeekUsers?.[0]?.count_users || 0);
+  const userGrowthPercentage = calculateGrowthPercentage(thisWeekUsersCount, lastWeekUsersCount);
+
+  const thisWeekTxCount = Number(thisWeekTx?.[0]?.count_tx || 0);
+  const lastWeekTxCount = Number(lastWeekTx?.[0]?.count_tx || 0);
+  const txGrowthPercentage = calculateGrowthPercentage(thisWeekTxCount, lastWeekTxCount);
 
   // ===== Trend (biểu đồ đường) =====
   const trendMap = new Map(startSeries.map((day) => [day, { amount: 0, count: 0 }]));
@@ -262,7 +364,10 @@ async function collectOverviewFromDatabase(rangeDays) {
       totalUsers,
       totalTransactions,
       totalRevenue,
-      totalExpense
+      totalExpense,
+      // Phần trăm tăng trưởng tuần này so với tuần trước
+      userGrowthPercentage,
+      txGrowthPercentage
     },
     trend: {
       range: rangeDays,
@@ -284,6 +389,56 @@ function collectOverviewFromMemory(rangeDays) {
   const memoryUsers = Array.from(usersByEmail.values());
   const expenses = Array.isArray(memoryExpenses) ? memoryExpenses : [];
 
+  // Tính toán ngày bắt đầu và kết thúc của tuần này và tuần trước
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Tuần này: từ thứ 2 tuần này đến hôm nay
+  const thisWeekStart = new Date(today);
+  const dayOfWeek = today.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  thisWeekStart.setDate(today.getDate() - daysFromMonday);
+  
+  // Tuần trước: 7 ngày trước tuần này
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+  const lastWeekEnd = new Date(thisWeekStart);
+  lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
+
+  // Đếm users và transactions trong tuần này và tuần trước
+  let thisWeekUsersCount = 0;
+  let lastWeekUsersCount = 0;
+  let thisWeekTxCount = 0;
+  let lastWeekTxCount = 0;
+
+  memoryUsers.forEach((user) => {
+    const userDate = user.createdAt ? new Date(user.createdAt) : null;
+    if (userDate && !Number.isNaN(userDate.getTime())) {
+      const userDateStr = formatDate(userDate);
+      if (userDateStr >= formatDate(thisWeekStart) && userDateStr <= formatDate(today)) {
+        thisWeekUsersCount += 1;
+      } else if (userDateStr >= formatDate(lastWeekStart) && userDateStr <= formatDate(lastWeekEnd)) {
+        lastWeekUsersCount += 1;
+      }
+    }
+  });
+
+  expenses.forEach((expense) => {
+    const expenseDate = expense.date ? new Date(expense.date) : null;
+    if (expenseDate && !Number.isNaN(expenseDate.getTime())) {
+      const expenseDateStr = formatDate(expenseDate);
+      if (expenseDateStr >= formatDate(thisWeekStart) && expenseDateStr <= formatDate(today)) {
+        thisWeekTxCount += 1;
+      } else if (expenseDateStr >= formatDate(lastWeekStart) && expenseDateStr <= formatDate(lastWeekEnd)) {
+        lastWeekTxCount += 1;
+      }
+    }
+  });
+
+  // Tính phần trăm tăng trưởng
+  const userGrowthPercentage = calculateGrowthPercentage(thisWeekUsersCount, lastWeekUsersCount);
+  const txGrowthPercentage = calculateGrowthPercentage(thisWeekTxCount, lastWeekTxCount);
+
   const metrics = {
     totalUsers: memoryUsers.length,
     totalTransactions: expenses.length,
@@ -292,7 +447,10 @@ function collectOverviewFromMemory(rangeDays) {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0),
     totalExpense: expenses
       .filter((item) => Number(item.amount || 0) < 0)
-      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0)
+      .reduce((sum, item) => sum + Math.abs(Number(item.amount || 0)), 0),
+    // Phần trăm tăng trưởng tuần này so với tuần trước
+    userGrowthPercentage,
+    txGrowthPercentage
   };
 
   const labels = generateDateSeries(rangeDays);
@@ -306,7 +464,7 @@ function collectOverviewFromMemory(rangeDays) {
   ];
 
   const recentTransactions = expenses
-    .slice(-6)
+    .slice(-500)
     .reverse()
     .map((item, index) => ({
       id: item.id || index + 1,
@@ -357,6 +515,20 @@ router.get('/overview', authRequired, ensureAdmin, async (req, res) => {
       ? await collectOverviewFromDatabase(rangeDays)
       : collectOverviewFromMemory(rangeDays);
 
+    // Debug: log cấu trúc overview trước khi trả về
+    console.log('📊 [API /overview] Overview structure:', {
+      hasOverview: !!overview,
+      overviewKeys: overview ? Object.keys(overview) : [],
+      hasMetrics: !!overview?.metrics,
+      metricsType: typeof overview?.metrics
+    });
+    
+    // Debug: log dữ liệu metrics trước khi trả về
+    console.log('📊 [API /overview] Metrics data:', overview.metrics);
+    console.log('📊 [API /overview] Metrics keys:', overview.metrics ? Object.keys(overview.metrics) : []);
+    console.log('📊 [API /overview] userGrowthPercentage:', overview.metrics?.userGrowthPercentage);
+    console.log('📊 [API /overview] txGrowthPercentage:', overview.metrics?.txGrowthPercentage);
+
     res.json({
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -405,16 +577,25 @@ router.get('/users', authRequired, ensureAdmin, async (req, res) => {
         // Lấy từ database
         let userRows, txCountRows;
         try {
+          const supportsUserBlockedColumn = await ensureUsersIsBlockedColumn();
+          const baseUserColumns = [
+            'u.id',
+            'u.name',
+            'u.email',
+            'u.role',
+            'u.avatar_url',
+            "DATE_FORMAT(u.created_at, '%Y-%m-%d') AS joined",
+            'u.email_verified'
+          ];
+          if (supportsUserBlockedColumn) {
+            baseUserColumns.push('u.is_blocked');
+          } else {
+            baseUserColumns.push('0 AS is_blocked');
+          }
+
           userRows = await db.query(`
             SELECT 
-              u.id,
-              u.name,
-              u.email,
-              u.role,
-              u.avatar_url,
-              DATE_FORMAT(u.created_at, '%Y-%m-%d') AS joined,
-              u.email_verified,
-              u.is_blocked
+              ${baseUserColumns.join(',\n              ')}
             FROM users u
             ORDER BY u.created_at DESC
           `);

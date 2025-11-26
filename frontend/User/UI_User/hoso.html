@@ -51,7 +51,6 @@
   .avatar-big:hover .avatar-upload-btn{opacity:1}
   .profile-name{font-size:22px;font-weight:800;margin:0}
   .email{color:var(--muted);margin-top:2px}
-  .oauth{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:var(--card);font-weight:700;color:var(--text)}
 
   .card h3{margin:0 0 10px;font-size:18px}
   table{width:100%;border-collapse:collapse}
@@ -145,7 +144,6 @@
     <nav class="nav">
       <a href="trangchu.html"><span class="i">🏠</span> <span data-i18n="nav.overview">Tổng quan</span></a>
       <a href="danhsachchitieu.html"><span class="i">🧾</span> <span data-i18n="nav.list">Danh sách chi tiêu</span></a>
-      <a href="lichsuchitieu.html"><span class="i">🕘</span> <span data-i18n="nav.history">Lịch sử chi tiêu</span></a>
       <a href="lenlichchitieu.html"><span class="i">📅</span> <span data-i18n="nav.schedule">Lên lịch chi tiêu</span></a>
       <a href="loaichitieu.html"><span class="i">🏷️</span> <span data-i18n="nav.types">Loại chi tiêu</span></a>
       <a href="baocao.html"><span class="i">📊</span> <span data-i18n="nav.report">Báo cáo</span></a>
@@ -170,7 +168,6 @@
               <h2 class="profile-name" id="fullNameValue">Quỳnh Như Nguyễn</h2>
               <div class="email" id="emailValue">quynhnhu6280@gmail.com</div>
               <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                <span class="oauth" id="googleSignInBtn">🔗 <span data-i18n="profile.oauth">Đăng nhập qua Google</span></span>
                 <button id="btnRemoveAvatar" class="btn-primary" style="background:var(--red);display:none;height:36px;padding:0 14px;font-size:13px">Xóa ảnh</button>
               </div>
               <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Nhấp vào ảnh đại diện để tải lên ảnh mới. Ảnh sẽ được hiển thị trên trang chủ.</p>
@@ -209,7 +206,7 @@
         <div class="row">
           <div class="label req" data-i18n="form.currency">Đơn vị tiền tệ</div>
           <select id="currencySelect">
-            <option>Vietnam</option><option>United States</option><option>Japan</option><option>Euro</option>
+            <option>Vietnam</option><option>United States</option>
           </select>
         </div>
         <div class="row">
@@ -224,14 +221,7 @@
           <div class="label" data-i18n="toggles.autoCategory">Bật tự động chọn loại chi tiêu</div>
           <label class="switch"><input id="autoCategoryToggle" type="checkbox" checked><span class="slider"></span></label>
         </div>
-        <div class="row" style="display:flex;align-items:center;justify-content:space-between">
-          <div class="label">
-            <span data-i18n="toggles.dailyReport">Báo cáo email hằng ngày</span>
-            <span class="help">ⓘ</span>
-          </div>
-          <label class="switch"><input id="dailyReportToggle" type="checkbox"><span class="slider"></span></label>
-        </div>
-        <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" disabled style="opacity:0.6;cursor:not-allowed">Lưu</button></div>
+        <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" onclick="if(typeof window.saveProfile === 'function'){window.saveProfile().catch(e=>{console.error('Save error:',e); alert('Lỗi khi lưu: '+ (e.message||'Vui lòng thử lại'));});} else {console.error('saveProfile function not found! Please wait for page to finish loading.'); alert('Vui lòng đợi trang tải xong rồi thử lại.');} return false;">Lưu</button></div>
       </div>
     </section>
   </main>
@@ -264,7 +254,7 @@
       console.warn('⚠️ saveProfile called but real function not ready yet. Retrying...');
       return new Promise((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 100; // 5 seconds (100 * 50ms)
+        const maxAttempts = 60; // Increased to 60 attempts (3 seconds)
         const checkInterval = setInterval(() => {
           attempts++;
           // Check if real function has replaced the stub
@@ -281,25 +271,13 @@
             console.log('window._saveProfileStub:', typeof window._saveProfileStub);
             console.log('Are they equal?', window.saveProfile === window._saveProfileStub);
             console.log('Document readyState:', document.readyState);
-            // Check if script exists and loaded
+            // Check if script exists
             const scripts = Array.from(document.querySelectorAll('script[src*="hoso.js"]'));
             console.log('hoso.js scripts found:', scripts.length);
             scripts.forEach((s, i) => {
-              console.log(`Script ${i}:`, {
-                src: s.src,
-                readyState: s.readyState,
-                complete: s.complete,
-                async: s.async,
-                defer: s.defer
-              });
+              console.log(`Script ${i}:`, s.src, 'loaded:', s.complete || s.readyState === 'complete');
             });
-            // Check for errors
-            if (window._hosoJsError) {
-              console.error('❌ hoso.js error:', window._hosoJsError);
-              reject(new Error('Lỗi khi tải script hoso.js: ' + window._hosoJsError.message));
-            } else {
-              reject(new Error('Vui lòng đợi trang tải xong rồi thử lại. Nếu vấn đề vẫn tiếp tục, vui lòng làm mới trang.'));
-            }
+            reject(new Error('Vui lòng đợi trang tải xong rồi thử lại.'));
           }
         }, 50); // Check every 50ms
       });
@@ -320,11 +298,9 @@
   const I18N = {
     vi:{
       "page.title":"SmartExpense — Hồ sơ",
-      "nav.overview":"Tổng quan","nav.list":"Danh sách chi tiêu","nav.history":"Lịch sử chi tiêu",
+      "nav.overview":"Tổng quan","nav.list":"Danh sách chi tiêu",
       "nav.schedule":"Lên lịch chi tiêu","nav.types":"Loại chi tiêu","nav.report":"Báo cáo",
       "nav.profile":"Hồ sơ","nav.settings":"Cài đặt","nav.logout":"Đăng xuất",
-
-      "profile.oauth":"Đăng nhập qua Google",
 
       "invoices.title":"Hóa đơn","invoices.date":"Ngày","invoices.desc":"Mô tả","invoices.credit":"Credit",
 
@@ -333,7 +309,6 @@
       "gender.female":"Nữ","gender.male":"Nam","gender.other":"Khác",
 
       "toggles.exclude":"Bật loại trừ chi tiêu","toggles.autoCategory":"Bật tự động chọn loại chi tiêu",
-      "toggles.dailyReport":"Báo cáo email hằng ngày",
 
       "btn.save":"Lưu","alert.saved":"Đã lưu hồ sơ.",
 
@@ -344,11 +319,9 @@
     },
     en:{
       "page.title":"SmartExpense — Profile",
-      "nav.overview":"Overview","nav.list":"Expense list","nav.history":"History",
+      "nav.overview":"Overview","nav.list":"Expense list",
       "nav.schedule":"Budget planner","nav.types":"Categories","nav.report":"Reports",
       "nav.profile":"Profile","nav.settings":"Settings","nav.logout":"Log out",
-
-      "profile.oauth":"Sign in with Google",
 
       "invoices.title":"Invoices","invoices.date":"Date","invoices.desc":"Description","invoices.credit":"Credit",
 
@@ -357,7 +330,6 @@
       "gender.female":"Female","gender.male":"Male","gender.other":"Other",
 
       "toggles.exclude":"Enable expense exclusion","toggles.autoCategory":"Enable auto category",
-      "toggles.dailyReport":"Daily email report",
 
       "btn.save":"Save","alert.saved":"Profile saved .",
 
@@ -415,7 +387,6 @@
       if(p.phone){ document.getElementById('phoneInput').value = p.phone; }
       document.getElementById('excludeToggle').checked = !!p.exclude_expense;
       document.getElementById('autoCategoryToggle').checked = p.auto_category !== false;
-      document.getElementById('dailyReportToggle').checked = !!p.daily_report;
     }catch(_){}
   }
 
@@ -424,34 +395,6 @@
   // Save button handler is now handled by hoso.js
   // This inline handler is kept for backward compatibility but will be overridden by hoso.js
   // The actual save logic is in js/hoso.js
-
-  /* ===== Google Sign-In (client-side) ===== */
-  (function initGoogleSignIn(){
-    const btn = document.getElementById('googleSignInBtn');
-    if(!btn) return;
-    btn.style.cursor = 'pointer';
-    btn.addEventListener('click', async ()=>{
-      // Lightweight fallback using prompt (nếu chưa cấu hình GIS). Người dùng có thể thay bằng Google Identity Services sau.
-      try{
-        const name = prompt('Nhập tên Google của bạn:');
-        const email = prompt('Nhập email Google của bạn:');
-        if(!email){ return; }
-        const fakeToken = 'google-token-' + Date.now();
-        const user = { name: name || email.split('@')[0], email };
-        localStorage.setItem('smartexpense_user', JSON.stringify(user));
-        localStorage.setItem('smartexpense_token', fakeToken);
-        // Đồng bộ hiển thị
-        document.getElementById('fullNameValue').textContent = user.name;
-        document.getElementById('emailValue').textContent = user.email;
-        // Lưu vào profile
-        const raw = localStorage.getItem('profile');
-        const p = raw ? JSON.parse(raw) : {};
-        p.name = user.name; p.email = user.email;
-        localStorage.setItem('profile', JSON.stringify(p));
-        alert('Đăng nhập Google thành công (demo)!');
-      }catch(e){ console.error(e); }
-    });
-  })();
 
   /* ===== Chatbox ===== */
   const chatToggle=document.getElementById('chatToggle');
@@ -484,63 +427,22 @@
   sendBtn.onclick=handleSend;
   chatInput.onkeydown=e=>{ if(e.key==='Enter') handleSend(); };
 </script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="../js/utils.js"></script>
   <script>
-  // Load hoso.js with correct path
-  (function() {
-    const script = document.createElement('script');
-    script.src = '../js/hoso.js?v=' + Date.now();
-    script.async = false; // Load synchronously to ensure it executes before page interaction
-    script.onerror = function() { 
-      console.error('❌ Error loading hoso.js:', this.src);
-      window._hosoJsError = new Error('Failed to load hoso.js from: ' + this.src);
-      // Enable button anyway with stub function as fallback
-      setTimeout(function() {
-        const saveBtn = document.getElementById('saveBtn');
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.style.opacity = '1';
-          saveBtn.style.cursor = 'pointer';
-          console.warn('⚠️ Save button enabled with stub function (script failed to load)');
-        }
-      }, 500);
-    };
-    script.onload = function() {
-      console.log('✅ hoso.js loaded successfully');
-      // Wait a bit for IIFE to execute
-      setTimeout(function() {
-        console.log('🔍 [hoso.html] After script load - window.saveProfile:', typeof window.saveProfile);
-        console.log('🔍 [hoso.html] isStub:', window.saveProfile === window._saveProfileStub);
-        console.log('🔍 [hoso.html] window._hosoJsError:', window._hosoJsError);
-        if (window.saveProfile === window._saveProfileStub) {
-          console.warn('⚠️ [hoso.html] Real saveProfile function not found after script load!');
-        } else {
-          console.log('✅ [hoso.html] Real saveProfile function is ready');
-          // Enable save button once function is ready
-          const saveBtn = document.getElementById('saveBtn');
-          if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.style.opacity = '1';
-            saveBtn.style.cursor = 'pointer';
-            console.log('✅ Save button enabled');
-          }
-        }
-      }, 300);
-    };
-    document.head.appendChild(script);
-    
-    // Fallback: Enable button after 3 seconds even if check fails
+  // Add timestamp to force reload
+  const script = document.createElement('script');
+  script.src = '../js/hoso.js?v=' + Date.now();
+  script.onerror = function() { console.error('❌ Error loading hoso.js:', this.src); };
+  script.onload = function() {
+    console.log('✅ hoso.js loaded successfully');
     setTimeout(function() {
-      const saveBtn = document.getElementById('saveBtn');
-      if (saveBtn && saveBtn.disabled) {
-        console.warn('⚠️ Fallback: Enabling save button after timeout');
-        saveBtn.disabled = false;
-        saveBtn.style.opacity = '1';
-        saveBtn.style.cursor = 'pointer';
-      }
-    }, 3000);
-  })();
+      console.log('🔍 [hoso.html] After script load - window.saveProfile:', typeof window.saveProfile, 'isStub:', window.saveProfile === window._saveProfileStub);
+      // Check if logs from hoso.js exist
+      console.log('🔍 [hoso.html] Checking for hoso.js logs...');
+      console.log('🔍 [hoso.html] window._hosoJsError:', window._hosoJsError);
+    }, 100);
+  };
+  document.head.appendChild(script);
   </script>
   <script>
   // Debug script loading

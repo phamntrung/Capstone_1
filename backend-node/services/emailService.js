@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 class EmailService {
   constructor() {
@@ -41,7 +42,9 @@ class EmailService {
 
   async sendEmail(to, subject, htmlContent, textContent) {
     if (!this.isConfigured || !this.transporter) {
-      throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in .env file.');
+      const error = new Error('Dịch vụ email chưa được cấu hình. Hãy thiết lập EMAIL_USER và EMAIL_PASS trong file .env của backend-node.');
+      error.code = 'EMAIL_NOT_CONFIGURED';
+      throw error;
     }
 
     const emailFrom = process.env.EMAIL_FROM || `SmartExpense <${process.env.EMAIL_USER}>`;
@@ -59,6 +62,9 @@ class EmailService {
       return info;
     } catch (error) {
       console.error(`❌ Failed to send email to ${to}:`, error.message);
+      if (!error.code) {
+        error.code = 'EMAIL_SEND_FAILED';
+      }
       throw error;
     }
   }
@@ -436,6 +442,211 @@ Email được gửi lúc: ${new Date().toLocaleString('vi-VN')}
     return await this.sendEmail(
       user.email,
       `📈 Tóm tắt tuần ${week} - SmartExpense`,
+      htmlContent,
+      textContent
+    );
+  }
+
+  /**
+   * Gửi báo cáo tổng quan (daily + monthly + category)
+   */
+  async sendSummaryReport(user, summary) {
+    if (!summary || typeof summary !== 'object') {
+      throw new Error('Thiếu dữ liệu báo cáo tổng quan');
+    }
+
+    const daily = Array.isArray(summary.daily) ? summary.daily.slice(0, 5) : [];
+    const monthly = Array.isArray(summary.monthly) ? summary.monthly.slice(0, 6) : [];
+    const categories = Array.isArray(summary.categories) ? summary.categories.slice(0, 4) : [];
+    const insights = summary.insights || {};
+
+    const currentMonth = insights.currentMonth || monthly[0] || { month: '', amount: 0, transactions: 0, budget: 0 };
+    const previousMonth = insights.previousMonth || monthly[1] || null;
+    const avgDaily = insights.avgDaily || 0;
+    const busiestDay = insights.busiestDay || (daily.length ? daily.reduce((top, item) => (item.amount > (top?.amount || 0) ? item : top), daily[0]) : null);
+    const generatedAt = insights.generatedAt
+      ? new Date(insights.generatedAt).toLocaleString('vi-VN')
+      : new Date().toLocaleString('vi-VN');
+
+    const momChange = previousMonth && previousMonth.amount > 0
+      ? Math.round(((currentMonth.amount - previousMonth.amount) / previousMonth.amount) * 100)
+      : null;
+
+    const budgetUsage = currentMonth.budget > 0
+      ? Math.min(999, Math.round((currentMonth.amount / currentMonth.budget) * 100))
+      : null;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Báo cáo tổng quan - SmartExpense</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f7fb; margin: 0; padding: 0; color: #0f172a; }
+          .container { max-width: 640px; margin: 0 auto; padding: 24px; }
+          .card { background: #ffffff; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+          .header { text-align: center; padding: 24px; border-bottom: 1px solid #e2e8f0; }
+          .logo { font-size: 24px; font-weight: 700; color: #2563eb; }
+          .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+          .metric { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; }
+          .metric-label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+          .metric-value { font-size: 22px; font-weight: 700; margin: 6px 0; }
+          .metric-sub { font-size: 13px; opacity: 0.8; }
+          .section-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #020617; }
+          .list { list-style: none; padding: 0; margin: 0; }
+          .list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+          .list-item:last-child { border-bottom: none; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+          th { background: #f1f5f9; font-weight: 600; color: #475569; }
+          .progress { background: #e2e8f0; border-radius: 999px; height: 8px; overflow: hidden; margin-top: 8px; }
+          .progress-fill { height: 100%; background: #22d3ee; }
+          .footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 24px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="card header">
+            <div class="logo">SmartExpense</div>
+            <h1 style="margin: 12px 0 4px 0;">Báo cáo tổng quan</h1>
+            <p style="margin: 0; color: #475569; font-size: 14px;">Được tạo lúc ${generatedAt}</p>
+          </div>
+
+          <div class="card" style="margin-top: 16px;">
+            <p>Xin chào <strong>${user.name || user.email}</strong> 👋</p>
+            <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+              Đây là bản tóm tắt nhanh về tình hình chi tiêu của bạn. Những số liệu bên dưới được tính dựa trên 10 ngày gần nhất và 6 tháng gần nhất trong hệ thống SmartExpense.
+            </p>
+          </div>
+
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Tháng hiện tại</div>
+              <div class="metric-value">${this.formatCurrency(currentMonth.amount || 0)}</div>
+              <div class="metric-sub">${currentMonth.transactions || 0} giao dịch • ${currentMonth.month || 'N/A'}</div>
+              ${budgetUsage !== null ? `
+                <div class="progress" style="margin-top: 12px;">
+                  <div class="progress-fill" style="width: ${Math.min(budgetUsage, 100)}%;"></div>
+                </div>
+                <div class="metric-sub" style="margin-top: 4px;">${budgetUsage}% ngân sách (${this.formatCurrency(currentMonth.budget || 0)})</div>
+              ` : '<div class="metric-sub" style="margin-top: 12px;">Chưa thiết lập ngân sách</div>'}
+            </div>
+            <div class="metric">
+              <div class="metric-label">Trung bình mỗi ngày</div>
+              <div class="metric-value">${this.formatCurrency(avgDaily || 0)}</div>
+              <div class="metric-sub">${daily.length} ngày gần nhất</div>
+              ${busiestDay ? `<div class="metric-sub" style="margin-top: 8px;">Ngày cao nhất: ${busiestDay.date} (${this.formatCurrency(busiestDay.amount)})</div>` : ''}
+            </div>
+            <div class="metric">
+              <div class="metric-label">So với tháng trước</div>
+              <div class="metric-value">${momChange !== null ? `${momChange > 0 ? '+' : ''}${momChange}%` : 'N/A'}</div>
+              <div class="metric-sub">${previousMonth ? `Tháng trước: ${this.formatCurrency(previousMonth.amount)}` : 'Chưa đủ dữ liệu'}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Top danh mục chi tiêu</div>
+            ${categories.length ? `
+              <ul class="list">
+                ${categories.map((cat, index) => `
+                  <li class="list-item">
+                    <span>${index + 1}. ${cat.name}</span>
+                    <span>${this.formatCurrency(cat.amount)} (${cat.percentage || 0}%)</span>
+                  </li>
+                `).join('')}
+              </ul>
+            ` : '<p style="font-size: 14px; color: #94a3b8;">Chưa có dữ liệu danh mục.</p>'}
+          </div>
+
+          <div class="card">
+            <div class="section-title">5 ngày gần nhất</div>
+            ${daily.length ? `
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ngày</th>
+                    <th>Giao dịch</th>
+                    <th>Tổng chi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${daily.map(day => `
+                    <tr>
+                      <td>${day.date}</td>
+                      <td>${day.transactions}</td>
+                      <td>${this.formatCurrency(day.amount)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : '<p style="font-size: 14px; color: #94a3b8;">Không có giao dịch nào trong 10 ngày gần đây.</p>'}
+          </div>
+
+          <div class="card">
+            <div class="section-title">Xu hướng 6 tháng</div>
+            ${monthly.length ? `
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tháng</th>
+                    <th>Giao dịch</th>
+                    <th>Tổng chi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${monthly.map(month => `
+                    <tr>
+                      <td>${month.month}</td>
+                      <td>${month.transactions}</td>
+                      <td>${this.formatCurrency(month.amount)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : '<p style="font-size: 14px; color: #94a3b8;">Chưa có dữ liệu để vẽ xu hướng.</p>'}
+          </div>
+
+          <div class="footer">
+            <p>Email được gửi tự động từ SmartExpense.</p>
+            <p>Nếu bạn không muốn nhận email này nữa, hãy tắt tùy chọn trong phần Cài đặt.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+BÁO CÁO TỔNG QUAN - SMARTEXPENSE
+
+Xin chào ${user.name || user.email}!
+
+Tháng hiện tại (${currentMonth.month || 'N/A'}):
+- Tổng chi: ${this.formatCurrency(currentMonth.amount || 0)}
+- Giao dịch: ${currentMonth.transactions || 0}
+${budgetUsage !== null ? `- Ngân sách: ${this.formatCurrency(currentMonth.budget || 0)} (${budgetUsage}%)` : '- Chưa thiết lập ngân sách'}
+
+So với tháng trước: ${momChange !== null ? `${momChange > 0 ? '+' : ''}${momChange}%` : 'Chưa đủ dữ liệu'}
+
+Chi trung bình 10 ngày gần nhất: ${this.formatCurrency(avgDaily || 0)}
+${busiestDay ? `Ngày cao nhất: ${busiestDay.date} (${this.formatCurrency(busiestDay.amount)})` : ''}
+
+Top danh mục:
+${categories.length ? categories.map((cat, index) => `${index + 1}. ${cat.name}: ${this.formatCurrency(cat.amount)} (${cat.percentage || 0}%)`).join('\n') : 'Chưa có dữ liệu danh mục'}
+
+5 ngày gần nhất:
+${daily.length ? daily.map(day => `${day.date} - ${day.transactions} giao dịch - ${this.formatCurrency(day.amount)}`).join('\n') : 'Không có giao dịch'}
+
+Xu hướng 6 tháng:
+${monthly.length ? monthly.map(month => `${month.month}: ${month.transactions} giao dịch - ${this.formatCurrency(month.amount)}`).join('\n') : 'Chưa có dữ liệu'}
+
+Email được tạo lúc: ${generatedAt}
+    `;
+
+    return await this.sendEmail(
+      user.email,
+      '📊 Báo cáo tổng quan chi tiêu - SmartExpense',
       htmlContent,
       textContent
     );

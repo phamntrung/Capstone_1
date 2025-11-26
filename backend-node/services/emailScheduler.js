@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const emailService = require('./emailService');
+const budgetAlertService = require('./budgetAlertService');
 
 class EmailScheduler {
   constructor() {
@@ -116,7 +117,7 @@ class EmailScheduler {
 
   async sendBudgetAlerts() {
     try {
-      const users = this.getUsersWithBudgetAlertsEnabled();
+      const users = await budgetAlertService.getUsersWithBudgetAlertsEnabled();
       
       if (users.length === 0) {
         console.log('⚠️ No users with budget alerts enabled');
@@ -125,22 +126,16 @@ class EmailScheduler {
 
       console.log(`⚠️ Checking budget alerts for ${users.length} users...`);
 
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
       for (const user of users) {
         try {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = now.getMonth() + 1;
-
-          const budgetData = this.generateBudgetAlertData(user.id, year, month);
+          // Sử dụng budgetAlertService để kiểm tra và gửi cảnh báo
+          await budgetAlertService.checkAndSendBudgetAlert(user.id, year, month);
           
-          if (budgetData && budgetData.percentage >= 80) {
-            await emailService.sendBudgetAlert(user, budgetData);
-            console.log(`✅ Budget alert sent to ${user.email} (${budgetData.percentage}%)`);
-          } else {
-            console.log(`ℹ️ No budget alert needed for ${user.email} (${budgetData?.percentage || 0}%)`);
-          }
-          
-          // Add delay between emails
+          // Add delay between checks
           await this.delay(1000);
         } catch (error) {
           console.error(`❌ Failed to check budget alert for ${user.email}:`, error.message);

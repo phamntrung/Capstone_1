@@ -27,16 +27,14 @@
   const I18N = {
     vi: {
       "page.title": "SmartExpense — Hồ sơ",
-      "nav.overview": "Trang chủ", "nav.list": "Danh sách chi tiêu", "nav.history": "Lịch sử chi tiêu",
+      "nav.overview": "Trang chủ", "nav.list": "Danh sách chi tiêu",
       "nav.schedule": "Lên lịch chi tiêu", "nav.types": "Loại chi tiêu", "nav.report": "Báo cáo",
       "nav.profile": "Hồ sơ", "nav.settings": "Cài đặt", "nav.logout": "Đăng xuất",
-      "profile.oauth": "Đăng nhập qua Google",
       "invoices.title": "Hóa đơn", "invoices.date": "Ngày", "invoices.desc": "Mô tả", "invoices.credit": "Credit",
       "form.fullName": "Họ & Tên", "form.gender": "Giới tính", "form.currency": "Đơn vị tiền tệ",
       "form.monthlyBalance": "Nhập số dư (tháng)", "form.phone": "Số điện thoại",
       "gender.female": "Nữ", "gender.male": "Nam", "gender.other": "Khác",
       "toggles.exclude": "Bật loại trừ chi tiêu", "toggles.autoCategory": "Bật tự động chọn loại chi tiêu",
-      "toggles.dailyReport": "Báo cáo email hằng ngày",
       "btn.save": "Lưu", "alert.saved": "Đã lưu hồ sơ thành công.",
       "chat.title": "Trợ lý thông minh", "chat.sub": "Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
       "chat.open": "Mở trợ lý", "ph.chat": "Viết tin nhắn…", "send.title": "Gửi",
@@ -45,16 +43,14 @@
     },
     en: {
       "page.title": "SmartExpense — Profile",
-      "nav.overview": "Home", "nav.list": "Expense list", "nav.history": "History",
+      "nav.overview": "Home", "nav.list": "Expense list",
       "nav.schedule": "Budget planner", "nav.types": "Categories", "nav.report": "Reports",
       "nav.profile": "Profile", "nav.settings": "Settings", "nav.logout": "Log out",
-      "profile.oauth": "Sign in with Google",
       "invoices.title": "Invoices", "invoices.date": "Date", "invoices.desc": "Description", "invoices.credit": "Credit",
       "form.fullName": "Full name", "form.gender": "Gender", "form.currency": "Currency",
       "form.monthlyBalance": "Monthly balance", "form.phone": "Phone number",
       "gender.female": "Female", "gender.male": "Male", "gender.other": "Other",
       "toggles.exclude": "Enable expense exclusion", "toggles.autoCategory": "Enable auto category",
-      "toggles.dailyReport": "Daily email report",
       "btn.save": "Save", "alert.saved": "Profile saved successfully.",
       "chat.title": "Smart assistant", "chat.sub": "Hi! 👋 Glad to help",
       "chat.open": "Open assistant", "ph.chat": "Type a message…", "send.title": "Send",
@@ -205,21 +201,17 @@
     if (!user.settings) return;
     const excludeToggle = document.getElementById('excludeToggle');
     const autoCategoryToggle = document.getElementById('autoCategoryToggle');
-    const dailyReportToggle = document.getElementById('dailyReportToggle');
 
     if (excludeToggle) excludeToggle.checked = !!user.settings.exclude_expense;
     if (autoCategoryToggle) autoCategoryToggle.checked = user.settings.auto_category !== false;
-    if (dailyReportToggle) dailyReportToggle.checked = !!user.settings.daily_report;
   }
 
   function loadSettingsFromProfile(profile) {
     const excludeToggle = document.getElementById('excludeToggle');
     const autoCategoryToggle = document.getElementById('autoCategoryToggle');
-    const dailyReportToggle = document.getElementById('dailyReportToggle');
 
     if (excludeToggle) excludeToggle.checked = !!profile.exclude_expense;
     if (autoCategoryToggle) autoCategoryToggle.checked = profile.auto_category !== false;
-    if (dailyReportToggle) dailyReportToggle.checked = !!profile.daily_report;
   }
 
   function updateAvatarInitial(nameOrEmail) {
@@ -257,7 +249,6 @@
       const phoneInput = document.getElementById('phoneInput');
       const emailValue = document.getElementById('emailValue');
       const autoCategoryToggle = document.getElementById('autoCategoryToggle');
-      const dailyReportToggle = document.getElementById('dailyReportToggle');
 
       // Validate required fields exist
       const missingFields = [];
@@ -352,7 +343,7 @@
         }
 
         // Update localStorage - đảm bảo cập nhật balance đúng
-        updateLocalStorageAfterSave(savedUser, profile, emailValue, null, autoCategoryToggle, dailyReportToggle);
+        updateLocalStorageAfterSave(savedUser, profile, emailValue, null, autoCategoryToggle);
 
         // Update balance on dashboard/home page
         const finalBalance = savedUser.balance !== undefined && savedUser.balance !== null ? savedUser.balance : profile.balance;
@@ -411,8 +402,7 @@
           monthly_budget: profile.balance,
           phone: profile.phone,
           exclude_expense: excludeToggle ? excludeToggle.checked : false,
-          auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true,
-          daily_report: dailyReportToggle ? dailyReportToggle.checked : false
+          auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true
         };
         localStorage.setItem('profile', JSON.stringify(legacyProfile));
         localStorage.setItem('monthly_budget', String(profile.balance));
@@ -459,11 +449,10 @@
    * @param {HTMLElement} emailValue - Node hiển thị email hiện tại (để ghi kèm vào localStorage/DataManager)
    * @param {HTMLInputElement} excludeToggle - Công tắc loại trừ chi tiêu (cài đặt)
    * @param {HTMLInputElement} autoCategoryToggle - Công tắc tự động phân loại (cài đặt)
-   * @param {HTMLInputElement} dailyReportToggle - Công tắc báo cáo hằng ngày (cài đặt)
    * @note Ưu tiên dùng balance từ backend; nếu thiếu thì dùng balance người dùng nhập từ form.
    *       Sau khi cập nhật localStorage, giá trị này sẽ được trang chủ (dashboard) đọc và hiển thị.
    */
-  function updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle, dailyReportToggle) {
+  function updateLocalStorageAfterSave(savedUser, profile, emailValue, excludeToggle, autoCategoryToggle) {
     const currentUser = getCurrentUser();
     if (!currentUser) {
       console.warn('⚠️ No current user found, cannot update localStorage');
@@ -490,8 +479,7 @@
     // Save settings
     const settings = {
       exclude_expense: excludeToggle ? excludeToggle.checked : false,
-      auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true,
-      daily_report: dailyReportToggle ? dailyReportToggle.checked : false
+      auto_category: autoCategoryToggle ? autoCategoryToggle.checked : true
     };
 
     const updatedUserWithSettings = {
@@ -648,61 +636,6 @@
     }, 3000);
   }
 
-
-  // ===== Google Sign-In (client-side) =====
-  function initGoogleSignIn() {
-    const btn = document.getElementById('googleSignInBtn');
-    if (!btn) return;
-    btn.style.cursor = 'pointer';
-    btn.addEventListener('click', async () => {
-      // Nếu đã có phiên, thông báo và cho phép đổi tài khoản
-      const hasToken = !!localStorage.getItem('smartexpense_token');
-      if (hasToken) {
-        if (confirm('Bạn đã đăng nhập. Bạn có muốn đổi tài khoản Google?')) {
-          window.location.href = 'login.html';
-        }
-        return;
-      }
-
-      // Lightweight fallback using prompt (nếu chưa cấu hình GIS)
-      try {
-        const name = prompt('Nhập tên Google của bạn:');
-        const email = prompt('Nhập email Google của bạn:');
-        if (!email) {
-          return;
-        }
-        const fakeToken = 'google-token-' + Date.now();
-        const user = { name: name || email.split('@')[0], email };
-        localStorage.setItem('smartexpense_user', JSON.stringify(user));
-        localStorage.setItem('smartexpense_token', fakeToken);
-        
-        // Đồng bộ hiển thị
-        const fullNameValue = document.getElementById('fullNameValue');
-        const emailValue = document.getElementById('emailValue');
-        if (fullNameValue) {
-          fullNameValue.textContent = user.name;
-        }
-        if (emailValue) {
-          emailValue.textContent = user.email;
-        }
-        
-        // Lưu vào profile
-        const raw = localStorage.getItem('profile');
-        const p = raw ? JSON.parse(raw) : {};
-        p.name = user.name;
-        p.email = user.email;
-        localStorage.setItem('profile', JSON.stringify(p));
-        
-        // Update avatar
-        updateAvatarInitial(user.name || user.email);
-        
-        alert('Đăng nhập Google thành công!');
-      } catch (e) {
-        console.error(e);
-      }
-    });
-  }
-
   // ===== Chatbox Functions =====
   function initChatbox() {
     const chatToggle = document.getElementById('chatToggle');
@@ -797,7 +730,22 @@
           localStorage.removeItem('smartexpense_user');
           localStorage.removeItem('smartexpense_token');
         } catch (_) { }
-        window.location.href = 'login.html';
+        // Tính toán đường dẫn login đúng
+        const currentPath = window.location.pathname;
+        let loginPath = 'login.html';
+        if (currentPath.includes('/User/UI_User/')) {
+          loginPath = 'login.html';
+        } else if (currentPath.includes('/User/js/')) {
+          loginPath = '../UI_User/login.html';
+        } else if (currentPath.includes('/User/')) {
+          const afterUser = currentPath.split('/User/')[1];
+          const parts = afterUser.split('/').filter(p => p && !p.includes('.html'));
+          loginPath = '../'.repeat(parts.length) + 'UI_User/login.html';
+        } else {
+          loginPath = '/frontend/User/UI_User/login.html';
+        }
+        console.log('🔍 [hoso.js fallback] Redirecting to:', loginPath);
+        window.location.href = loginPath;
       }
     });
   }
@@ -948,7 +896,7 @@
           
           // Read file as data URL
           const reader = new FileReader();
-          reader.onload = async function(e) {
+          reader.onload = function(e) {
             const imageDataUrl = e.target.result;
             
             // Save to localStorage
@@ -964,32 +912,6 @@
             
             // Update avatar on home page via storage event
             updateAvatarOnHomePage(imageDataUrl);
-            
-            // Lưu avatar vào database (avatar_url)
-            try {
-              if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
-                const profileResult = await window.apiRequest('/api/profile', {
-                  method: 'PUT',
-                  body: JSON.stringify({ avatar_url: imageDataUrl })
-                });
-                
-                if (profileResult && profileResult.ok) {
-                  console.log('✅ Avatar đã được lưu vào database');
-                  // Cập nhật localStorage với avatar_url từ server
-                  const userData = localStorage.getItem('smartexpense_user');
-                  if (userData) {
-                    const user = JSON.parse(userData);
-                    user.avatar = imageDataUrl;
-                    localStorage.setItem('smartexpense_user', JSON.stringify(user));
-                  }
-                } else {
-                  console.warn('⚠️ Không thể lưu avatar vào database:', profileResult);
-                }
-              }
-            } catch (error) {
-              console.warn('⚠️ Lỗi khi lưu avatar vào database:', error);
-              // Vẫn tiếp tục vì avatar đã được lưu vào localStorage
-            }
             
             console.log('✅ Avatar đã được tải lên và lưu');
           };
@@ -1035,8 +957,30 @@
       const userData = localStorage.getItem('smartexpense_user');
       if (userData) {
         const user = JSON.parse(userData);
+        
+        // Ưu tiên 1: Load avatar từ localStorage theo user ID (mỗi account có avatar riêng)
+        if (user.id) {
+          const userAvatar = localStorage.getItem(`smartexpense_avatar_${user.id}`);
+          if (userAvatar) {
+            displayAvatar(userAvatar);
+            // Đồng bộ với user object
+            user.avatar = userAvatar;
+            localStorage.setItem('smartexpense_user', JSON.stringify(user));
+            const btnRemoveAvatar = document.getElementById('btnRemoveAvatar');
+            if (btnRemoveAvatar) {
+              btnRemoveAvatar.style.display = 'inline-flex';
+            }
+            return;
+          }
+        }
+        
+        // Ưu tiên 2: Load từ user.avatar (backward compatibility)
         if (user.avatar) {
           displayAvatar(user.avatar);
+          // Lưu lại theo user ID nếu có
+          if (user.id) {
+            localStorage.setItem(`smartexpense_avatar_${user.id}`, user.avatar);
+          }
           const btnRemoveAvatar = document.getElementById('btnRemoveAvatar');
           if (btnRemoveAvatar) {
             btnRemoveAvatar.style.display = 'inline-flex';
@@ -1072,7 +1016,14 @@
         const user = JSON.parse(userData);
         user.avatar = imageDataUrl;
         localStorage.setItem('smartexpense_user', JSON.stringify(user));
-        console.log('✅ Avatar đã được lưu vào localStorage');
+        
+        // Lưu avatar theo user ID để mỗi account có avatar riêng
+        if (user.id) {
+          localStorage.setItem(`smartexpense_avatar_${user.id}`, imageDataUrl);
+          console.log(`✅ Avatar đã được lưu cho user ID: ${user.id}`);
+        } else {
+          console.log('✅ Avatar đã được lưu vào localStorage');
+        }
       } else {
         // Create new user object if not exists
         const newUser = {
@@ -1085,13 +1036,18 @@
     }
   }
   
-  async function removeAvatar() {
+  function removeAvatar() {
     try {
       const userData = localStorage.getItem('smartexpense_user');
       if (userData) {
         const user = JSON.parse(userData);
         delete user.avatar;
         localStorage.setItem('smartexpense_user', JSON.stringify(user));
+        
+        // Xóa avatar theo user ID
+        if (user.id) {
+          localStorage.removeItem(`smartexpense_avatar_${user.id}`);
+        }
       }
       
       // Reset display
@@ -1112,25 +1068,6 @@
       
       // Update avatar on home page
       updateAvatarOnHomePage(null);
-      
-      // Xóa avatar khỏi database (set avatar_url = null)
-      try {
-        if (typeof window !== 'undefined' && typeof window.apiRequest === 'function') {
-          const profileResult = await window.apiRequest('/api/profile', {
-            method: 'PUT',
-            body: JSON.stringify({ avatar_url: null })
-          });
-          
-          if (profileResult && profileResult.ok) {
-            console.log('✅ Avatar đã được xóa khỏi database');
-          } else {
-            console.warn('⚠️ Không thể xóa avatar khỏi database:', profileResult);
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Lỗi khi xóa avatar khỏi database:', error);
-        // Vẫn tiếp tục vì avatar đã được xóa khỏi localStorage
-      }
       
       console.log('✅ Avatar đã được xóa');
     } catch (error) {
@@ -1173,9 +1110,6 @@
     if (testEmailBtn) {
       testEmailBtn.addEventListener('click', testEmail);
     }
-
-    // Google Sign-In
-    initGoogleSignIn();
 
     // Chatbox
     initChatbox();

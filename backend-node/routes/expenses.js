@@ -155,6 +155,23 @@ router.post('/', authRequired, async (req, res) => {
       note: expense.note
     };
 
+    // Kiểm tra và gửi cảnh báo ngân sách (chạy bất đồng bộ, không chặn response)
+    try {
+      const budgetAlertService = require('../services/budgetAlertService');
+      const expenseDate = new Date(date);
+      const year = expenseDate.getFullYear();
+      const month = expenseDate.getMonth() + 1;
+      
+      // Chạy kiểm tra ngân sách bất đồng bộ (không đợi kết quả)
+      budgetAlertService.checkAndSendBudgetAlert(req.user.id, year, month)
+        .catch(err => {
+          console.error('❌ [expenses.js] Lỗi khi kiểm tra cảnh báo ngân sách:', err);
+        });
+    } catch (error) {
+      // Không làm ảnh hưởng đến response nếu có lỗi
+      console.error('❌ [expenses.js] Lỗi khi import budgetAlertService:', error);
+    }
+
     res.status(201).json(formatted);
   } catch (error) {
     console.error('Create expense error:', error);

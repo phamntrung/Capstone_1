@@ -4,10 +4,38 @@ const emailService = require('../services/emailService');
 
 const router = express.Router();
 
-// Mock data store (in production, this would be a database)
+// Thử nạp module database (MySQL). Nếu không có sẽ fallback sang dữ liệu giả lập.
+let db = null;
+try {
+  db = require('../database');
+} catch (error) {
+  console.warn('⚠️ Không thể nạp database module cho email routes, sẽ dùng dữ liệu in-memory nếu có.');
+}
+
+// Mock data store (dùng khi chưa có database thực)
 const users = new Map();
 const expenses = new Map();
 const budgets = new Map();
+
+// Cấu hình mặc định cho phạm vi tổng hợp
+const DEFAULT_DAILY_RANGE = 10;
+const DEFAULT_MONTH_RANGE = 6;
+
+function respondWithEmailError(res, error, fallbackMessage) {
+  console.error(fallbackMessage, error);
+
+  if (error?.code === 'EMAIL_NOT_CONFIGURED') {
+    return res.status(503).json({
+      code: error.code,
+      message: 'Máy chủ chưa cấu hình dịch vụ email. Vui lòng đặt EMAIL_USER và EMAIL_PASS trong backend-node/.env rồi khởi động lại.'
+    });
+  }
+
+  return res.status(500).json({
+    message: fallbackMessage,
+    ...(process.env.NODE_ENV !== 'production' && error?.message ? { details: error.message } : {})
+  });
+}
 
 // Helper function to get user expenses
 function getUserExpenses(userId) {
@@ -44,6 +72,201 @@ function getMonthlySpending(userId, year, month) {
       expense.date.startsWith(monthPrefix) && expense.type === 'expense'
     )
     .reduce((sum, expense) => sum + Math.abs(expense.amount), 0);
+}
+
+/**
+ * Định dạng Date về YYYY-MM-DD (theo giờ máy chủ)
+ */
+function formatDateYMD(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Tạo danh sách các ngày liên tiếp (từ hôm nay lùi về quá khứ)
+ */
+function buildDailySeries(range = DEFAULT_DAILY_RANGE) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const series = [];
+  for (let i = 0; i < range; i += 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    series.push(formatDateYMD(d));
+  }
+  return series;
+}
+
+/**
+ * Tạo danh sách các tháng (định dạng YYYY-MM và nhãn MM/YYYY)
+ */
+function buildMonthlySeries(range = DEFAULT_MONTH_RANGE) {
+  const current = new Date();
+  current.setDate(1);
+
+  const series = [];
+  for (let i = 0; i < range; i += 1) {
+    const d = new Date(current);
+    d.setMonth(current.getMonth() - i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    series.push({
+      key: `${year}-${month}`,
+      label: `${month}/${year}`
+    });
+  }
+  return series;
+}
+
+/**
+ * Đọc ngân sách cho các tháng yêu cầu từ database (nếu có)
+ */
+async function getBudgetsForMonths(userId, monthSeries) {
+  if (!db || typeof db.query !== 'function' || !monthSeries.length) {
+    return new Map();
+  }
+
+  try {
+    const oldest = monthSeries[monthSeries.length - 1].key;
+    const newest = monthSeries[0].key;
+    const rows = await db.query(
+      `SELECT month, amount FROM budgets
+       WHERE user_id = ? AND month BETWEEN ? AND ?`,
+      [userId, oldest, newest]
+    );
+
+    const map = new Map();
+    rows.forEach(row => {
+      map.set(row.month, Number(row.amount) || 0);
+    });
+    return map;
+  } catch (error) {
+    console.warn('⚠️ Không thể truy vấn ngân sách từ database:', error.message);
+    return new Map();
+  }
+}
+
+/**
+ * Tổng hợp báo cáo (daily, monthly, category) từ database
+ */
+async function buildSummaryReport(userId) {
+  if (!db || typeof db.query !== 'function') {
+    throw new Error('Database chưa sẵn sàng để tổng hợp báo cáo');
+  }
+
+  const dailySeries = buildDailySeries();
+  const monthSeries = buildMonthlySeries();
+  const oldestDay = dailySeries[dailySeries.length - 1];
+  const oldestMonthDate = `${monthSeries[monthSeries.length - 1].key}-01`;
+
+  // Daily aggregates
+  const dailyRows = await db.query(
+    `SELECT
+       DATE_FORMAT(date, '%Y-%m-%d') AS day,
+       COUNT(*) AS transactions,
+       SUM(ABS(amount)) AS total_amount
+     FROM expenses
+     WHERE user_id = ? 
+       AND date >= ?
+       AND (type = 'expense' OR amount < 0)
+     GROUP BY day`,
+    [userId, oldestDay]
+  );
+
+  const dailyMap = new Map(dailyRows.map(row => [row.day, row]));
+  const daily = dailySeries.map(day => {
+    const row = dailyMap.get(day);
+    const amount = row ? Number(row.total_amount) || 0 : 0;
+    const rounded = Math.round(amount * 100) / 100;
+    return {
+      date: day,
+      amount: rounded,
+      transactions: row ? Number(row.transactions) || 0 : 0
+    };
+  });
+
+  // Monthly aggregates
+  const monthlyRows = await db.query(
+    `SELECT
+       DATE_FORMAT(date, '%Y-%m') AS month_key,
+       COUNT(*) AS transactions,
+       SUM(ABS(amount)) AS total_amount
+     FROM expenses
+     WHERE user_id = ?
+       AND date >= ?
+       AND (type = 'expense' OR amount < 0)
+     GROUP BY month_key`,
+    [userId, oldestMonthDate]
+  );
+
+  const monthlyMap = new Map(monthlyRows.map(row => [row.month_key, row]));
+  const budgetMap = await getBudgetsForMonths(userId, monthSeries);
+  const monthly = monthSeries.map(({ key, label }) => {
+    const row = monthlyMap.get(key);
+    const amount = row ? Number(row.total_amount) || 0 : 0;
+    const rounded = Math.round(amount * 100) / 100;
+    return {
+      month: label,
+      amount: rounded,
+      transactions: row ? Number(row.transactions) || 0 : 0,
+      budget: budgetMap.get(key) || 0
+    };
+  });
+
+  const currentMonthAmount = monthly[0]?.amount || 0;
+
+  // Category distribution
+  const categoryRows = await db.query(
+    `SELECT
+       COALESCE(c.id, 0) AS category_id,
+       COALESCE(c.name, 'Khác') AS category_name,
+       SUM(ABS(e.amount)) AS total_amount
+     FROM expenses e
+     LEFT JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+     WHERE e.user_id = ?
+       AND (e.type = 'expense' OR e.amount < 0)
+     GROUP BY category_id, category_name
+     ORDER BY total_amount DESC`,
+    [userId]
+  );
+
+  const categories = categoryRows.map(row => {
+    const amount = Math.round((Number(row.total_amount) || 0) * 100) / 100;
+    const percentage = currentMonthAmount > 0
+      ? Math.round((amount / currentMonthAmount) * 100)
+      : 0;
+    return {
+      id: row.category_id,
+      name: row.category_name,
+      amount,
+      percentage
+    };
+  });
+
+  // Insights bổ sung cho email
+  const busiestDay = daily.reduce((top, item) => {
+    if (!top || item.amount > top.amount) return item;
+    return top;
+  }, null);
+  const avgDaily = daily.length
+    ? Math.round(daily.reduce((sum, item) => sum + item.amount, 0) / daily.length)
+    : 0;
+
+  return {
+    daily,
+    monthly,
+    categories,
+    insights: {
+      currentMonth: monthly[0] || { month: '', amount: 0, transactions: 0, budget: 0 },
+      previousMonth: monthly[1] || null,
+      avgDaily,
+      busiestDay,
+      generatedAt: new Date().toISOString()
+    }
+  };
 }
 
 // POST /api/email/send-daily-report
@@ -87,10 +310,46 @@ router.post('/send-daily-report', authRequired, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending daily report:', error);
-    res.status(500).json({ 
-      message: 'Không thể gửi email báo cáo. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.' 
+    respondWithEmailError(res, error, 'Không thể gửi email báo cáo. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.');
+  }
+});
+
+// POST /api/email/send-summary-report
+router.post('/send-summary-report', authRequired, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.email) {
+      return res.status(400).json({
+        message: 'Tài khoản của bạn chưa có email. Vui lòng cập nhật email trong hồ sơ trước khi gửi báo cáo.'
+      });
+    }
+
+    if (!db || typeof db.query !== 'function') {
+      return res.status(503).json({
+        message: 'Máy chủ chưa kết nối database nên không thể tổng hợp báo cáo. Vui lòng thử lại sau khi cấu hình MySQL.'
+      });
+    }
+
+    let summary;
+    try {
+      summary = await buildSummaryReport(user.id);
+    } catch (buildError) {
+      console.error('Failed to build summary report data:', buildError);
+      return res.status(503).json({
+        code: 'SUMMARY_BUILD_FAILED',
+        message: 'Không thể tổng hợp dữ liệu báo cáo từ database. Vui lòng kiểm tra kết nối MySQL và thử lại.'
+      });
+    }
+    await emailService.sendSummaryReport(user, summary);
+
+    res.json({
+      message: 'Báo cáo tổng quan đã được gửi tới hộp thư của bạn.',
+      email: user.email,
+      summary
     });
+  } catch (error) {
+    respondWithEmailError(res, error, 'Không thể gửi báo cáo tổng quan. Vui lòng thử lại sau.');
   }
 });
 
@@ -137,10 +396,7 @@ router.post('/send-budget-alert', authRequired, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending budget alert:', error);
-    res.status(500).json({ 
-      message: 'Không thể gửi email cảnh báo. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.' 
-    });
+    respondWithEmailError(res, error, 'Không thể gửi email cảnh báo. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.');
   }
 });
 
@@ -157,10 +413,7 @@ router.post('/send-welcome', authRequired, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending welcome email:', error);
-    res.status(500).json({ 
-      message: 'Không thể gửi email chào mừng. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.' 
-    });
+    respondWithEmailError(res, error, 'Không thể gửi email chào mừng. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.');
   }
 });
 
@@ -263,10 +516,7 @@ Email được gửi lúc: ${new Date().toLocaleString('vi-VN')}
     });
 
   } catch (error) {
-    console.error('Error sending verification email:', error);
-    res.status(500).json({ 
-      message: 'Không thể gửi email test. Vui lòng kiểm tra cấu hình email trong file .env (EMAIL_USER, EMAIL_PASS).' 
-    });
+    respondWithEmailError(res, error, 'Không thể gửi email test. Vui lòng kiểm tra cấu hình email trong file .env (EMAIL_USER, EMAIL_PASS).');
   }
 });
 
@@ -297,10 +547,7 @@ router.post('/test', authRequired, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending test email:', error);
-    res.status(500).json({ 
-      message: 'Không thể gửi email test. Vui lòng kiểm tra cấu hình email.' 
-    });
+    respondWithEmailError(res, error, 'Không thể gửi email test. Vui lòng kiểm tra cấu hình email.');
   }
 });
 

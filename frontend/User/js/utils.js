@@ -4,15 +4,14 @@
  */
 
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
-// Backend chạy trên port 5000, frontend chạy trên port 5050
-// QUAN TRỌNG: Google OAuth chỉ hoạt động khi frontend chạy trên 1 cổng cố định (5050)
+// Prefer persisted override, then window override, then default 5000
 (function initApiBase() {
   try {
     const savedBase = localStorage.getItem('smartexpense_api_base');
-    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:5000';
+    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:8080';
     window.API_BASE = initialBase;
   } catch (e) {
-    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
+    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:8080';
   }
 })();
 
@@ -36,14 +35,15 @@ async function tryDiscoverApiBase() {
     (function () {
       try { return localStorage.getItem('smartexpense_api_base'); } catch (e) { return null; }
     })(),
-    // Backend mặc định chạy trên port 5000
+    'http://127.0.0.1:8080',
+    'http://localhost:8080',
     'http://127.0.0.1:5000',
     'http://localhost:5000',
-    // Các cổng fallback nếu backend chạy trên port khác
+    // Thử thêm các cổng phổ biến khác nếu dự án bạn dùng chúng
+    'http://127.0.0.1:5001',
+    'http://localhost:5001',
     'http://127.0.0.1:5002',
     'http://localhost:5002',
-    'http://127.0.0.1:5003',
-    'http://localhost:5003',
   ]);
 
   const controller = new AbortController();
@@ -667,15 +667,20 @@ async function logout() {
 
   // Clear session (only after sync is done)
   try {
+    // QUAN TRỌNG: Đánh dấu đang logout để checkExistingLogin() bỏ qua
+    localStorage.setItem('smartexpense_logging_out', 'true');
+    console.log('✅ [logout] Đã đánh dấu đang logout');
+    
     // Save avatar before clearing user data (avatar should persist across logout)
+    // Lưu avatar theo user ID để mỗi account có avatar riêng
     const userData = localStorage.getItem('smartexpense_user');
     if (userData) {
       try {
         const user = JSON.parse(userData);
-        if (user.avatar) {
-          // Save avatar to separate key so it persists across logout
-          localStorage.setItem('smartexpense_avatar', user.avatar);
-          console.log('✅ Đã lưu avatar trước khi đăng xuất');
+        if (user.avatar && user.id) {
+          // Save avatar to user-specific key so it persists across logout
+          localStorage.setItem(`smartexpense_avatar_${user.id}`, user.avatar);
+          console.log(`✅ Đã lưu avatar cho user ID: ${user.id} trước khi đăng xuất`);
         }
       } catch (e) {
         console.warn('Lỗi khi lưu avatar:', e);
@@ -690,13 +695,32 @@ async function logout() {
     localStorage.removeItem('smartexpense_expense_added');
     localStorage.removeItem('smartexpense_profile_updated');
     localStorage.removeItem('smartexpense_balance_updated');
+    
+    // Verify localStorage đã được xóa
+    const verifyUser = localStorage.getItem('smartexpense_user');
+    const verifyToken = localStorage.getItem('smartexpense_token');
+    if (verifyUser || verifyToken) {
+      console.error('❌ [logout] CRITICAL: localStorage chưa được xóa hoàn toàn!');
+      // Thử xóa lại
+      localStorage.removeItem('smartexpense_user');
+      localStorage.removeItem('smartexpense_token');
+    }
+    
     console.log('✅ Đã xóa thông tin phiên đăng nhập');
   } catch (e) {
     console.warn('Lỗi khi xóa localStorage:', e);
   }
 
-  // Redirect to login
-  window.location.href = 'login.html';
+  // Đợi một chút để đảm bảo localStorage đã được xóa hoàn toàn
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // Redirect to login - dùng đường dẫn tuyệt đối để tránh lỗi
+  // Login page luôn ở: /frontend/User/UI_User/login.html
+  const loginPath = '/frontend/User/UI_User/login.html';
+  
+  console.log('🔍 [logout] Current path:', window.location.pathname);
+  console.log('🔍 [logout] Redirecting to:', loginPath);
+  window.location.href = loginPath;
 }
 
 // Cache for server date to avoid too many requests
