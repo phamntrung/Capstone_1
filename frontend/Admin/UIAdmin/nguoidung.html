@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartExpense – Admin / Người dùng</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#ECF5FA; --panel:#FFFFFF; --text:#0F172A; --muted:#6B7280;
+      --primary:#22C55E; --danger:#EF4444; --blue:#3B82F6;
+      --border:#E2E8F0; --radius:14px; --shadow:0 8px 24px rgba(15,23,42,.06);
+    }
+
+    /* ===== Header UI Kit (đồng bộ với trang Tổng quan) ===== */
+    :root{
+      --control-h:44px;
+      --pill-radius:999px;
+      --pill-grad:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);
+      --pill-shadow:inset 0 1px 0 #FFFFFF, 0 6px 16px rgba(15,23,42,.06);
+
+      /* Typography header (đồng bộ) */
+      --title-size:24px;
+      --title-weight:800;
+      --title-tracking:.2px;
+      --pill-font-size:15px;
+    } 
+
+    /* Tiêu đề header: áp dụng cho cả h2 và .page-title để an toàn */
+    header h2, header .page-title{
+      margin:0;
+      font: var(--title-weight) var(--title-size)/1.1 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      letter-spacing:var(--title-tracking);
+      color:var(--text);
+    }
+
+    header .search{position:relative; flex:1; max-width:720px}
+    header .search input{
+      width:100%; height:var(--control-h);
+      border-radius:var(--pill-radius);
+      border:1px solid var(--border);
+      padding:0 14px 0 44px;
+      background:var(--pill-grad);
+      box-shadow:var(--pill-shadow);
+      color:var(--text); outline:none;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      font-size:var(--pill-font-size); font-weight:600; line-height:1;
+    }
+    header .search input::placeholder{color:var(--muted); font-weight:500}
+    header .search .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.6}
+    header .btn, header .select{
+      height:var(--control-h);
+      border-radius:var(--pill-radius);
+      border:1px solid var(--border);
+      padding:0 14px;
+      background:var(--pill-grad);
+      box-shadow:var(--pill-shadow);
+      cursor:pointer;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      font-size:var(--pill-font-size); font-weight:600; line-height:1;
+      color:var(--text);
+    }
+    header .btn:hover, header .select:hover, header .search input:hover{ background:#F7FAFF; }
+    header .btn[disabled]{opacity:.5;cursor:not-allowed}
+    header .select{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%238A94A6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
+    }
+
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+
+    /* Layout */
+    .app{display:grid;grid-template-columns:260px 1fr;min-height:100dvh}
+    aside{background:var(--panel);border-right:1px solid var(--border);padding:18px;position:sticky;top:0;height:100dvh}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+    .logo-badge{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#FFE9DE 0%,#FFF5EE 100%);box-shadow:0 6px 16px rgba(15,23,42,.08), inset 0 0 0 1px rgba(255,255,255,.6);display:block;overflow:hidden}
+    .brand-logo{width:100%;height:100%;object-fit:contain}
+    .nav{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+    .nav a{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);padding:10px 12px;border-radius:12px;transition:background .25s,transform .15s}
+    .nav a .ic{width:22px}
+    .nav a:hover{background:#F3F4F6;transform:translateX(2px)}
+    .nav a.active{background:#A7EFC1;color:#065F46;font-weight:600}
+    .nav a.active .ic{filter:brightness(.85)}
+
+    main{display:flex;flex-direction:column;min-width:0}
+    header{
+      display:flex;align-items:center;gap:16px;justify-content:space-between;
+      padding:16px 20px;background:var(--panel);border-bottom:1px solid var(--border);
+      position:sticky;top:0;z-index:10
+    }
+    .toolbar{display:flex;align-items:center;gap:12px;flex:1;justify-content:center}
+    .search{position:relative;flex:1;max-width:640px} /* (header đã override) */
+    .btn{all:unset;cursor:pointer;background:#F3F4F6;border:1px solid var(--border);padding:8px 12px;border-radius:999px;font-weight:600}
+    .btn:hover{background:#EDF2F7}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .content{padding:20px;display:grid;gap:16px}
+    .card{background:var(--panel);padding:16px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
+
+    /* Filters row (vùng chips) */
+    .filters{display:flex;gap:10px;flex-wrap:wrap}
+    .select, .input{height:38px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 12px;font:inherit}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{height:30px;padding:0 10px;border-radius:999px;background:#F3F4F6;border:1px solid var(--border);display:inline-flex;align-items:center;font-size:12px;cursor:pointer}
+    .chip.active{background:#DCFCE7;color:#065F46;border-color:#86EFAC}
+
+    /* Table */
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    th{font-size:12px;color:var(--muted);text-align:left;padding:8px 10px}
+    td{background:#fff;padding:12px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);vertical-align:middle}
+    tr td:first-child{border-left:1px solid var(--border);border-radius:10px 0 0 10px}
+    tr td:last-child{border-right:1px solid var(--border);border-radius:0 10px 10px 0}
+    .muted{color:var(--muted)} .num{font-variant-numeric:tabular-nums}
+    .avatar{width:36px;height:36px;border-radius:50%;background:#E5E7EB;flex:none;overflow:hidden}
+    .usercell{display:flex;align-items:center;gap:10px}
+    .badge{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .b-green{background:#DCFCE7;color:#065F46}
+    .b-yellow{background:#FEF9C3;color:#854D0E}
+    .b-red{background:#FEE2E2;color:#991B1B}
+    .role{background:#E0EDFF;color:#1D4ED8}
+    .acts{display:flex;gap:8px}
+    .link{color:#2563EB;text-decoration:none;font-weight:600}
+    .link:hover{text-decoration:underline}
+
+    /* Bulk bar + pagination */
+    .bulkbar{display:none;align-items:center;justify-content:space-between;gap:10px;background:#F8FAFC;border:1px dashed var(--border);padding:10px 12px;border-radius:12px}
+    .bulkbar.show{display:flex}
+    .pag{display:flex;gap:8px;align-items:center}
+    .pag .btn{padding:6px 10px}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* Drawer (detail) + overlay */
+    .drawer{position:fixed;top:0;right:-440px;width:440px;height:100dvh;background:#fff;border-left:1px solid var(--border);box-shadow:-8px 0 24px rgba(15,23,42,.08);transition:right .25s;z-index:50;display:flex;flex-direction:column}
+    .drawer.show{right:0}
+    .drawer header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border)}
+    .kv{display:grid;grid-template-columns:120px 1fr;row-gap:10px;column-gap:8px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:49}
+    .overlay.show{opacity:1;pointer-events:auto}
+
+    @media (max-width:1000px){
+      .app{grid-template-columns:1fr}
+      aside{position:fixed;inset:0 40% 0 0;transform:translateX(-100%)}
+      th:nth-child(4), td:nth-child(4),
+      th:nth-child(5), td:nth-child(5){display:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside>
+      <div class="brand">
+        <span class="logo-badge">
+          <img class="brand-logo" src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="SmartExpense" />
+        </span>
+        SmartExpense Admin
+      </div>
+      <nav class="nav" style="margin-top:14px">
+        <a href="tongquan.html"><span class="ic">🏠</span> Tổng quan</a>
+        <a class="active" href="nguoidung.html"><span class="ic">👥</span> Người dùng</a>
+        <a href="giaodich.html"><span class="ic">💳</span> Giao dịch</a>
+        <a href="AI_Insights.html"><span class="ic">🤖</span> AI Insights</a>
+        <a href="baocao.html"><span class="ic">📊</span> Báo cáo</a>
+        <a href="caidat.html"><span class="ic">⚙️</span> Cài đặt</a>
+        <a href="#" data-logout="true"><span class="ic">🚪</span> Đăng xuất</a>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main>
+      <header>
+        <h2 class="page-title">Người dùng</h2>
+        <div class="toolbar">
+          <div class="search">
+            <span class="icon">🔎</span>
+            <input id="q" placeholder="Tìm tên, email, id..." aria-label="Tìm kiếm người dùng" />
+          </div>
+          <select id="fUserId" class="select" aria-label="Lọc theo ID">
+            <option value="">Tất cả ID</option>
+          </select>
+          <select id="fStatus" class="select" aria-label="Lọc trạng thái">
+            <option value="">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="pending">Chờ xác minh</option>
+            <option value="blocked">Đã khóa</option>
+          </select>
+          <select id="fRole" class="select" aria-label="Lọc vai trò">
+            <option value="">Tất cả vai trò</option>
+            <option value="user">User</option>
+            <option value="moderator">Moderator</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button class="btn" id="btnClear" title="Xóa tất cả bộ lọc">Xóa lọc</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- quick chips -->
+        <div class="card" style="padding:12px">
+          <div class="chips">
+            <span class="chip" data-quick="active" title="≥200 giao dịch">🔥 Hoạt động nhiều</span>
+            <span class="chip" data-quick="new" title="Đăng ký trong 7 ngày">🆕 Mới đăng ký 7 ngày</span>
+            <span class="chip" data-quick="risk" title="Có thẻ risk">⚠️ Có cảnh báo</span>
+          </div>
+        </div>
+
+        <!-- bulk actions bar -->
+        <div id="bulkbar" class="bulkbar" aria-live="polite">
+          <div><strong id="selCount">0</strong> mục đã chọn</div>
+          <div class="acts">
+            <button class="btn" id="bulkBlock">Khóa</button>
+            <button class="btn" id="bulkUnblock">Mở khóa</button>
+            <button class="btn" id="bulkDelete" style="background:#FFF5F5;border-color:#FECACA;color:#B91C1C">Xóa</button>
+          </div>
+        </div>
+
+        <!-- table -->
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px"><input type="checkbox" id="chkAll" aria-label="Chọn tất cả"></th>
+                <th>Người dùng</th>
+                <th>Email</th>
+                <th>Ngày tạo</th>
+                <th>Số giao dịch</th>
+                <th>Trạng thái</th>
+                <th>Vai trò</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div class="small" id="resultInfo">—</div>
+            <div class="pag">
+              <button class="btn" id="prev">◀</button>
+              <span class="small" id="pageInfo">1/1</span>
+              <button class="btn" id="next">▶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Overlay + Drawer detail -->
+  <div id="overlay" class="overlay" aria-hidden="true"></div>
+
+  <div id="drawer" class="drawer" aria-hidden="true" role="dialog" aria-modal="true">
+    <header style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px">
+      <strong id="d_name">Chi tiết người dùng</strong>
+      <button class="btn" id="d_close" aria-label="Đóng">✕</button>
+    </header>
+    <div style="padding:16px;display:grid;gap:16px;overflow:auto">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="d_avatar" class="avatar" aria-hidden="true"></div>
+        <div>
+          <div id="d_email" class="muted"></div>
+          <div id="d_role" class="badge role">User</div>
+        </div>
+      </div>
+      <div class="kv">
+        <div class="muted">User ID</div><div id="d_id" class="mono"></div>
+        <div class="muted">Ngày tạo</div><div id="d_joined"></div>
+        <div class="muted">Trạng thái</div><div id="d_status"></div>
+        <div class="muted">Tổng giao dịch</div><div id="d_tx"></div>
+        <div class="muted">Ghi chú</div><div id="d_note" class="muted">—</div>
+      </div>
+      <div class="acts">
+        <button class="btn" id="d_block">Khóa/Mở khóa</button>
+        <button class="btn" id="d_reset">Reset mật khẩu</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Data =====
+    let USERS = []; // Sẽ được load từ API
+
+    // ===== State =====
+    let state = { q:'', userId:'', status:'', role:'', quick:'', page:1, pageSize:6, selected:new Set() };
+    let isLoading = false;
+
+    // ===== Elements =====
+    const el = id=>document.getElementById(id);
+    const tbody = el('tbody');
+    const selCount = el('selCount');
+    const bulkbar = el('bulkbar');
+    const chkAll = el('chkAll');
+    const pageInfo = el('pageInfo');
+    const resultInfo = el('resultInfo');
+    const btnPrev = el('prev');
+    const btnNext = el('next');
+    const overlay = el('overlay');
+    const drawer = document.getElementById('drawer');
+
+    // ===== Helpers =====
+    const fmtDate = s => new Date(s+'T00:00:00').toLocaleDateString('vi-VN');
+    const badgeStatus = s => s==='active' ? '<span class="badge b-green">Active</span>' :
+                           s==='pending'? '<span class="badge b-yellow">Pending</span>' :
+                                          '<span class="badge b-red">Blocked</span>';
+    const badgeRole = r => `<span class="badge role">${r[0].toUpperCase()+r.slice(1)}</span>`;
+
+    function setHeaderCheckboxState(){
+      const ids = Array.from(tbody.querySelectorAll('.chk-row')).map(i=>i.dataset.id);
+      if(ids.length===0){ chkAll.checked=false; chkAll.indeterminate=false; return; }
+      const allChecked = ids.every(id => state.selected.has(id));
+      const noneChecked = ids.every(id => !state.selected.has(id));
+      chkAll.checked = allChecked;
+      chkAll.indeterminate = !allChecked && !noneChecked;
+    }
+
+    function updatePagination(total){
+      const pages = Math.max(1, Math.ceil(total/state.pageSize));
+      if(state.page>pages) state.page=pages;
+      pageInfo.textContent = `${state.page}/${pages}`;
+      btnPrev.disabled = state.page<=1;
+      btnNext.disabled = state.page>=pages;
+    }
+
+    function applyFilters(){
+      // Đảm bảo USERS là array
+      if (!Array.isArray(USERS)) {
+        USERS = [];
+      }
+      let data = USERS.slice();
+
+      // quick chips
+      if(state.quick==='new'){
+        const since = Date.now() - 7*24*3600*1000;
+        data = data.filter(u => new Date(u.joined).getTime() >= since);
+      }
+      if(state.quick==='active'){ data = data.filter(u => u.tx >= 200); }
+      if(state.quick==='risk'){   data = data.filter(u => (u.tags||[]).includes('risk')); }
+
+      // search
+      if(state.q){
+        const q = state.q.toLowerCase();
+        data = data.filter(u =>
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.id.toLowerCase().includes(q)
+        );
+      }
+      // filters
+      if(state.userId) data = data.filter(u => u.id === state.userId);
+      if(state.status) data = data.filter(u => u.status===state.status);
+      if(state.role)   data = data.filter(u => u.role===state.role);
+
+      // pagination
+      const total = data.length;
+      const pages = Math.max(1, Math.ceil(total/state.pageSize));
+      state.page = Math.min(state.page, pages);
+      const start = (state.page-1)*state.pageSize;
+      const view = data.slice(start, start+state.pageSize);
+
+      // render rows
+      tbody.innerHTML = view.map(u=>`
+        <tr data-id="${u.id}">
+          <td><input type="checkbox" class="chk-row" data-id="${u.id}" ${state.selected.has(u.id)?'checked':''} aria-label="Chọn hàng"></td>
+          <td>
+            <div class="usercell">
+              <img class="avatar" src="${u.avatar}" alt="">
+              <div>
+                <div style="font-weight:600">${u.name}</div>
+                <div class="muted mono" style="font-size:12px">${u.id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${u.email}</td>
+          <td class="muted">${fmtDate(u.joined)}</td>
+          <td class="num">${u.tx.toLocaleString('vi-VN')}</td>
+          <td>${badgeStatus(u.status)}</td>
+          <td>${badgeRole(u.role)}</td>
+          <td class="acts">
+            <a href="#" class="link act-view" data-id="${u.id}">Xem</a>
+            <a href="#" class="link act-toggle" data-id="${u.id}">${u.status==='blocked'?'Mở khóa':'Khóa'}</a>
+          </td>
+        </tr>
+      `).join('');
+
+      // UI info
+      resultInfo.textContent = total
+        ? `${start+1}-${Math.min(start+state.pageSize,total)} / ${total} người dùng`
+        : 'Không có kết quả';
+      updatePagination(total);
+      setHeaderCheckboxState();
+      bulkbar.classList.toggle('show', state.selected.size>0);
+      selCount.textContent = state.selected.size;
+    }
+
+    // Populate User ID filter dropdown
+    function populateUserIdFilter() {
+      const fUserId = el('fUserId');
+      if (!fUserId) return;
+      
+      // Get unique user IDs from USERS array
+      const uniqueIds = [...new Set(USERS.map(u => u.id))].sort();
+      
+      // Clear existing options except the first one
+      fUserId.innerHTML = '<option value="">Tất cả ID</option>';
+      
+      // Add user IDs
+      uniqueIds.forEach(id => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = id;
+        fUserId.appendChild(option);
+      });
+    }
+
+    // Load users from API
+    async function loadUsers() {
+      if (isLoading) return;
+      isLoading = true;
+
+      try {
+        if (typeof window.apiRequest !== 'function') {
+          throw new Error('apiRequest chưa sẵn sàng. Hãy đảm bảo utils.js đã được load.');
+        }
+
+        const API_ENDPOINT = '/api/admin/users';
+        console.log('📤 Đang gọi API:', API_ENDPOINT);
+        const response = await window.apiRequest(API_ENDPOINT, {
+          method: 'GET'
+        });
+
+        console.log('📥 Response từ API:', response);
+        console.log('📥 Response status:', response?.status);
+        console.log('📥 Response data:', response?.data);
+
+        if (!response || !response.ok) {
+          const errorMessage = response?.data?.message || response?.data?.error || response?.message || 'Không thể tải danh sách users.';
+          const errorDetails = response?.data?.stack ? `\n\nChi tiết lỗi:\n${response.data.stack}` : '';
+          console.error('❌ API Error:', {
+            status: response?.status,
+            message: errorMessage,
+            error: response?.data?.error,
+            stack: response?.data?.stack,
+            fullResponse: response
+          });
+          throw new Error(errorMessage + errorDetails);
+        }
+
+        // Backend trả về { ok: true, data: users, total: number }
+        // apiRequest trả về { ok, status, data } với data là response từ backend
+        // Backend response là { ok: true, data: users, total: number }
+        const backendData = response.data || {};
+        console.log('📦 Backend data:', backendData);
+        
+        // Backend trả về { ok: true, data: users, total: number }
+        // Vậy users nằm ở backendData.data
+        USERS = backendData.data || [];
+        
+        console.log('👥 Users array:', USERS);
+        console.log('📊 Số lượng users:', USERS.length);
+        
+        if (!Array.isArray(USERS)) {
+          console.warn('⚠️ Dữ liệu users không phải array:', USERS);
+          USERS = [];
+        }
+        
+        // Populate filter và render
+        populateUserIdFilter();
+        applyFilters();
+      } catch (error) {
+        console.error('❌ Lỗi khi tải danh sách users:', error);
+        console.error('❌ Error stack:', error.stack);
+        // Hiển thị thông báo lỗi trong bảng
+        if (tbody) {
+          const errorMsg = error.message || 'Không thể tải danh sách users.';
+          // Truncate long error messages
+          const displayMsg = errorMsg.length > 200 ? errorMsg.substring(0, 200) + '...' : errorMsg;
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" class="muted" style="text-align:center;padding:24px">
+                <div style="color:var(--danger);margin-bottom:8px">❌ Lỗi khi tải dữ liệu</div>
+                <div style="font-size:14px;color:var(--muted);margin-bottom:8px">${displayMsg}</div>
+                <small style="color:var(--muted);font-size:12px">
+                  Vui lòng kiểm tra server logs để biết thêm chi tiết.
+                  <br>Hoặc thử refresh trang.
+                </small>
+              </td>
+            </tr>
+          `;
+        }
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    // ===== Events: search & filters =====
+    el('q').addEventListener('input', e => {state.q=e.target.value.trim(); state.page=1; applyFilters();});
+    window.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); el('q').focus(); }
+      if(e.key==='Escape'){ closeDrawer(); }
+    });
+    el('fUserId').addEventListener('change', e => {state.userId=e.target.value; state.page=1; applyFilters();});
+    el('fStatus').addEventListener('change', e => {state.status=e.target.value; state.page=1; applyFilters();});
+    el('fRole').addEventListener('change', e => {state.role=e.target.value; state.page=1; applyFilters();});
+    el('btnClear').addEventListener('click', () => {
+      state.q=''; el('q').value='';
+      state.userId=''; el('fUserId').value='';
+      state.status=''; el('fStatus').value='';
+      state.role=''; el('fRole').value='';
+      state.quick=''; document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      state.page=1; applyFilters();
+    });
+
+    // Quick chips
+    document.querySelectorAll('.chip').forEach(ch => {
+      ch.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+        if(state.quick === ch.dataset.quick){ state.quick=''; }
+        else { state.quick = ch.dataset.quick; ch.classList.add('active'); }
+        state.page=1; applyFilters();
+      });
+    });
+
+    // Pagination
+    btnPrev.addEventListener('click', ()=>{ if(state.page>1){state.page--; applyFilters();}});
+    btnNext.addEventListener('click', ()=>{ state.page++; applyFilters();});
+
+    // Row selection
+    tbody.addEventListener('change', e=>{
+      if(e.target.classList.contains('chk-row')){
+        const id = e.target.dataset.id;
+        if(e.target.checked) state.selected.add(id); else state.selected.delete(id);
+        selCount.textContent = state.selected.size;
+        bulkbar.classList.toggle('show', state.selected.size>0);
+        setHeaderCheckboxState();
+      }
+    });
+    chkAll.addEventListener('change', ()=>{
+      const currentIds = Array.from(tbody.querySelectorAll('.chk-row')).map(i=>i.dataset.id);
+      if(chkAll.checked){ currentIds.forEach(id=>state.selected.add(id)); }
+      else { currentIds.forEach(id=>state.selected.delete(id)); }
+      applyFilters();
+    });
+
+    // Actions (view/toggle)
+    tbody.addEventListener('click', e=>{
+      if(e.target.classList.contains('act-view')){ e.preventDefault(); openDrawer(e.target.dataset.id); }
+      if(e.target.classList.contains('act-toggle')){
+        e.preventDefault();
+        const id = e.target.dataset.id;
+        const u = USERS.find(x=>x.id===id);
+        if (u) {
+          u.status = (u.status==='blocked') ? 'active' : 'blocked';
+          applyFilters();
+          // TODO: Có thể thêm API call để cập nhật status trên server
+        }
+      }
+    });
+    tbody.addEventListener('dblclick', e=>{
+      const tr = e.target.closest('tr'); if(!tr) return;
+      openDrawer(tr.dataset.id);
+    });
+
+    // Drawer + overlay
+    document.getElementById('d_close').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    function openDrawer(id){
+      const u = USERS.find(x=>x.id===id); if(!u) return;
+      document.getElementById('d_name').textContent = u.name;
+      document.getElementById('d_email').textContent = u.email;
+      document.getElementById('d_id').textContent = u.id;
+      document.getElementById('d_joined').textContent = fmtDate(u.joined);
+      document.getElementById('d_status').innerHTML = badgeStatus(u.status);
+      document.getElementById('d_role').textContent = u.role[0].toUpperCase()+u.role.slice(1);
+      document.getElementById('d_tx').textContent = u.tx.toLocaleString('vi-VN');
+      document.getElementById('d_avatar').innerHTML = `<img src="${u.avatar}" class="avatar" style="width:56px;height:56px">`;
+      document.getElementById('d_block').onclick = ()=>{ u.status = (u.status==='blocked')?'active':'blocked'; applyFilters(); openDrawer(id); };
+      document.getElementById('d_reset').onclick = ()=>alert('Đã gửi email reset mật khẩu cho '+u.email);
+      drawer.classList.add('show'); overlay.classList.add('show');
+      drawer.setAttribute('aria-hidden','false'); overlay.setAttribute('aria-hidden','false');
+    }
+    function closeDrawer(){
+      drawer.classList.remove('show'); overlay.classList.remove('show');
+      drawer.setAttribute('aria-hidden','true'); overlay.setAttribute('aria-hidden','true');
+    }
+
+    // Init - đợi DOM và utils.js sẵn sàng
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        // Đợi thêm một chút để đảm bảo utils.js đã load
+        setTimeout(loadUsers, 100);
+      });
+    } else {
+      setTimeout(loadUsers, 100);
+    }
+  </script>
+  <script src="../../User/js/utils.js" defer></script>
+  <script src="../Admin.js/admin-common.js" defer></script>
+</body>
+</html>
