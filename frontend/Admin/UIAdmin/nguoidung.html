@@ -119,7 +119,25 @@
     .b-yellow{background:#FEF9C3;color:#854D0E}
     .b-red{background:#FEE2E2;color:#991B1B}
     .role{background:#E0EDFF;color:#1D4ED8}
-    .acts{display:flex;gap:8px}
+    .acts{
+      display:flex;
+      gap:12px;
+      justify-content:flex-end;
+      align-items:center;
+      padding-left:12px;
+      white-space:nowrap
+    }
+    .acts .link{
+      display:inline-flex;
+      align-items:center;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:#F9FAFB;
+      box-shadow:inset 0 1px 0 #fff;
+    }
+    th:last-child{text-align:right;padding-right:16px}
+    tr td:last-child{text-align:right;padding-right:16px}
     .link{color:#2563EB;text-decoration:none;font-weight:600}
     .link:hover{text-decoration:underline}
 
@@ -273,6 +291,7 @@
       <div class="acts">
         <button class="btn" id="d_block">Khóa/Mở khóa</button>
         <button class="btn" id="d_reset">Reset mật khẩu</button>
+        <button class="btn" id="d_delete" style="background:#FEE2E2;border-color:#FECACA;color:#B91C1C">Xóa user</button>
       </div>
     </div>
   </div>
@@ -297,6 +316,11 @@
     const btnNext = el('next');
     const overlay = el('overlay');
     const drawer = document.getElementById('drawer');
+    const bulkDeleteBtn = el('bulkDelete');
+    const drawerDeleteBtn = el('d_delete');
+    const bulkBlockBtn = el('bulkBlock');
+    const bulkUnblockBtn = el('bulkUnblock');
+    const drawerBlockBtn = el('d_block');
 
     // ===== Helpers =====
     const fmtDate = s => new Date(s+'T00:00:00').toLocaleDateString('vi-VN');
@@ -304,6 +328,7 @@
                            s==='pending'? '<span class="badge b-yellow">Pending</span>' :
                                           '<span class="badge b-red">Blocked</span>';
     const badgeRole = r => `<span class="badge role">${r[0].toUpperCase()+r.slice(1)}</span>`;
+    const getUnlockedStatus = (user) => (user && user.emailVerified === false ? 'pending' : 'active');
 
     function setHeaderCheckboxState(){
       const ids = Array.from(tbody.querySelectorAll('.chk-row')).map(i=>i.dataset.id);
@@ -379,6 +404,7 @@
           <td class="acts">
             <a href="#" class="link act-view" data-id="${u.id}">Xem</a>
             <a href="#" class="link act-toggle" data-id="${u.id}">${u.status==='blocked'?'Mở khóa':'Khóa'}</a>
+            <a href="#" class="link act-delete" data-id="${u.id}" data-email="${u.email}" style="color:var(--danger)">Xóa</a>
           </td>
         </tr>
       `).join('');
@@ -391,6 +417,110 @@
       setHeaderCheckboxState();
       bulkbar.classList.toggle('show', state.selected.size>0);
       selCount.textContent = state.selected.size;
+    }
+
+    // ===== API: Xóa người dùng =====
+    async function deleteUser(userId, options = {}) {
+      const { userEmail = '', skipConfirm = false, fromDrawer = false } = options;
+      if (!userId) return false;
+
+      if (typeof window.apiRequest !== 'function') {
+        alert('API chưa sẵn sàng, vui lòng thử lại.');
+        return false;
+      }
+
+      const label = userEmail || userId;
+      if (!skipConfirm) {
+        const confirmed = window.confirm(`Bạn chắc chắn muốn xóa tài khoản "${label}"? Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.`);
+        if (!confirmed) {
+          return false;
+        }
+      }
+
+      try {
+        const response = await window.apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, {
+          method: 'DELETE'
+        });
+        const payload = response?.data || {};
+        if (!response?.ok || payload.ok === false) {
+          throw new Error(payload.message || 'Không thể xóa người dùng.');
+        }
+
+        USERS = USERS.filter(u => u.id !== userId);
+        state.selected.delete(userId);
+        applyFilters();
+        if (fromDrawer) {
+          closeDrawer();
+        }
+
+        alert(payload.message || 'Đã xóa người dùng.');
+        return true;
+      } catch (error) {
+        console.error('❌ Lỗi khi xóa người dùng:', error);
+        alert(error.message || 'Không thể xóa người dùng. Vui lòng thử lại sau.');
+        return false;
+      }
+    }
+
+    /**
+     * Gọi API để khóa/mở khóa người dùng.
+     * @param {string} userId
+     * @param {boolean} shouldBlock - true = khóa, false = mở khóa
+     * @param {object} options
+     */
+    async function updateUserBlockStatus(userId, shouldBlock, options = {}) {
+      const { skipConfirm = false, silent = false, fromDrawer = false } = options;
+      if (!userId) return false;
+
+      if (typeof window.apiRequest !== 'function') {
+        alert('API chưa sẵn sàng, vui lòng thử lại.');
+        return false;
+      }
+
+      const actionLabel = shouldBlock ? 'khóa' : 'mở khóa';
+      if (!skipConfirm) {
+        const confirmed = window.confirm(`Bạn chắc chắn muốn ${actionLabel} tài khoản này?`);
+        if (!confirmed) {
+          return false;
+        }
+      }
+
+      try {
+        const response = await window.apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/block`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blocked: shouldBlock })
+        });
+        const payload = response?.data || {};
+        if (!response?.ok || payload.ok === false) {
+          throw new Error(payload.message || `Không thể ${actionLabel} tài khoản.`);
+        }
+
+        USERS = USERS.map(user => {
+          if (user.id !== userId) return user;
+          const nextStatus = shouldBlock ? 'blocked' : getUnlockedStatus(user);
+          return { ...user, status: nextStatus };
+        });
+
+        state.selected.delete(userId);
+        applyFilters();
+
+        if (fromDrawer) {
+          setTimeout(() => openDrawer(userId), 0);
+        }
+
+        if (!silent) {
+          alert(payload.message || `Đã ${actionLabel} tài khoản.`);
+        }
+
+        return true;
+      } catch (error) {
+        console.error('❌ Lỗi cập nhật trạng thái khóa user:', error);
+        if (!silent) {
+          alert(error.message || `Không thể ${actionLabel} tài khoản. Vui lòng thử lại sau.`);
+        }
+        return false;
+      }
     }
 
     // Populate User ID filter dropdown
@@ -454,7 +584,11 @@
         
         // Backend trả về { ok: true, data: users, total: number }
         // Vậy users nằm ở backendData.data
-        USERS = backendData.data || [];
+        USERS = (backendData.data || []).map((user, index) => ({
+          ...user,
+          id: String(user.id ?? `U${index}`),
+          emailVerified: user.emailVerified !== undefined ? !!user.emailVerified : true
+        }));
         
         console.log('👥 Users array:', USERS);
         console.log('📊 Số lượng users:', USERS.length);
@@ -542,18 +676,70 @@
       applyFilters();
     });
 
+    bulkDeleteBtn?.addEventListener('click', async ()=>{
+      const ids = Array.from(state.selected);
+      if(ids.length === 0){ return; }
+      const confirmed = window.confirm(`Bạn chắc chắn muốn xóa ${ids.length} người dùng đã chọn?`);
+      if(!confirmed){ return; }
+
+      for(const id of ids){
+        const target = USERS.find(u=>u.id===id);
+        const success = await deleteUser(id, { userEmail: target?.email, skipConfirm: true });
+        if(!success){
+          break;
+        }
+      }
+    });
+
+    bulkBlockBtn?.addEventListener('click', async () => {
+      const ids = Array.from(state.selected);
+      if (ids.length === 0) { return; }
+      const confirmed = window.confirm(`Bạn chắc chắn muốn khóa ${ids.length} tài khoản đã chọn?`);
+      if (!confirmed) { return; }
+      let count = 0;
+      for (const id of ids) {
+        const success = await updateUserBlockStatus(id, true, { skipConfirm: true, silent: true });
+        if (!success) {
+          break;
+        }
+        count += 1;
+      }
+      if (count > 0) {
+        alert(`Đã khóa ${count}/${ids.length} tài khoản.`);
+      }
+    });
+
+    bulkUnblockBtn?.addEventListener('click', async () => {
+      const ids = Array.from(state.selected);
+      if (ids.length === 0) { return; }
+      const confirmed = window.confirm(`Bạn chắc chắn muốn mở khóa ${ids.length} tài khoản đã chọn?`);
+      if (!confirmed) { return; }
+      let count = 0;
+      for (const id of ids) {
+        const success = await updateUserBlockStatus(id, false, { skipConfirm: true, silent: true });
+        if (!success) {
+          break;
+        }
+        count += 1;
+      }
+      if (count > 0) {
+        alert(`Đã mở khóa ${count}/${ids.length} tài khoản.`);
+      }
+    });
+
     // Actions (view/toggle)
     tbody.addEventListener('click', e=>{
       if(e.target.classList.contains('act-view')){ e.preventDefault(); openDrawer(e.target.dataset.id); }
       if(e.target.classList.contains('act-toggle')){
         e.preventDefault();
         const id = e.target.dataset.id;
-        const u = USERS.find(x=>x.id===id);
-        if (u) {
-          u.status = (u.status==='blocked') ? 'active' : 'blocked';
-          applyFilters();
-          // TODO: Có thể thêm API call để cập nhật status trên server
-        }
+        const targetUser = USERS.find(x=>x.id===id);
+        if (!targetUser) return;
+        updateUserBlockStatus(id, targetUser.status !== 'blocked');
+      }
+      if(e.target.classList.contains('act-delete')){
+        e.preventDefault();
+        deleteUser(e.target.dataset.id, { userEmail: e.target.dataset.email });
       }
     });
     tbody.addEventListener('dblclick', e=>{
@@ -574,8 +760,22 @@
       document.getElementById('d_role').textContent = u.role[0].toUpperCase()+u.role.slice(1);
       document.getElementById('d_tx').textContent = u.tx.toLocaleString('vi-VN');
       document.getElementById('d_avatar').innerHTML = `<img src="${u.avatar}" class="avatar" style="width:56px;height:56px">`;
-      document.getElementById('d_block').onclick = ()=>{ u.status = (u.status==='blocked')?'active':'blocked'; applyFilters(); openDrawer(id); };
+      if (drawerBlockBtn) {
+        const shouldBlock = u.status !== 'blocked';
+        drawerBlockBtn.textContent = shouldBlock ? 'Khóa tài khoản' : 'Mở khóa tài khoản';
+        drawerBlockBtn.dataset.id = id;
+        drawerBlockBtn.disabled = false;
+        drawerBlockBtn.onclick = async () => {
+          drawerBlockBtn.disabled = true;
+          try {
+            await updateUserBlockStatus(id, shouldBlock, { fromDrawer: true });
+          } finally {
+            drawerBlockBtn.disabled = false;
+          }
+        };
+      }
       document.getElementById('d_reset').onclick = ()=>alert('Đã gửi email reset mật khẩu cho '+u.email);
+      drawerDeleteBtn.onclick = ()=>{ deleteUser(id, { userEmail: u.email, fromDrawer: true }); };
       drawer.classList.add('show'); overlay.classList.add('show');
       drawer.setAttribute('aria-hidden','false'); overlay.setAttribute('aria-hidden','false');
     }

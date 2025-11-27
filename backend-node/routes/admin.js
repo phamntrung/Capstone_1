@@ -27,14 +27,31 @@ async function ensureUsersIsBlockedColumn() {
   if (!db || typeof db.query !== 'function') {
     return false;
   }
-  if (hasUsersIsBlockedColumn !== null) {
-    return hasUsersIsBlockedColumn;
+  if (hasUsersIsBlockedColumn === true) {
+    return true;
   }
   try {
     const rows = await db.query("SHOW COLUMNS FROM users LIKE 'is_blocked'");
     hasUsersIsBlockedColumn = Array.isArray(rows) && rows.length > 0;
     if (!hasUsersIsBlockedColumn) {
-      console.warn('⚠️ Bảng users chưa có cột is_blocked, sẽ fallback về giá trị mặc định.');
+      console.warn('⚠️ Bảng users chưa có cột is_blocked. Đang cố gắng thêm tự động...');
+      try {
+        await db.query(`
+          ALTER TABLE users
+          ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0
+          AFTER email_verified
+        `);
+        hasUsersIsBlockedColumn = true;
+        console.log('✅ Đã thêm cột is_blocked vào bảng users.');
+      } catch (alterError) {
+        if (alterError && alterError.code === 'ER_DUP_FIELDNAME') {
+          console.log('ℹ️ Cột is_blocked đã tồn tại, cập nhật trạng thái cache.');
+          hasUsersIsBlockedColumn = true;
+        } else {
+          console.error('❌ Không thể tự động thêm cột is_blocked:', alterError.message);
+          hasUsersIsBlockedColumn = false;
+        }
+      }
     }
   } catch (error) {
     console.warn('⚠️ Không thể kiểm tra cột is_blocked trong bảng users:', error.message);
@@ -686,7 +703,8 @@ router.get('/users', authRequired, ensureAdmin, async (req, res) => {
               tx: txCount,
               status: status,
               role: (row.role || 'user').toLowerCase(),
-              tags: tags
+              tags: tags,
+              emailVerified: !!row.email_verified
             };
           } catch (rowError) {
             console.error(`❌ Lỗi format user row ${index}:`, rowError, row);
@@ -700,7 +718,8 @@ router.get('/users', authRequired, ensureAdmin, async (req, res) => {
               tx: 0,
               status: 'active',
               role: 'user',
-              tags: []
+              tags: [],
+              emailVerified: true
             };
           }
         });
@@ -725,7 +744,8 @@ router.get('/users', authRequired, ensureAdmin, async (req, res) => {
         tx: 0,
         status: 'active',
         role: (user.role || 'user').toLowerCase(),
-        tags: []
+        tags: [],
+        emailVerified: true
       }));
     }
 
@@ -744,6 +764,177 @@ router.get('/users', authRequired, ensureAdmin, async (req, res) => {
       message: 'Không thể lấy danh sách users.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * Xóa người dùng khỏi hệ thống (bao gồm dữ liệu liên quan nhờ FK cascade).
+ */
+router.delete('/users/:id', authRequired, ensureAdmin, async (req, res) => {
+  const rawId = (req.params.id || '').trim();
+  const numericId = Number(rawId);
+
+  if (!rawId || Number.isNaN(numericId) || numericId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      message: 'ID người dùng không hợp lệ.'
+    });
+  }
+
+  if (req.user && Number(req.user.id) === numericId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Không thể tự xóa tài khoản quản trị của bạn.'
+    });
+  }
+
+  try {
+    // Ưu tiên xóa trên database thực
+    if (db && typeof db.deleteUserById === 'function') {
+      const existingUser = typeof db.getUserById === 'function'
+        ? await db.getUserById(numericId)
+        : null;
+
+      if (!existingUser) {
+        return res.status(404).json({
+          ok: false,
+          message: 'Không tìm thấy người dùng cần xóa.'
+        });
+      }
+
+      const deleted = await db.deleteUserById(numericId);
+      if (!deleted) {
+        throw new Error('Không thể xóa người dùng trên database.');
+      }
+
+      return res.json({
+        ok: true,
+        deletedId: String(numericId),
+        message: `Đã xóa người dùng ${existingUser.email || existingUser.name || numericId}.`
+      });
+    }
+
+    // Fallback: xóa người dùng lưu trong bộ nhớ (dev mode)
+    const memoryEntry = Array.from(usersByEmail.entries()).find(
+      ([, user]) => String(user.id) === String(rawId) || String(user.id) === String(numericId)
+    );
+
+    if (!memoryEntry) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Không tìm thấy người dùng trong bộ nhớ tạm.'
+      });
+    }
+
+    usersByEmail.delete(memoryEntry[0]);
+
+    return res.json({
+      ok: true,
+      deletedId: String(numericId),
+      message: `Đã xóa người dùng ${memoryEntry[1].email || memoryEntry[1].name || numericId}.`,
+      fallback: true
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi xóa người dùng:', error);
+    return res.status(500).json({
+      ok: false,
+      message: error.message || 'Không thể xóa người dùng. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+/**
+ * Cập nhật trạng thái khóa/mở khóa người dùng.
+ */
+router.patch('/users/:id/block', authRequired, ensureAdmin, async (req, res) => {
+  const rawId = (req.params.id || '').trim();
+  const numericId = Number(rawId);
+  const { blocked } = req.body || {};
+
+  if (!rawId || Number.isNaN(numericId) || numericId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      message: 'ID người dùng không hợp lệ.'
+    });
+  }
+
+  if (typeof blocked !== 'boolean') {
+    return res.status(400).json({
+      ok: false,
+      message: 'Thiếu trạng thái khóa hợp lệ (blocked = true/false).'
+    });
+  }
+
+  if (req.user && Number(req.user.id) === numericId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Không thể tự khóa hoặc mở khóa tài khoản quản trị của bạn.'
+    });
+  }
+
+  try {
+    // Ưu tiên cập nhật trên database thực
+    if (db && typeof db.updateUser === 'function') {
+      const supportsBlockedColumn = await ensureUsersIsBlockedColumn();
+      if (!supportsBlockedColumn) {
+        return res.status(500).json({
+          ok: false,
+          message: 'Bảng users chưa hỗ trợ cột is_blocked, vui lòng cập nhật database.'
+        });
+      }
+
+      const existingUser = typeof db.getUserById === 'function'
+        ? await db.getUserById(numericId)
+        : null;
+
+      if (!existingUser) {
+        return res.status(404).json({
+          ok: false,
+          message: 'Không tìm thấy người dùng cần cập nhật.'
+        });
+      }
+
+      await db.updateUser(numericId, { is_blocked: blocked ? 1 : 0 });
+
+      return res.json({
+        ok: true,
+        blocked,
+        userId: String(numericId),
+        message: blocked
+          ? 'Đã khóa tài khoản người dùng. Họ sẽ không thể đăng nhập.'
+          : 'Đã mở khóa tài khoản. Người dùng có thể đăng nhập trở lại.'
+      });
+    }
+
+    // Fallback: cập nhật trong bộ nhớ (dev mode)
+    const memoryEntry = Array.from(usersByEmail.entries()).find(
+      ([, user]) => String(user.id) === String(rawId) || String(user.id) === String(numericId)
+    );
+
+    if (!memoryEntry) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Không tìm thấy người dùng trong bộ nhớ tạm.'
+      });
+    }
+
+    memoryEntry[1].is_blocked = blocked;
+
+    return res.json({
+      ok: true,
+      blocked,
+      userId: String(numericId),
+      message: blocked
+        ? 'Đã khóa tài khoản người dùng (memory mode).'
+        : 'Đã mở khóa tài khoản người dùng (memory mode).',
+      fallback: true
+    });
+  } catch (error) {
+    console.error('❌ Lỗi cập nhật trạng thái khóa người dùng:', error);
+    return res.status(500).json({
+      ok: false,
+      message: error.message || 'Không thể cập nhật trạng thái khóa. Vui lòng thử lại sau.'
     });
   }
 });

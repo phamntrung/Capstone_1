@@ -29,7 +29,7 @@ try {
 // Import routes
 console.log('📦 Loading route modules...');
 let authRoutes, expenseRoutes, categoryRoutes, budgetRoutes, reportRoutes;
-let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes, settingsRoutes;
+let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes, settingsRoutes, notificationRoutes;
 
 try {
   authRoutes = require('./routes/auth');
@@ -78,6 +78,13 @@ try {
   console.log('  ✅ email routes loaded');
 } catch (error) {
   console.error('  ❌ Failed to load email routes:', error);
+}
+
+try {
+  notificationRoutes = require('./routes/notifications');
+  console.log('  ✅ notifications routes loaded');
+} catch (error) {
+  console.error('  ❌ Failed to load notifications routes:', error);
 }
 
 try {
@@ -502,6 +509,17 @@ if (emailRoutes) {
   console.error('  ❌ /api/email not mounted (route module not loaded)');
 }
 
+if (notificationRoutes) {
+  try {
+    app.use('/api/notifications', notificationRoutes);
+    console.log('  ✅ /api/notifications mounted');
+  } catch (error) {
+    console.error('  ❌ Failed to mount /api/notifications:', error);
+  }
+} else {
+  console.error('  ❌ /api/notifications not mounted (route module not loaded)');
+}
+
 if (utilsRoutes) {
   try {
     app.use('/api/utils', utilsRoutes);
@@ -593,11 +611,20 @@ async function afterServerStarted(effectivePort) {
     console.log('⚠️ Database module not available - using in-memory storage');
   }
 
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    emailScheduler.start();
-  } else {
-    console.log('📧 Email scheduler disabled (no email configuration)');
-  }
+  // ⭐ LUỒNG CẢNH BÁO NGÂN SÁCH:
+  // Trước đây scheduler chỉ được bật khi có cấu hình EMAIL_USER/EMAIL_PASS,
+  // nên nếu chưa cấu hình email thì toàn bộ job (bao gồm cảnh báo trong app) sẽ KHÔNG chạy.
+  // Việc này làm cho ngưỡng cảnh báo ngân sách không hoạt động dù đã cài đặt trong giao diện.
+  //
+  // Sửa lại: luôn khởi động emailScheduler để job cảnh báo ngân sách và các job khác vẫn chạy bình thường.
+  // Nếu thiếu cấu hình email thì chỉ không gửi được email, nhưng thông báo trong app vẫn hoạt động.
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    console.log('📧 Đã tìm thấy cấu hình email, scheduler sẽ gửi cả email và thông báo trong ứng dụng.');
+  } else {
+    console.log('📧 Chưa cấu hình email, scheduler vẫn chạy nhưng CHỈ gửi thông báo trong ứng dụng (không gửi email).');
+  }
+
+  emailScheduler.start();
 }
 
 function listenOnPort(desiredPort, onSuccess, onError) {

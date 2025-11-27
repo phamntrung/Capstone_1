@@ -214,6 +214,19 @@ router.post('/login', async (req, res) => {
     }
 
 
+  // Ngăn đăng nhập nếu tài khoản đã bị khóa bởi admin
+  const isUserBlocked =
+    user.is_blocked === true ||
+    user.is_blocked === 1 ||
+    user.is_blocked === '1' ||
+    user.status === 'blocked';
+  if (isUserBlocked) {
+    return res.status(403).json({
+      message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.'
+    });
+  }
+
+
     // Check if user has password_hash (for Google login users, they might not have password)
     if (!user.password_hash) {
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });

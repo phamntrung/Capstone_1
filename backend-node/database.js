@@ -165,6 +165,17 @@ async function updateUser(userId, updates) {
 }
 
 /**
+ * Xóa user theo ID (cascading nhờ FK)
+ */
+async function deleteUserById(userId) {
+  if (!userId) {
+    throw new Error('Thiếu userId để xóa');
+  }
+  const result = await query('DELETE FROM users WHERE id = ?', [userId]);
+  return result.affectedRows > 0;
+}
+
+/**
  * Lấy tất cả categories của user
  */
 async function getCategoriesByUserId(userId) {
@@ -559,6 +570,7 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
+  deleteUserById,
   getCategoriesByUserId,
   getCategoryById,
   createCategory,

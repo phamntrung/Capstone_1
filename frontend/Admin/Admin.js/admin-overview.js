@@ -24,6 +24,12 @@
   let currentPage = 1;
   const itemsPerPage = 10; // Số giao dịch hiển thị mỗi trang
 
+  // State nhẹ để đồng bộ với thanh tìm kiếm (tham chiếu giống trang Người dùng)
+  const overviewState = {
+    query: '',
+    page: 1
+  };
+
   const sidebar = document.getElementById('sidebar');
   const btnMenu = document.getElementById('btnMenu');
   const btnRange = document.getElementById('btnRange');
@@ -414,6 +420,59 @@
   }
 
   /**
+   * Lấy từ khóa tìm kiếm hiện tại (ưu tiên state, fallback DOM)
+   * Giữ cách làm tương tự trang Người dùng để dễ bảo trì.
+   */
+  function getCurrentSearchQuery() {
+    if (overviewState.query && overviewState.query.trim()) {
+      return overviewState.query.trim();
+    }
+    const input = document.getElementById('searchInput');
+    overviewState.query = input ? input.value.trim() : '';
+    return overviewState.query;
+  }
+
+  /**
+   * Áp dụng tìm kiếm cho danh sách giao dịch gần nhất.
+   * Được tách riêng để có thể tái sử dụng giống hàm applyFilters() ở trang Người dùng.
+   */
+  function applySearchQuery(query) {
+    const normalized = (query || '').trim();
+    overviewState.query = normalized;
+    overviewState.page = 1;
+    currentPage = 1;
+
+    if (!allTransactions || allTransactions.length === 0) {
+      if (txTableEl) {
+        txTableEl.innerHTML = `
+          <tr>
+            <td colspan="6" class="muted" style="text-align:center;padding:24px">
+              ${isLoading ? 'Đang tải dữ liệu...' : 'Chưa có giao dịch để hiển thị.'}
+            </td>
+          </tr>`;
+      }
+      if (paginationEl) {
+        paginationEl.style.display = 'none';
+      }
+      return;
+    }
+
+    const filtered = filterTransactions(allTransactions, normalized);
+    renderTransactions(filtered, normalized);
+  }
+
+  /**
+   * Xóa nhanh thanh tìm kiếm (Ctrl/Cmd+K + Escape giống trang Người dùng).
+   */
+  function resetSearchInput() {
+    const input = document.getElementById('searchInput');
+    if (input) {
+      input.value = '';
+    }
+    applySearchQuery('');
+  }
+
+  /**
    * Render danh sách giao dịch lên bảng
    * @param {Array} transactions - Danh sách giao dịch cần render
    * @param {string} searchQuery - Từ khóa tìm kiếm (để highlight, optional)
@@ -447,6 +506,8 @@
       startIndex = (currentPage - 1) * itemsPerPage;
       endIndex = startIndex + itemsPerPage;
     }
+    // Đồng bộ state để shortcut khác có thể đọc (giống trang Người dùng)
+    overviewState.page = currentPage;
     
     // Chỉ lấy 10 giao dịch cho trang hiện tại
     const paginatedTransactions = transactions.slice(startIndex, endIndex);
@@ -602,9 +663,9 @@
           const page = parseInt(btn.getAttribute('data-page'));
           if (page !== currentPage) {
             currentPage = page;
+            overviewState.page = currentPage;
             // Render lại với dữ liệu hiện tại
-            const searchInputEl = document.getElementById('searchInput');
-            const currentSearchQuery = searchInputEl ? searchInputEl.value.trim() : '';
+            const currentSearchQuery = getCurrentSearchQuery();
             const filteredTransactions = filterTransactions(allTransactions, currentSearchQuery);
             renderTransactions(filteredTransactions, currentSearchQuery);
             // Scroll lên đầu bảng
@@ -674,13 +735,11 @@
       currentPage = 1;
       
       // Render giao dịch với từ khóa tìm kiếm hiện tại (nếu có)
-      const searchInputEl = document.getElementById('searchInput');
-      const currentSearchQuery = searchInputEl ? searchInputEl.value.trim() : '';
+      const currentSearchQuery = getCurrentSearchQuery();
       console.log('🔍 [loadOverview] Từ khóa tìm kiếm hiện tại:', currentSearchQuery);
       // Reset về trang 1 khi load lại dữ liệu
       currentPage = 1;
-      const filteredTransactions = filterTransactions(allTransactions, currentSearchQuery);
-      renderTransactions(filteredTransactions, currentSearchQuery);
+      applySearchQuery(currentSearchQuery);
       
       renderTrend(data.trend);
       updateLastUpdatedLabel(generatedAt);
@@ -787,6 +846,12 @@
         event.preventDefault();
         searchInputEl.focus();
       }
+
+      // Escape được dùng để xóa nhanh giống trang Người dùng
+      if (event.key === 'Escape' && document.activeElement !== searchInputEl && overviewState.query) {
+        event.preventDefault();
+        resetSearchInput();
+      }
     });
 
     /**
@@ -798,43 +863,17 @@
       console.log('✅ [initEventListeners] Đã tìm thấy searchInput:', searchInputEl);
       // Xử lý khi người dùng nhập từ khóa tìm kiếm
       searchInputEl.addEventListener('input', (e) => {
-        const query = e.target.value.trim();
+        const query = e.target.value;
         console.log('🔍 [searchInput] Tìm kiếm với từ khóa:', query, '| allTransactions.length:', allTransactions?.length || 0);
-        
-        // Reset về trang 1 khi tìm kiếm
-        currentPage = 1;
-        
-        // Nếu có dữ liệu giao dịch gốc, filter và render lại
-        if (allTransactions && allTransactions.length > 0) {
-          // Reset về trang 1 khi tìm kiếm
-          currentPage = 1;
-          const filtered = filterTransactions(allTransactions, query);
-          console.log('🔍 [searchInput] Kết quả filter:', filtered.length, 'giao dịch');
-          renderTransactions(filtered, query);
-        } else {
-          console.warn('⚠️ [searchInput] Chưa có dữ liệu giao dịch để tìm kiếm');
-          // Nếu chưa có dữ liệu, chỉ render thông báo
-          if (txTableEl) {
-            txTableEl.innerHTML = `
-              <tr>
-                <td colspan="6" class="muted" style="text-align:center;padding:24px">
-                  Đang tải dữ liệu...
-                </td>
-              </tr>`;
-          }
-        }
+        applySearchQuery(query);
       });
 
       // Xử lý khi người dùng xóa hết từ khóa (phím Escape hoặc xóa hết)
       searchInputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-          searchInputEl.value = '';
-          // Reset về trang 1
-          currentPage = 1;
-          // Render lại danh sách gốc
-          if (allTransactions && allTransactions.length > 0) {
-            renderTransactions(allTransactions, '');
-          }
+          e.preventDefault();
+          resetSearchInput();
+          searchInputEl.blur();
         }
       });
     } else {
@@ -848,8 +887,8 @@
       btnPrevPage.addEventListener('click', () => {
         if (currentPage > 1) {
           currentPage--;
-          const searchInputEl = document.getElementById('searchInput');
-          const currentSearchQuery = searchInputEl ? searchInputEl.value.trim() : '';
+          overviewState.page = currentPage;
+          const currentSearchQuery = getCurrentSearchQuery();
           const filteredTransactions = filterTransactions(allTransactions, currentSearchQuery);
           renderTransactions(filteredTransactions, currentSearchQuery);
           // Scroll lên đầu bảng
@@ -862,13 +901,13 @@
 
     if (btnNextPage) {
       btnNextPage.addEventListener('click', () => {
-        const searchInputEl = document.getElementById('searchInput');
-        const currentSearchQuery = searchInputEl ? searchInputEl.value.trim() : '';
+        const currentSearchQuery = getCurrentSearchQuery();
         const filteredTransactions = filterTransactions(allTransactions, currentSearchQuery);
         const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
         
         if (currentPage < totalPages) {
           currentPage++;
+          overviewState.page = currentPage;
           renderTransactions(filteredTransactions, currentSearchQuery);
           // Scroll lên đầu bảng
           if (txTableEl) {

@@ -26,7 +26,7 @@ class EmailScheduler {
     });
 
     // Budget alert job - runs every day at 9:00 AM
-    const budgetAlertJob = cron.schedule('0 9 * * *', async () => {
+    const budgetAlertJob = cron.schedule('*/1 * * * *', async () => {
       console.log('⚠️ Running budget alert job...');
       await this.sendBudgetAlerts();
     }, {
@@ -187,9 +187,20 @@ class EmailScheduler {
   }
 
   getUsersWithBudgetAlertsEnabled() {
-    // This would normally query the database
-    // For demo purposes, return empty array
-    return [];
+    // ⚠️ HÀM CŨ: ban đầu chỉ trả về mảng rỗng (mock) nên scheduler không có user nào để kiểm tra
+    // ĐỂ GIỮ NGUYÊN CẤU TRÚC: giữ lại hàm cùng tên nhưng triển khai lại, gọi sang budgetAlertService
+    // Mục tiêu: lấy đúng danh sách user đã bật cảnh báo ngân sách trong bảng user_settings
+    return budgetAlertService
+      .getUsersWithBudgetAlertsEnabled()
+      .then((users) => {
+        // Đảm bảo luôn trả về mảng (kể cả khi null/undefined)
+        return Array.isArray(users) ? users : [];
+      })
+      .catch((error) => {
+        console.error('❌ [emailScheduler] Lỗi khi lấy danh sách user bật cảnh báo ngân sách:', error);
+        // Nếu có lỗi, trả về mảng rỗng để tránh làm crash scheduler
+        return [];
+      });
   }
 
   getUsersWithWeeklySummaryEnabled() {
