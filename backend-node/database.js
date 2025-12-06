@@ -165,6 +165,31 @@ async function updateUser(userId, updates) {
 }
 
 /**
+ * Đánh dấu tất cả user legacy là đã xác thực (active).
+ * Dùng khi nâng cấp hệ thống để tránh trạng thái pending cho tài khoản cũ.
+ * @returns {Promise<number>} Số bản ghi được cập nhật
+ */
+async function activateAllExistingUsers() {
+  try {
+    const result = await query(
+      `UPDATE users
+       SET email_verified = TRUE, updated_at = NOW()
+       WHERE email_verified IS NULL OR email_verified = FALSE`
+    );
+    const affected = result?.affectedRows || 0;
+    if (affected > 0) {
+      console.log(`✅ Đã kích hoạt ${affected} user legacy (email_verified = TRUE).`);
+    } else {
+      console.log('ℹ️ Không có user legacy nào cần kích hoạt.');
+    }
+    return affected;
+  } catch (error) {
+    console.warn('⚠️ Không thể kích hoạt user legacy:', error.message);
+    return 0;
+  }
+}
+
+/**
  * Xóa user theo ID (cascading nhờ FK)
  */
 async function deleteUserById(userId) {
@@ -570,6 +595,7 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
+  activateAllExistingUsers,
   deleteUserById,
   getCategoriesByUserId,
   getCategoryById,

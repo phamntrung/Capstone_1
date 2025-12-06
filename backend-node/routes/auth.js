@@ -142,7 +142,8 @@ router.post('/register', async (req, res) => {
           name: name.trim(),
           email: normalizedEmail,
           password_hash: hashedPassword,
-          role: 'user'
+          role: 'user',
+          email_verified: true // Đánh dấu tài khoản vừa đăng ký là active
         });
         console.log(`✅ User registered in database: ${user.id} - ${user.email}`);
       } catch (error) {
@@ -153,7 +154,8 @@ router.post('/register', async (req, res) => {
           name: name.trim(),
           email: normalizedEmail,
           password_hash: hashedPassword,
-          role: 'user'
+          role: 'user',
+          email_verified: true // Đảm bảo trạng thái active cho dữ liệu fallback
         };
         usersByEmail.set(normalizedEmail, user);
         console.log(`⚠️ User saved to in-memory storage: ${user.id}`);
@@ -165,7 +167,8 @@ router.post('/register', async (req, res) => {
         name: name.trim(),
         email: normalizedEmail,
         password_hash: hashedPassword,
-        role: 'user'
+        role: 'user',
+        email_verified: true // Mặc định kích hoạt luôn để hiển thị Active trong admin
       };
       usersByEmail.set(normalizedEmail, user);
     }

@@ -214,8 +214,6 @@
             <a class="chip" data-jump="account"  data-i18n="chip.account">👤 Tài khoản</a>
             <a class="chip" data-jump="security" data-i18n="chip.security">🔐 Bảo mật</a>
             <a class="chip" data-jump="notify"   data-i18n="chip.notify">🔔 Thông báo</a>
-            <a class="chip" data-jump="prefs"    data-i18n="chip.prefs">⚙️ Ứng dụng</a>
-            <a class="chip" data-jump="privacy"  data-i18n="chip.privacy">🗄 Dữ liệu</a>
           </div>
         </div>
 
@@ -252,6 +250,8 @@
                 </div>
               </div>
             </div>
+            </div>
+
 
             <div class="card" id="security">
               <h3 class="section-title" data-i18n="sec.security">Bảo mật</h3>
@@ -279,30 +279,6 @@
               </div>
             </div>
 
-            <div class="card" id="notify">
-              <h3 class="section-title" data-i18n="sec.notify">Thông báo</h3>
-              <div class="row">
-                <div class="label" data-i18n="label.weeklyMail">Email báo cáo tuần</div>
-                <label class="switch"><input id="nWeekly" type="checkbox"><span class="slider"></span></label>
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.push">Thông báo đẩy (push)</div>
-                <label class="switch"><input id="nPush" type="checkbox"><span class="slider"></span></label>
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.fraud">Ngưỡng cảnh báo gian lận</div>
-                <input class="input" id="fraudThreshold" type="number" min="1" max="100" placeholder="%" >
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.channel">Kênh ưu tiên</div>
-                <select class="select" id="nChannel">
-                  <option value="email" data-i18n="opt.email">Email</option>
-                  <option value="push"  data-i18n="opt.push">Push</option>
-                  <option value="both"  data-i18n="opt.both">Cả hai</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
           <!-- RIGHT -->
           <div style="display:grid;gap:16px">
@@ -321,7 +297,7 @@
                 <div class="label" data-i18n="label.currency">Tiền tệ</div>
                 <select class="select" id="currency">
                   <option value="VND">VND – Đồng Việt Nam</option>
-                  <option value="USD">USD – US Dollar</option>
+                 
                 </select>
               </div>
 
@@ -383,36 +359,6 @@
                 </div>
               </div>
             </div>
-
-            <div class="card" id="privacy">
-              <h3 class="section-title" data-i18n="sec.privacy">Dữ liệu & Quyền riêng tư</h3>
-              <div class="row">
-                <div class="label" data-i18n="label.export">Xuất cài đặt</div>
-                <div><button class="btn" id="btnExport" data-i18n="btn.export">Tải JSON</button></div>
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.import">Nhập cài đặt</div>
-                <input type="file" id="importFile" class="input" style="height:auto;padding:10px 14px">
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.clear">Xoá dữ liệu demo</div>
-                <div><button class="btn" id="btnClear" data-i18n="btn.clear">Xoá (local)</button></div>
-              </div>
-            </div>
-
-          
-            <div class="card" style="border-color:#FECACA">
-              <h3 class="section-title" style="color:#991B1B" data-i18n="sec.danger">Khu vực nguy hiểm</h3>
-              <div class="row">
-                <div class="label" data-i18n="label.factory">Khôi phục mặc định</div>
-                <div><button class="btn" id="btnFactory" style="background:#FFF5F5;border-color:#FECACA;color:#B91C1C" data-i18n="btn.resetAll">Reset tất cả</button></div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
-  </div>
 
   <div class="toast" id="toast" data-i18n="toast.saved">Đã lưu cài đặt ✓</div>
 

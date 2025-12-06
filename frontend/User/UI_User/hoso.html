@@ -211,15 +211,11 @@
         </div>
         <div class="row">
           <div class="label req" data-i18n="form.monthlyBalance">Giới hạn chi tiêu (tháng)</div>
-          <input id="monthlyBudgetInput" type="number" value="0" min="0">
+          <input id="monthlyBudgetInput" type="text" inputmode="numeric" value="0">
         </div>
         <div class="row">
           <div class="label" data-i18n="form.phone">Số điện thoại</div>
           <input id="phoneInput" type="text" placeholder="">
-        </div>
-        <div class="row" style="display:flex;align-items:center;justify-content:space-between">
-          <div class="label" data-i18n="toggles.autoCategory">Bật tự động chọn loại chi tiêu</div>
-          <label class="switch"><input id="autoCategoryToggle" type="checkbox" checked><span class="slider"></span></label>
         </div>
         <div class="save-wrap"><button class="btn-primary" id="saveBtn" data-i18n="btn.save" onclick="if(typeof window.saveProfile === 'function'){window.saveProfile().catch(e=>{console.error('Save error:',e); alert('Lỗi khi lưu: '+ (e.message||'Vui lòng thử lại'));});} else {console.error('saveProfile function not found! Please wait for page to finish loading.'); alert('Vui lòng đợi trang tải xong rồi thử lại.');} return false;">Lưu</button></div>
       </div>
@@ -386,7 +382,6 @@
       }
       if(p.phone){ document.getElementById('phoneInput').value = p.phone; }
       document.getElementById('excludeToggle').checked = !!p.exclude_expense;
-      document.getElementById('autoCategoryToggle').checked = p.auto_category !== false;
     }catch(_){}
   }
 

@@ -1990,6 +1990,8 @@ function initChatbox() {
   chatInitialized = true;
   window.__INLINE_CHAT = true;
 
+  console.log('✅ Chat initialized - using direct API calls');
+
   const chatToggle = document.getElementById('chatToggle');
   const chatbox = document.getElementById('chatbox');
   const chatBody = document.getElementById('chatBody');
@@ -2004,6 +2006,7 @@ function initChatbox() {
   function openChat() {
     chatbox.classList.add('open');
     chatbox.setAttribute('aria-hidden', 'false');
+    
     if (!greeted) {
       botSay('Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.');
       greeted = true;
@@ -2057,17 +2060,74 @@ function initChatbox() {
     }, Math.max(300, delay));
   }
 
-  function handleSend() {
+  async function handleSend() {
     const txt = chatInput.value.trim();
     if (!txt) return;
+    
     addMsg(txt, 'user');
     chatInput.value = '';
-    const say = txt.toLowerCase();
-    if (say.includes('tạo') && (say.includes('tháng') || say.includes('thang'))) {
-      botSay('Đang tạo câu trả lời dựa theo yêu cầu…', 900);
-      setTimeout(() => botSay('Tôi đã tạo thành công chi tiêu tiếp theo của tháng sau. Bạn hãy kiểm tra ở mục Danh sách chi tiêu.', 1200), 1100);
-    } else {
-      botSay('Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?');
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    
+    // Show typing indicator
+    const typingIndicator = addTyping();
+    
+    try {
+      console.log('📤 Sending message to AI:', txt);
+      
+      // Check if apiRequest is available
+      if (typeof window.apiRequest !== 'function') {
+        throw new Error('API request function not available. Please refresh the page.');
+      }
+      
+      // Call AI API directly
+      const result = await apiRequest('/api/ai-new/', {
+        method: 'POST',
+        body: JSON.stringify({ message: txt })
+      });
+      
+      typingIndicator.remove();
+      
+      if (!result || !result.ok) {
+        const errorMsg = result?.data?.error || result?.data?.message || 'Không thể kết nối đến AI. Vui lòng thử lại.';
+        throw new Error(errorMsg);
+      }
+      
+      const data = result.data || {};
+      console.log('📥 AI Response:', data);
+      
+      const reply = data.reply || data.message || 'Mình chưa hiểu, bạn thử nói cách khác nhé.';
+      botSay(reply);
+      
+      // Refresh dashboard if expense was created
+      if (data.created) {
+        console.log('✅ Expense created, refreshing dashboard...');
+        setTimeout(() => {
+          if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+          }
+        }, 500);
+      }
+      
+    } catch (error) {
+      typingIndicator.remove();
+      console.error('❌ Chat error:', error);
+      
+      // User-friendly error messages
+      let errorMsg = 'Xin lỗi, có lỗi xảy ra. ';
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMsg += 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        errorMsg += 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else {
+        errorMsg += error.message || 'Bạn thử lại sau nhé.';
+      }
+      
+      botSay(errorMsg);
+    } finally {
+      chatInput.disabled = false;
+      sendBtn.disabled = false;
+      chatInput.focus();
     }
   }
 

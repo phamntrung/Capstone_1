@@ -1386,4 +1386,4 @@
   }
 })();
 
-console.log('🔵 [hoso.js] Script execution finished (IIFE completed)');
+

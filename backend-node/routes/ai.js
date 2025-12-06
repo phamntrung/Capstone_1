@@ -1,8 +1,26 @@
 const express = require('express');
 const { authRequired } = require('../middleware/auth');
 const aiService = require('../ai/aiService');
+const OpenAI = require('openai');
 
 const router = express.Router();
+
+// Initialize OpenAI client
+let openaiClient = null;
+try {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    openaiClient = new OpenAI({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: false // Server-side only
+    });
+    console.log('✅ OpenAI client initialized');
+  } else {
+    console.warn('⚠️ OPENAI_API_KEY not found in environment variables');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize OpenAI client:', error);
+}
 
 // Import database module
 let db = null;
@@ -59,6 +77,201 @@ function monthEnd(date) {
   const year = date.getFullYear();
   const month = date.getMonth();
   return new Date(year, month + 1, 0);
+}
+
+// Classify voice input to expense data using OpenAI
+router.post('/classify', authRequired, async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Text is required' });
+    }
+
+    // If OpenAI is not available, fallback to simple parsing
+    if (!openaiClient) {
+      console.warn('⚠️ OpenAI not available, using fallback parsing');
+      return res.json(parseExpenseTextFallback(text));
+    }
+
+    const prompt = `Phân tích câu nói về chi tiêu: "${text}"
+
+Trả về JSON theo đúng format sau (KHÔNG có markdown, KHÔNG có giải thích, CHỈ trả về JSON):
+
+{
+  "amount": số tiền dạng number (bắt buộc),
+  "category": "ăn uống | xăng xe | hoá đơn | mua sắm | giải trí | chuyển khoản | lương | khác" (bắt buộc),
+  "note": "mô tả ngắn gọn KHÔNG BAO GỒM số tiền" (bắt buộc)
+}
+
+QUAN TRỌNG:
+- "note" là phần mô tả chi tiêu, KHÔNG được bao gồm số tiền
+- Tách riêng số tiền ra khỏi phần mô tả
+- Nếu người dùng nói "ăn uống 30000" thì note là "ăn uống" (không có 30000)
+
+Ví dụ:
+- "Cà phê 50000" → {"amount": 50000, "category": "ăn uống", "note": "Cà phê"}
+- "Đổ xăng 200000" → {"amount": 200000, "category": "xăng xe", "note": "Đổ xăng"}
+- "Tiền điện tháng này 500000" → {"amount": 500000, "category": "hoá đơn", "note": "Tiền điện"}
+- "Mua quần áo 300000" → {"amount": 300000, "category": "mua sắm", "note": "Mua quần áo"}
+- "ăn uống 30000" → {"amount": 30000, "category": "ăn uống", "note": "ăn uống"}
+
+Nếu không thể xác định số tiền, trả về {"amount": 0, "category": "khác", "note": "Không xác định"}`;
+
+    try {
+      const completion = await openaiClient.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Bạn là trợ lý phân tích chi tiêu. Trả về JSON hợp lệ, không có markdown, không có giải thích.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200
+      });
+
+      const responseText = completion.choices[0]?.message?.content?.trim() || '';
+      
+      // Remove markdown code blocks if present
+      let jsonText = responseText;
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```\n?/g, '');
+      }
+      
+      jsonText = jsonText.trim();
+
+      try {
+        const parsed = JSON.parse(jsonText);
+        
+        // Validate and normalize
+        // Đảm bảo note không bao gồm số tiền
+        let note = parsed.note || text.trim();
+        // Loại bỏ số tiền khỏi note nếu có
+        note = note.replace(/\d+[.,\s]?\d*(?:k|nghìn|ngàn)?/gi, '').trim();
+        // Nếu note rỗng sau khi loại bỏ số, dùng text gốc (đã loại số)
+        if (!note || note.length === 0) {
+          note = text.trim().replace(/\d+[.,\s]?\d*(?:k|nghìn|ngàn)?/gi, '').trim();
+          if (!note || note.length === 0) {
+            note = 'Chi tiêu';
+          }
+        }
+        
+        const result = {
+          amount: typeof parsed.amount === 'number' && parsed.amount > 0 ? parsed.amount : 0,
+          category: parsed.category || 'khác',
+          note: note
+        };
+
+        // Map category to database category names if needed
+        const categoryMap = {
+          'ăn uống': 'Ăn uống',
+          'xăng xe': 'Di chuyển',
+          'hoá đơn': 'Nhà ở',
+          'mua sắm': 'Mua sắm',
+          'giải trí': 'Giải trí',
+          'chuyển khoản': 'Chuyển khoản',
+          'lương': 'Thu nhập',
+          'khác': 'Khác'
+        };
+
+        result.categoryName = categoryMap[result.category.toLowerCase()] || 'Khác';
+
+        // Try to find categoryId from database
+        if (db) {
+          try {
+            const categoryId = await findCategoryIdByName(req.user.id, result.categoryName);
+            if (categoryId) {
+              result.categoryId = categoryId;
+            }
+          } catch (error) {
+            console.warn('Error finding category ID:', error);
+          }
+        }
+
+        return res.json(result);
+      } catch (parseError) {
+        console.error('❌ Failed to parse OpenAI response:', parseError);
+        console.error('Response text:', responseText);
+        // Fallback to simple parsing
+        return res.json(parseExpenseTextFallback(text));
+      }
+    } catch (openaiError) {
+      console.error('❌ OpenAI API error:', openaiError);
+      // Fallback to simple parsing
+      return res.json(parseExpenseTextFallback(text));
+    }
+  } catch (error) {
+    console.error('Classify error:', error);
+    res.status(500).json({ message: 'Lỗi phân tích chi tiêu' });
+  }
+});
+
+
+// Fallback function for simple text parsing
+function parseExpenseTextFallback(text) {
+  const cleanText = text.trim().toLowerCase();
+  const originalText = text.trim();
+  
+  // Extract number (supports formats like "50000", "50.000", "50 000", "50k", "50 nghìn")
+  const numberMatch = cleanText.match(/(\d+(?:[.,\s]?\d+)*(?:k|nghìn|ngàn)?)/);
+  let amount = 0;
+  
+  if (numberMatch) {
+    let numStr = numberMatch[1].replace(/[.,\s]/g, '');
+    if (numStr.endsWith('k') || numStr.endsWith('nghìn') || numStr.endsWith('ngàn')) {
+      numStr = numStr.replace(/[kngàihn\s]/g, '');
+      amount = parseInt(numStr) * 1000;
+    } else {
+      amount = parseInt(numStr);
+    }
+  }
+
+  // Simple category detection
+  let category = 'khác';
+  let categoryName = 'Khác';
+  
+  if (/(cà phê|cafe|trà|nước|ăn|uống|com|cơm|bánh|kfc|lotteria|mcdonald)/.test(cleanText)) {
+    category = 'ăn uống';
+    categoryName = 'Ăn uống';
+  } else if (/(xăng|đổ xăng|gas|nhiên liệu)/.test(cleanText)) {
+    category = 'xăng xe';
+    categoryName = 'Di chuyển';
+  } else if (/(điện|nước|tiền nhà|internet|wifi)/.test(cleanText)) {
+    category = 'hoá đơn';
+    categoryName = 'Nhà ở';
+  } else if (/(mua|quần áo|giày|dép|đồ)/.test(cleanText)) {
+    category = 'mua sắm';
+    categoryName = 'Mua sắm';
+  }
+
+  // Tách note (phần mô tả) - loại bỏ số tiền
+  let note = originalText;
+  // Loại bỏ số tiền khỏi note
+  note = note
+  .replace(/\d+[.,\s]?\d*(?:k|nghìn|ngàn)?/gi, '') // remove số
+  .replace(/\bđ\b|\bvnd\b|\bvnđ\b/gi, '')         // remove đơn vị tiền
+  .trim();
+  // Nếu note rỗng, dùng text gốc (đã loại số)
+  if (!note || note.length === 0) {
+    note = originalText.replace(/\d+[.,\s]?\d*(?:k|nghìn|ngàn)?/gi, '').trim();
+    if (!note || note.length === 0) {
+      note = 'Chi tiêu';
+    }
+  }
+
+  return {
+    amount: amount,
+    category: category,
+    categoryName: categoryName,
+    note: note
+  };
 }
 
 // Auto-categorize

@@ -1,6 +1,5 @@
 
 
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,6 +21,17 @@ let globalServer = null;
 let db = null;
 try {
   db = require('./database');
+  if (db && typeof db.activateAllExistingUsers === 'function') {
+    db.activateAllExistingUsers()
+      .then(count => {
+        if (count > 0) {
+          console.log(`🚀 Legacy users activated: ${count}`);
+        }
+      })
+      .catch(err => {
+        console.warn('⚠️ Failed to auto-activate legacy users:', err.message);
+      });
+  }
 } catch (error) {
   console.log('⚠️ Database module not available, using in-memory storage');
 }
@@ -30,6 +40,17 @@ try {
 console.log('📦 Loading route modules...');
 let authRoutes, expenseRoutes, categoryRoutes, budgetRoutes, reportRoutes;
 let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes, settingsRoutes, notificationRoutes;
+// Routes mới cho hệ thống AI riêng (không ảnh hưởng code cũ)
+//OCR
+let aiRouteNew, expenseRouteNew;
+let ocrRoutes;
+
+try {
+  ocrRoutes = require('./routes/ocr');
+  console.log('  ✅ ocr routes loaded');
+} catch (error) {
+  console.error('  ❌ Failed to load ocr routes:', error);
+}
 
 try {
   authRoutes = require('./routes/auth');
@@ -127,6 +148,21 @@ try {
   console.log('  ✅ settings routes loaded');
 } catch (error) {
   console.error('  ❌ Failed to load settings routes:', error);
+}
+
+// Load routes mới cho hệ thống AI riêng
+try {
+  aiRouteNew = require('./routes/ai.route');
+  console.log('  ✅ ai.route (new) loaded');
+} catch (error) {
+  console.error('  ❌ Failed to load ai.route (new):', error);
+}
+
+try {
+  expenseRouteNew = require('./routes/expense.route');
+  console.log('  ✅ expense.route (new) loaded');
+} catch (error) {
+  console.error('  ❌ Failed to load expense.route (new):', error);
 }
 
 const app = express();
@@ -542,6 +578,29 @@ if (settingsRoutes) {
   console.error('  ❌ /api/settings not mounted (route module not loaded)');
 }
 
+// Mount routes mới cho hệ thống AI riêng (đường dẫn khác để không ảnh hưởng code cũ)
+if (aiRouteNew) {
+  try {
+    app.use('/api/ai-new', aiRouteNew);
+    console.log('  ✅ /api/ai-new mounted (hệ thống AI mới)');
+  } catch (error) {
+    console.error('  ❌ Failed to mount /api/ai-new:', error);
+  }
+} else {
+  console.error('  ❌ /api/ai-new not mounted (route module not loaded)');
+}
+
+if (expenseRouteNew) {
+  try {
+    app.use('/api/expense-new', expenseRouteNew);
+    console.log('  ✅ /api/expense-new mounted (hệ thống expense mới)');
+  } catch (error) {
+    console.error('  ❌ Failed to mount /api/expense-new:', error);
+  }
+} else {
+  console.error('  ❌ /api/expense-new not mounted (route module not loaded)');
+}
+
 console.log('✅ All API routes mounted successfully');
 
 // Error handling middleware
@@ -585,11 +644,25 @@ app.use('*', (req, res) => {
 // Start server with graceful port fallback (tries a small set of common dev ports)
 
 async function afterServerStarted(effectivePort) {
-  console.log(`🚀 SmartExpense API running on http://${HOST}:${effectivePort}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🤖 AI Features: ${process.env.DISABLE_AI === 'true' ? 'Disabled' : 'Enabled'}`);
+  console.log(`🚀 SmartExpense API running on http://${HOST}:${effectivePort}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🤖 AI Features: ${process.env.DISABLE_AI === 'true' ? 'Disabled' : 'Enabled'}`);
 
-  if (db && db.testConnection) {
+  // Khởi tạo và sync Sequelize database (cho hệ thống AI mới)
+  try {
+    const sequelize = require('./config/database');
+    await sequelize.authenticate();
+    console.log('✅ Sequelize database connection successful');
+    
+    // Sync models với database (tạo bảng nếu chưa có)
+    await sequelize.sync({ alter: false }); // alter: false để không thay đổi cấu trúc bảng hiện có
+    console.log('✅ Sequelize models synced');
+  } catch (error) {
+    console.warn('⚠️ Sequelize database connection failed:', error.message);
+    console.log('   Hệ thống AI mới có thể không hoạt động đúng');
+  }
+
+  if (db && db.testConnection) {
     try {
       const connected = await db.testConnection();
       if (connected) {

@@ -375,6 +375,67 @@
 
     render();
   })();
+  // ====== YÊU CẦU QUYỀN THÔNG BÁO ======
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+
+function checkSchedulesForNotification() {
+    const KEY = 'sp_schedules';
+    let rows = [];
+    try { rows = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch {}
+
+    if (!rows.length) return;
+
+    const now = new Date();
+    const today = now.getDate();
+    const weekday = now.getDay(); // 0=Chủ nhật → 6=Thứ 7
+    const todayStr = now.toISOString().split("T")[0]; // yyyy-mm-dd
+
+    rows.forEach(item => {
+        if (!item.enabled) return;
+
+        // --- DAILY ---
+        if (item.type === "daily") {
+            notify(item.name, item.amount);
+        }
+
+        // --- WEEKLY ---
+        if (item.type === "weekly") {
+            // Giả sử weekly = báo vào Thứ 2
+            // Bạn có thể mở rộng để chọn ngày trong form
+            if (weekday === 1) notify(item.name, item.amount);
+        }
+
+        // --- MONTHLY ---
+        if (item.type === "monthly") {
+            if (today === 1) notify(item.name, item.amount); // mỗi tháng ngày 1
+        }
+
+        // --- ONCE (một lần) ---
+        if (item.type === "once") {
+            const created = new Date(item.createdAt);
+            const createdStr = created.toISOString().split("T")[0];
+            if (todayStr === createdStr) notify(item.name, item.amount);
+        }
+    });
+}
+
+// Hàm gửi thông báo
+function notify(name, amount) {
+    if (Notification.permission !== "granted") return;
+
+    new Notification("🔔 Lịch chi tiêu đến hạn!", {
+        body: `${name} – ${amount.toLocaleString("vi-VN")}đ`,
+        icon: "https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+    });
+}
+
+// Kiểm tra mỗi 60 giây
+setInterval(checkSchedulesForNotification, 60000);
+
+// Kiểm tra ngay khi mở web
+checkSchedulesForNotification();
 </script>
 </body>
 </html>
