@@ -441,6 +441,105 @@
           right: 16px;
         }
       }
+      /* DARK MODE THEME */
+html.dark {
+  --bg:#0b1220;
+  --card:#0f172a;
+  --text:#f8fafc;
+  --muted:#9aa4b2;
+  --border:#1f2937;
+}
+
+/* Layout */
+html.dark body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html.dark .sidebar,
+html.dark .card,
+html.dark .table-wrap,
+html.dark .chatbox,
+html.dark .search input {
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Table */
+html.dark table th,
+html.dark table td {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html.dark .dot {
+  border: 1px solid var(--border);
+}
+
+/* Buttons */
+html.dark .btn {
+  background: var(--blue);
+  color: #fff;
+}
+
+/* Status tag */
+html.dark .status {
+  background: rgba(34,197,94,0.15);
+  border-color: #14532d;
+  color: #4ade80;
+}
+
+/* Chatbox */
+html.dark .chat-body {
+  background: #0f172a;
+}
+
+html.dark .msg.bot .bubble {
+  background: #1e293b;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .msg.user .bubble {
+  background: var(--blue);
+  color: #fff;
+}
+
+html.dark #chatInput {
+  background: #1e293b;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html.dark .icon-btn {
+  background: #1e293b;
+  border-color: var(--border);
+  color: var(--text);
+}
+/* SIDEBAR DARK MODE FIX */
+html.dark .sidebar {
+  background: #0f172a !important;
+}
+
+html.dark .nav a {
+  color: var(--text) !important; /* chữ sáng lên */
+}
+
+html.dark .nav a .i {
+  color: var(--text) !important; /* icon sáng */
+}
+
+/* Mục đang active */
+html.dark .nav a.active {
+  background: var(--blue) !important;
+  color: #fff !important;
+}
+
+html.dark .brand b {
+  color: var(--text) !important;
+}
+
     </style>
   </head>
   <body>
@@ -836,6 +935,14 @@
           (e && e.detail && e.detail.theme) || localStorage.getItem("theme");
         document.documentElement.classList.toggle("dark", theme === "dark");
       });
+
+        function applyTheme(theme){
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+    window.dispatchEvent(new CustomEvent('themechange', { detail:{ theme } }));
+}
+applyTheme(localStorage.getItem('theme') || 'light');
+
     </script>
   </body>
 </html>

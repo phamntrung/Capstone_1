@@ -40,17 +40,7 @@ try {
 console.log('📦 Loading route modules...');
 let authRoutes, expenseRoutes, categoryRoutes, budgetRoutes, reportRoutes;
 let aiRoutes, emailRoutes, utilsRoutes, deviceRoutes, twofaRoutes, profileRoutes, adminRoutes, settingsRoutes, notificationRoutes;
-// Routes mới cho hệ thống AI riêng (không ảnh hưởng code cũ)
-//OCR
-let aiRouteNew, expenseRouteNew;
-let ocrRoutes;
 
-try {
-  ocrRoutes = require('./routes/ocr');
-  console.log('  ✅ ocr routes loaded');
-} catch (error) {
-  console.error('  ❌ Failed to load ocr routes:', error);
-}
 
 try {
   authRoutes = require('./routes/auth');
@@ -319,7 +309,7 @@ app.use((req, res, next) => {
 });
 
 // Serve static frontend files
-app.use('/frontend', express.static(path.join(__dirname, '../frontend')));
+app.use('/frontend', express.static(path.join(__dirname, 'frontend')));
 
 // Health check endpoint
 app.get('/', (req, res) => {
@@ -611,6 +601,34 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
+// ===== ADMIN SUPPORT NOTIFICATIONS =====
+
+const adminNotificationRoutes = require("./routes/admin.notifications");
+app.use("/api/admin/notifications", adminNotificationRoutes);
+
+const adminSupportRoutes = require("./routes/admin-support");
+app.use("/api/admin/support", adminSupportRoutes);
+
+// ===== API routes =====
+app.use("/api/auth", authRoutes);
+app.use("/api/expenses", expenseRoutes);
+// ...
+app.use("/api/notifications", notificationRoutes);
+
+// ✅ SUPPORT PHẢI Ở ĐÂY
+const supportRoutes = require("./routes/support");
+app.use("/api/support", supportRoutes);
+
+// ❌ 404 LUÔN LUÔN CUỐI CÙNG
+app.use('*', (req, res) => {
+  res.status(404).json({
+    message: 'Endpoint not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+
 
 // 404 handler - must be last
 app.use('*', (req, res) => {
@@ -764,6 +782,7 @@ process.on('SIGINT', () => {
   console.log('\n✋ Server stopped');
   process.exit(0);
 });
+
 
 module.exports = app;
 

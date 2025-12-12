@@ -586,6 +586,17 @@ async function deleteExpense(expenseId, userId) {
   );
   return result.affectedRows > 0;
 }
+async function getAdminIds() {
+  return query(
+    `SELECT id FROM users WHERE role = 'admin' AND is_active = 1`
+  );
+}
+
+module.exports = {
+  query,
+  getAdminIds,
+};
+
 
 module.exports = {
   getPool,

@@ -41,6 +41,7 @@ const Expense = sequelize.define("Expense", {
         type: DataTypes.DATE, 
         defaultValue: DataTypes.NOW 
     }
+    
 }, {
     // Tên bảng trong database
     tableName: "expenses",

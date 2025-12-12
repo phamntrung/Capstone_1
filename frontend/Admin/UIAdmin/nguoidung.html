@@ -163,6 +163,109 @@
       th:nth-child(4), td:nth-child(4),
       th:nth-child(5), td:nth-child(5){display:none}
     }
+    /* ===== NOTIFICATION ===== */
+.notify-wrap {
+  position: relative;
+}
+
+.notify-btn {
+  position: relative;
+  background: var(--pill-grad);
+  border: 1px solid var(--border);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 18px;
+  box-shadow: var(--pill-shadow);
+}
+
+.notify-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #EF4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.notify-panel {
+  position: absolute;
+  right: 0;
+  top: 52px;
+  width: 360px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  z-index: 200;
+}
+
+.notify-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.notify-action {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--blue);
+  cursor: pointer;
+}
+
+.notify-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.notify-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.notify-item:hover {
+  background: #F8FAFC;
+}
+
+.notify-item.unread {
+  background: #ECFDF5;
+}
+
+.notify-item strong {
+  display: block;
+  font-size: 14px;
+}
+
+.notify-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.notify-footer {
+  padding: 10px;
+  text-align: center;
+}
+
+.notify-footer a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+
   </style>
 </head>
 <body>
@@ -188,7 +291,28 @@
 
     <!-- MAIN -->
     <main>
+      <!--Thông báo-->
       <header>
+        <div class="notify-wrap">
+  <button id="btnNotify" class="notify-btn">
+    🔔
+    <span id="notifyBadge" class="notify-badge" hidden>0</span>
+  </button>
+
+  <div id="notifyDropdown" class="notify-panel" hidden>
+    <div class="notify-header">
+      <span>📩 Hỗ trợ</span>
+      <button id="markAllRead" class="notify-action">Đã đọc</button>
+    </div>
+
+    <div id="notifyList" class="notify-list"></div>
+
+    <div class="notify-footer">
+     <a href="/frontend/Admin/UIAdmin/hotro.html">Xem tất cả</a>
+    </div>
+  </div>
+</div>
+
         <h2 class="page-title">Người dùng</h2>
         <div class="toolbar">
           <div class="search">
@@ -207,7 +331,6 @@
           <select id="fRole" class="select" aria-label="Lọc vai trò">
             <option value="">Tất cả vai trò</option>
             <option value="user">User</option>
-            <option value="moderator">Moderator</option>
             <option value="admin">Admin</option>
           </select>
           <button class="btn" id="btnClear" title="Xóa tất cả bộ lọc">Xóa lọc</button>
@@ -220,7 +343,9 @@
           <div class="chips">
             <span class="chip" data-quick="active" title="≥200 giao dịch">🔥 Hoạt động nhiều</span>
             <span class="chip" data-quick="new" title="Đăng ký trong 7 ngày">🆕 Mới đăng ký 7 ngày</span>
-            <span class="chip" data-quick="risk" title="Có thẻ risk">⚠️ Có cảnh báo</span>
+  
+  
+
           </div>
         </div>
 
@@ -297,6 +422,7 @@
   </div>
 
   <script>
+    
     // ===== Data =====
     let USERS = []; // Sẽ được load từ API
 
@@ -793,8 +919,70 @@
     } else {
       setTimeout(loadUsers, 100);
     }
+    
+
+  // ===== Notifications code mới =====
+   const btnNotify = document.getElementById("btnNotify");
+const dropdown = document.getElementById("notifyDropdown");
+const list = document.getElementById("notifyList");
+const badge = document.getElementById("notifyBadge");
+
+btnNotify.onclick = () => {
+  dropdown.hidden = !dropdown.hidden;
+};
+
+async function loadSupportNotifications() {
+  const res = await apiRequest("/api/admin/notifications");
+
+  if (!res || !res.ok) {
+    console.error("❌ Không load được notifications", res);
+    return;
+  }
+
+  const items = res.data.items || [];
+
+  const unread = items.filter(i => !i.isRead);
+
+  badge.hidden = unread.length === 0;
+  badge.textContent = unread.length;
+
+  list.innerHTML = "";
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="notify-item muted">Không có thông báo</div>`;
+    return;
+  }
+
+  items.slice(0, 6).forEach(n => {
+    let payload = {};
+    try {
+      payload = typeof n.payload === "string"
+        ? JSON.parse(n.payload)
+        : n.payload;
+    } catch {}
+
+    const div = document.createElement("div");
+    div.className = `notify-item ${n.isRead ? "" : "unread"}`;
+    div.innerHTML = `
+      <strong>${payload.name || "Người dùng"}</strong>
+      <small>${payload.subject || "Yêu cầu hỗ trợ mới"}</small>
+    `;
+    list.appendChild(div);
+  });
+}
+  
+
+async function openSupportDetail(id) {
+  const res = await apiRequest(`/api/notifications/${id}`);
+  alert(res.data.message);
+  loadSupportNotifications();
+}
+
+loadSupportNotifications();
+
   </script>
-  <script src="../../User/js/utils.js" defer></script>
-  <script src="../Admin.js/admin-common.js" defer></script>
+<script src="../../User/js/utils.js"></script>
+<script src="../Admin.js/admin-common.js"></script>
+
 </body>
 </html>
