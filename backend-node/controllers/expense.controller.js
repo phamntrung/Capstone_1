@@ -2,6 +2,7 @@
 // Controller xử lý các request liên quan đến chi tiêu
 // ========================================
 const Expense = require("../models/expense.model");
+const budgetAlertService = require('../services/budgetAlertService');
 
 /**
  * Thêm chi tiêu mới
@@ -9,34 +10,33 @@ const Expense = require("../models/expense.model");
  * Body: { userId, category, amount, note, date }
  */
 exports.addExpense = async (req, res) => {
-    // Lấy dữ liệu từ request body
-    const { userId, category, amount, note, date } = req.body;
+  const { userId, category, amount, note, date } = req.body;
 
-    try {
-        // Tạo chi tiêu mới trong database
-        const expense = await Expense.create({
-            userId,
-            category,
-            amount,
-            note,
-            date: date || new Date() // Nếu không có date thì dùng ngày hiện tại
-        });
+  try {
+    // 1️⃣ Tạo chi tiêu
+    const expense = await Expense.create({
+      userId,
+      category,
+      amount,
+      note,
+      date: date || new Date()
+    });
 
-        // Trả về kết quả thành công
-        res.json({ 
-            success: true, 
-            expense 
-        });
+    // 2️⃣ KIỂM TRA & GỬI CẢNH BÁO NGÂN SÁCH (🔥 DÒNG QUAN TRỌNG)
+    await budgetAlertService.checkAndSendBudgetAlert(userId);
 
-    } catch (err) {
-        // Log lỗi
-        console.error("Lỗi thêm chi tiêu:", err);
-        
-        // Trả về lỗi
-        res.status(500).json({ 
-            error: err.message || "Lỗi thêm chi tiêu" 
-        });
-    }
+    // 3️⃣ Trả kết quả
+    res.json({
+      success: true,
+      expense
+    });
+
+  } catch (err) {
+    console.error("Lỗi thêm chi tiêu:", err);
+    res.status(500).json({
+      error: err.message || "Lỗi thêm chi tiêu"
+    });
+  }
 };
 
 /**
@@ -44,23 +44,15 @@ exports.addExpense = async (req, res) => {
  * GET /api/expense/all
  */
 exports.getExpenses = async (req, res) => {
-    try {
-        // Lấy tất cả chi tiêu, sắp xếp theo ngày giảm dần (mới nhất trước)
-        const expenses = await Expense.findAll({ 
-            order: [["date", "DESC"]] 
-        });
-
-        // Trả về danh sách
-        res.json(expenses);
-
-    } catch (err) {
-        // Log lỗi
-        console.error("Lỗi lấy danh sách chi tiêu:", err);
-        
-        // Trả về lỗi
-        res.status(500).json({ 
-            error: err.message || "Lỗi lấy danh sách chi tiêu" 
-        });
-    }
+  try {
+    const expenses = await Expense.findAll({
+      order: [["date", "DESC"]]
+    });
+    res.json(expenses);
+  } catch (err) {
+    console.error("Lỗi lấy danh sách chi tiêu:", err);
+    res.status(500).json({
+      error: err.message || "Lỗi lấy danh sách chi tiêu"
+    });
+  }
 };
-

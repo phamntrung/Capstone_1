@@ -8,10 +8,10 @@
 (function initApiBase() {
   try {
     const savedBase = localStorage.getItem('smartexpense_api_base');
-    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:8080';
+    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:5000';
     window.API_BASE = initialBase;
   } catch (e) {
-    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:8080';
+    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
   }
 })();
 

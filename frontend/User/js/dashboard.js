@@ -1530,7 +1530,7 @@ function updateFilterDropdown() {
       }
     });
   }
-
+// cần chỉnh sửa
   if (Array.isArray(allExpenses)) {
     allExpenses.forEach(expense => {
       if (!expense || expense.type !== 'expense') return;
@@ -1617,7 +1617,8 @@ function updateCategoryList(expenses) {
 
   monthExpenses.forEach(expense => {
     const catId = expense.categoryId;
-    const catName = expense.categoryName || 'Khác';
+    const catName = expense.categoryId ? expense.categoryName : 'Khác';
+
     // Use categoryId as key, or 'other' if no category
     const key = catId !== null && catId !== undefined ? catId : 'other';
 
@@ -2008,7 +2009,7 @@ function initChatbox() {
     chatbox.setAttribute('aria-hidden', 'false');
     
     if (!greeted) {
-      botSay('Tôi là trợ lý SmartExpense. Bạn có thể nhờ tôi tạo chi tiêu, xem báo cáo, hoặc hỏi mẹo sử dụng.');
+      botSay('Tôi là trợ lý SmartExpense. Tôi có thể giúp gì cho bạn.');
       greeted = true;
     }
     setTimeout(() => chatInput.focus(), 100);

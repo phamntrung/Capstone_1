@@ -415,7 +415,7 @@
       </div>
       <div class="acts">
         <button class="btn" id="d_block">Khóa/Mở khóa</button>
-        <button class="btn" id="d_reset">Reset mật khẩu</button>
+        
         <button class="btn" id="d_delete" style="background:#FEE2E2;border-color:#FECACA;color:#B91C1C">Xóa user</button>
       </div>
     </div>
@@ -485,7 +485,7 @@
         const since = Date.now() - 7*24*3600*1000;
         data = data.filter(u => new Date(u.joined).getTime() >= since);
       }
-      if(state.quick==='active'){ data = data.filter(u => u.tx >= 200); }
+      if(state.quick==='active'){ data = data.filter(u => u.tx >= 50); }
       if(state.quick==='risk'){   data = data.filter(u => (u.tags||[]).includes('risk')); }
 
       // search
@@ -900,7 +900,7 @@
           }
         };
       }
-      document.getElementById('d_reset').onclick = ()=>alert('Đã gửi email reset mật khẩu cho '+u.email);
+   
       drawerDeleteBtn.onclick = ()=>{ deleteUser(id, { userEmail: u.email, fromDrawer: true }); };
       drawer.classList.add('show'); overlay.classList.add('show');
       drawer.setAttribute('aria-hidden','false'); overlay.setAttribute('aria-hidden','false');
@@ -977,6 +977,14 @@ async function openSupportDetail(id) {
   alert(res.data.message);
   loadSupportNotifications();
 }
+
+document.getElementById("markAllRead").onclick = async () => {
+  await apiRequest("/api/admin/notifications/mark-all-read", {
+    method: "POST"
+  });
+  loadSupportNotifications();
+};
+
 
 loadSupportNotifications();
 
