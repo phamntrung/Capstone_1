@@ -1,170 +1,161 @@
-// Simple shared helpers for API and AI features across pages
-// This file exposes window.API and window.AI without requiring any bundler
+/**
+ * SmartExpense AI Service (FINAL, SAFE)
+ * - Exposes window.AI.chat()
+ * - Single render source (NO DUPLICATE)
+ * - HTML only calls AI.chat()
+ * - UI rendering via window.renderAIMessage if provided
+ */
 
-(function(){
-  function getAPIBase(){
-    return (typeof window !== 'undefined' && window.SMARTEXPENSE_API) || 'http://127.0.0.1:5000';
+(function () {
+  'use strict';
+
+  /* =========================
+   * API helpers
+   * ========================= */
+
+  function getAPIBase() {
+    return window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
   }
 
-  function getToken(){
-    try{ 
-      // Thử lấy token từ localStorage
-      const token = localStorage.getItem('smartexpense_token');
-      if (token) return token;
-      
-      // Nếu không có, thử lấy từ auth object (tương thích với utils.js)
-      const auth = localStorage.getItem('smartexpense_user');
-      if (auth) {
-        try {
-          const authObj = JSON.parse(auth);
-          if (authObj && authObj.token) return authObj.token;
-        } catch(_) {}
-      }
-      
+  function getToken() {
+    try {
+      return localStorage.getItem('smartexpense_token') || '';
+    } catch (_) {
       return '';
-    }catch(_){ return ''; }
+    }
   }
 
-  async function apiFetch(path, options){
+  async function apiFetch(path, options = {}) {
+    const headers = Object.assign(
+      { 'Content-Type': 'application/json' },
+      options.headers || {}
+    );
+
     const token = getToken();
-    const headers = Object.assign({ 'Content-Type': 'application/json' }, (options && options.headers) || {});
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch(getAPIBase() + path, Object.assign({}, options, { headers }));
-    return res;
+    if (token) headers.Authorization = 'Bearer ' + token;
+
+    return fetch(getAPIBase() + path, {
+      credentials: 'include',
+      ...options,
+      headers
+    });
   }
 
-  function pageKey(){
-    try{ return (location && location.pathname) ? location.pathname : 'default'; }catch(_){ return 'default'; }
+  /* =========================
+   * History (per page)
+   * ========================= */
+
+  function pageKey() {
+    try {
+      return location.pathname || 'default';
+    } catch (_) {
+      return 'default';
+    }
   }
 
-  // Chat history persistence
-  function loadHistory(){
-    try{
+  function loadHistory() {
+    try {
       const raw = localStorage.getItem('smartexpense_chat_history');
       const all = raw ? JSON.parse(raw) : {};
       return Array.isArray(all[pageKey()]) ? all[pageKey()] : [];
-    }catch(_){ return []; }
+    } catch (_) {
+      return [];
+    }
   }
 
-  function saveHistory(messages){
-    try{
+  function saveHistory(list) {
+    try {
       const raw = localStorage.getItem('smartexpense_chat_history');
       const all = raw ? JSON.parse(raw) : {};
-      all[pageKey()] = messages.slice(-100); // keep last 100
+      all[pageKey()] = list.slice(-100);
       localStorage.setItem('smartexpense_chat_history', JSON.stringify(all));
-    }catch(_){ /* ignore */ }
+    } catch (_) {}
   }
 
-  function appendMessage(role, text){
+  function appendMessage(role, text) {
     const hist = loadHistory();
     hist.push({ role, text, ts: Date.now() });
     saveHistory(hist);
   }
 
-  // Mirror created expense to localStorage for demo persistence after refresh
-  function mirrorCreatedExpense(created){
-    if (!created) return;
-    try{
-      const raw = localStorage.getItem('transactions');
-      const list = raw ? JSON.parse(raw) : [];
-      const item = {
-        date: created.date || new Date().toISOString().split('T')[0],
-        amount: typeof created.amount === 'number' ? created.amount : Number(created.amount) || 0,
-        type: created.type || (created.amount < 0 ? 'expense' : 'income'),
-        categoryId: created.categoryId || null,
-        note: created.note || 'ai',
-      };
-      list.push(item);
-      localStorage.setItem('transactions', JSON.stringify(list));
-    }catch(_){ /* ignore */ }
+  /* =========================
+   * UI render (SINGLE SOURCE)
+   * ========================= */
+
+  function render(role, text) {
+    try {
+      // 👉 HTML phải đăng ký hàm này
+      if (typeof window.renderAIMessage === 'function') {
+        window.renderAIMessage(role, text);
+      }
+    } catch (_) {}
   }
 
-  async function chat(text){
-    try{
-      console.log('🤖 AI.chat called with:', text);
-      
-      // Lưu message của user vào history
-      appendMessage('user', text);
-      
-      const apiBase = getAPIBase();
-      const token = getToken();
-      console.log('🌐 API Base:', apiBase);
-      console.log('🔑 Token exists:', !!token);
-      
-      // Gọi API mới /api/ai-new với body { message }
-      const url = apiBase + '/api/ai-new';
-      console.log('📡 Calling:', url);
-      
+  /* =========================
+   * AI Chat
+   * ========================= */
+
+  async function chat(text) {
+    if (!text) return;
+
+    console.log('🤖 AI.chat:', text);
+
+    // 1️⃣ Render USER (CHỈ Ở ĐÂY)
+    appendMessage('user', text);
+    render('user', text);
+
+    try {
       const res = await apiFetch('/api/ai-new', {
         method: 'POST',
         body: JSON.stringify({ message: text })
       });
-      
-      console.log('📥 Response status:', res.status, res.statusText);
-      
-      // Xử lý response
+
+      const raw = await res.text();
       let data;
-      if (!res.ok) {
-        // Nếu có lỗi từ server, lấy error message
-        const errorText = await res.text();
-        console.error('❌ API Error response:', errorText);
-        try {
-          data = JSON.parse(errorText);
-        } catch {
-          data = { error: errorText || 'Xin lỗi, có lỗi xảy ra.' };
-        }
-      } else {
-        const responseText = await res.text();
-        console.log('✅ API Success response:', responseText);
-        try {
-          data = JSON.parse(responseText);
-        } catch {
-          data = { reply: responseText || 'Xin lỗi, có lỗi xảy ra.' };
-        }
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { reply: raw };
       }
-      
-      console.log('📦 Parsed data:', data);
-      
-      // Lấy reply từ response (hoặc error message)
-      const reply = (data && data.reply) 
-        ? data.reply 
-        : (data && data.error)
-        ? `Xin lỗi: ${data.error}`
-        : (data && data.message)
-        ? data.message
-        : 'Mình chưa hiểu, bạn thử nói cách khác nhé.';
-      
-      console.log('💬 Final reply:', reply);
-      
-      // Lưu reply của bot vào history
+
+      const reply =
+        data?.reply ||
+        data?.message ||
+        'Mình chưa hiểu, bạn thử nói cách khác nhé.';
+
+      console.log('💬 AI reply:', reply);
+
+      // 2️⃣ Render BOT (CHỈ Ở ĐÂY)
       appendMessage('bot', reply);
-      
-      // Xử lý created expense nếu có
-      if (data && data.created) mirrorCreatedExpense(data.created);
-      
-      return data || { reply };
-    }catch(error){
-      console.error('❌ AI chat error:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      const reply = 'Xin lỗi, hiện không thể kết nối AI. Bạn thử lại sau nhé.';
-      appendMessage('bot', reply);
-      return { reply };
+      render('bot', reply);
+
+      return data;
+    } catch (err) {
+      console.error('❌ AI.chat error:', err);
+
+      const fallback =
+        'Xin lỗi, hiện không thể kết nối AI. Bạn thử lại sau nhé.';
+
+      appendMessage('bot', fallback);
+      render('bot', fallback);
+
+      return { reply: fallback };
     }
   }
 
-  // Expose API and AI services to window
-  window.API = { base: getAPIBase, token: getToken, fetch: apiFetch };
-  window.AI = { chat, loadHistory, appendMessage };
-  
-  console.log('✅ AI service initialized:', {
+  /* =========================
+   * Expose
+   * ========================= */
+
+  window.AI = {
+    chat,
+    loadHistory,
+    appendMessage
+  };
+
+  console.log('✅ AI service initialized (FINAL)', {
     chat: typeof chat,
     loadHistory: typeof loadHistory,
     appendMessage: typeof appendMessage
   });
 })();
-
-

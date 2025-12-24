@@ -233,7 +233,14 @@
     <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý" data-i18n="chat.open" data-i18n-attr="aria-label">
       <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
     </button>
-    
+
+<!-- AI SERVICE (PHẢI LOAD TRƯỚC CHAT) -->
+<script>
+  window.SMARTEXPENSE_API = "http://localhost:5000";
+</script>
+<script src="../js/ai.js"></script>
+
+  
   <script>
 
     /* ===== saveProfile stub function (must be defined FIRST) ===== */
@@ -304,7 +311,7 @@
 
         "chat.title":"Trợ lý thông minh","chat.sub":"Xin chào! 👋 Rất vui khi được hỗ trợ bạn",
         "chat.open":"Mở trợ lý","ph.chat":"Viết tin nhắn…","send.title":"Gửi",
-        "chat.greet":"Mình có thể giúp cập nhật hồ sơ, đổi ngôn ngữ/giao diện và trả lời câu hỏi của bạn.",
+       "chat.greet":"Tôi là trợ lý SmartExpense. Tôi có thể giúp gì cho bạn?",
         "chat.ok":"Mình đã nhận được yêu cầu. Bạn muốn mình làm gì tiếp theo?"
       },
       en:{
@@ -386,35 +393,100 @@
     // The actual save logic is in js/hoso.js
 
     /* ===== Chatbox ===== */
-    const chatToggle=document.getElementById('chatToggle');
-    const chatbox=document.getElementById('chatbox');
-    const chatBody=document.getElementById('chatBody');
-    const chatInput=document.getElementById('chatInput');
-    const sendBtn=document.getElementById('sendBtn');
-    let greeted=false;
+    document.addEventListener('DOMContentLoaded', function () {
 
-    function addMsg(text,who='bot'){
-      const wrap=document.createElement('div'); wrap.className='msg '+who;
-      const av=document.createElement('div'); av.className='avatar-s'; av.textContent=who==='bot'?'🐷':'👤';
-      const b=document.createElement('div'); b.className='bubble'; b.textContent=text;
-      if(who==='bot'){wrap.append(av,b);} else {wrap.append(b,av);}
-      chatBody.appendChild(wrap); chatBody.scrollTop=chatBody.scrollHeight;
-    }
-    function openChat(){
-      chatbox.classList.add('open'); chatbox.setAttribute('aria-hidden','false');
-      if(!greeted){ addMsg(t('chat.greet')); greeted=true; }
-      setTimeout(()=>chatInput.focus(),100);
-    }
-    function closeChat(){ chatbox.classList.remove('open'); chatbox.setAttribute('aria-hidden','true'); }
-    chatToggle.onclick=()=> chatbox.classList.contains('open') ? closeChat() : openChat();
+  const chatToggle = document.getElementById('chatToggle');
+  const chatbox    = document.getElementById('chatbox');
+  const chatBody   = document.getElementById('chatBody');
+  const chatInput  = document.getElementById('chatInput');
+  const sendBtn    = document.getElementById('sendBtn');
 
-    function handleSend(){
-      const txt = chatInput.value.trim(); if(!txt) return;
-      addMsg(txt,'user'); chatInput.value='';
-      addMsg(t('chat.ok'));
+  // An toàn tuyệt đối – thiếu element thì bỏ qua
+  if (!chatToggle || !chatbox || !chatBody || !chatInput || !sendBtn) {
+    console.warn('⚠️ Chat elements not found – chatbot disabled');
+    return;
+  }
+
+  let greeted = false;
+
+  /* ===== Render message (KHÔNG ĐỤNG AVT PROFILE) ===== */
+  function addMsg(text, who = 'bot') {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + who;
+
+    // 🔒 avatar RIÊNG cho chat
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = who === 'bot' ? '🐷' : '👤';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+
+    if (who === 'bot') wrap.append(avatar, bubble);
+    else wrap.append(bubble, avatar);
+
+    chatBody.appendChild(wrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    return wrap;
+  }
+
+  /* ===== Open / Close ===== */
+  function openChat() {
+    chatbox.classList.add('open');
+    chatbox.setAttribute('aria-hidden', 'false');
+
+    if (!greeted) {
+      addMsg('Tôi là trợ lý SmartExpense. Tôi có thể giúp gì cho bạn');
+      greeted = true;
     }
-    sendBtn.onclick=handleSend;
-    chatInput.onkeydown=e=>{ if(e.key==='Enter') handleSend(); };
+
+    setTimeout(() => chatInput.focus(), 100);
+  }
+
+  function closeChat() {
+    chatbox.classList.remove('open');
+    chatbox.setAttribute('aria-hidden', 'true');
+  }
+
+  chatToggle.onclick = () =>
+    chatbox.classList.contains('open') ? closeChat() : openChat();
+
+  /* ===== Send message ===== */
+  async function handleSend() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    addMsg(text, 'user');
+    chatInput.value = '';
+
+    // AI chưa sẵn sàng
+    if (!window.AI || typeof window.AI.chat !== 'function') {
+      addMsg('⚠️ Trợ lý chưa sẵn sàng, vui lòng tải lại trang.');
+      return;
+    }
+
+    // typing indicator
+    const typing = addMsg('⏳ Đang trả lời...', 'bot');
+
+    try {
+      const res = await window.AI.chat(text);
+      typing.remove();
+      addMsg(res.reply || 'Mình chưa hiểu lắm, bạn nói rõ hơn nhé 🙂');
+    } catch (err) {
+      console.error('❌ Chat error:', err);
+      typing.remove();
+      addMsg('❌ Không thể kết nối AI. Vui lòng thử lại sau.');
+    }
+  }
+
+  sendBtn.onclick = handleSend;
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleSend();
+  });
+
+});
   </script>
     <script src="../js/utils.js"></script>
     <script>
@@ -468,5 +540,6 @@
       window.location.href = 'login.html';
     });
     </script>
+    
   </body>
   </html>

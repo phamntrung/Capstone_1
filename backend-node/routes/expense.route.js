@@ -1,22 +1,12 @@
-// ========================================
-// Routes xử lý các endpoint liên quan đến chi tiêu
-// ========================================
 const express = require("express");
 const router = express.Router();
 const expenseController = require("../controllers/expense.controller");
+const { authRequired } = require("../middleware/auth");
 
-/**
- * Route thêm chi tiêu mới
- * POST /api/expense/add
- */
-router.post("/add", expenseController.addExpense);
+// ➕ Thêm thu / chi
+router.post("/", authRequired, expenseController.addExpense);
 
-/**
- * Route lấy danh sách tất cả chi tiêu
- * GET /api/expense/all
- */
-router.get("/all", expenseController.getExpenses);
+// 📄 Lấy danh sách (có filter)
+router.get("/", authRequired, expenseController.getExpenses);
 
-// Export router để sử dụng trong server.js
 module.exports = router;
-

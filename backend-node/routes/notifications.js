@@ -4,6 +4,33 @@ const router = express.Router();
 const { query } = require('../database');
 const { authRequired } = require('../middleware/auth');
 
+router.get('/unread', authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const rows = await query(
+      `SELECT id, title, message, type, is_read, created_at
+       FROM notifications
+       WHERE user_id = ?
+         AND is_read = FALSE
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    res.json({
+      ok: true,
+      data: rows || []
+    });
+  } catch (error) {
+    console.error('❌ [notifications] unread error:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Lỗi khi lấy thông báo chưa đọc'
+    });
+  }
+});
+
 // Lấy danh sách thông báo của user hiện tại
 router.get('/', authRequired, async (req, res) => {
   try {
@@ -107,6 +134,28 @@ router.delete('/all', authRequired, async (req, res) => {
     res.status(500).json({
       ok: false,
       message: 'Lỗi khi xóa thông báo',
+    });
+  }
+});
+// Đánh dấu 1 thông báo là đã đọc
+router.post('/:id/read', authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notiId = req.params.id;
+
+    await query(
+      `UPDATE notifications
+       SET is_read = TRUE
+       WHERE id = ? AND user_id = ?`,
+      [notiId, userId]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('❌ [notifications] read one error:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Lỗi khi đánh dấu thông báo đã đọc'
     });
   }
 });

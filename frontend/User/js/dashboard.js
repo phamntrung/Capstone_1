@@ -58,6 +58,27 @@ async function loadUserData() {
   }
 }
 
+// Xóa giao dịch bằng ID (gọi API DELETE và cập nhật UI)
+async function deleteExpenseById(expenseId) {
+  if (!expenseId) return;
+  if (!confirm('Bạn có chắc muốn xóa giao dịch này?')) return;
+  try {
+    const result = await apiRequest(`/api/expenses/${expenseId}`, { method: 'DELETE' });
+    if (result && result.ok) {
+      // Remove from local list và cập nhật UI
+      allExpenses = allExpenses.filter(e => e.id != expenseId);
+      updateRecentExpenses(allExpenses);
+      showMessage('✅ Đã xóa giao dịch', true);
+    } else {
+      const msg = result && result.data && result.data.message ? result.data.message : 'Không thể xóa giao dịch';
+      alert(msg);
+    }
+  } catch (error) {
+    console.error('Lỗi khi xóa giao dịch:', error);
+    alert('Lỗi khi xóa giao dịch. Vui lòng thử lại.');
+  }
+}
+
 // formatCurrency is now available from utils.js
 
 // Global state
@@ -1047,6 +1068,7 @@ async function updateRecentExpenses(expenses) {
             <td>${note}</td>
             <td class="${typeClass}" style="font-weight:600;color:${expense.type === 'income' ? '#10b981' : '#ef4444'}">${sign}${formatCurrency(amount)}</td>
             <td>${date}</td>
+            <td style="width:84px;text-align:center"><button class="expense-delete-btn" data-expense-id="${expense.id}" title="Xóa" style="background:none;border:0;cursor:pointer;font-size:16px">🗑️</button></td>
           </tr>
         `;
       }).join('');
@@ -1068,6 +1090,16 @@ async function updateRecentExpenses(expenses) {
         });
       });
 
+      // Add delete button listeners
+      tableBody.querySelectorAll('.expense-delete-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const id = this.getAttribute('data-expense-id');
+          if (!id) return;
+          deleteExpenseById(id);
+        });
+      });
+
       // Update pagination
       updatePagination(filtered.length, totalPages);
     }
@@ -1083,19 +1115,32 @@ async function updateRecentExpenses(expenses) {
     const expensesHTML = expenses.map(expense => {
       const categoryDisplay = expense.categoryName || (expense.categoryId ? 'Danh mục' : 'Khác');
       return `
-      <div class="expense-item">
-        <div class="expense-info">
+      <div class="expense-item" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <div class="expense-info" style="flex:1">
           <div class="expense-category">${categoryDisplay}</div>
           <div class="expense-note">${expense.note || 'Không có ghi chú'}</div>
         </div>
-        <div class="expense-amount ${expense.type === 'income' ? 'income' : 'expense'}">
-          ${expense.type === 'income' ? '+' : '-'}${formatCurrency(Math.abs(expense.amount))}
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="expense-amount ${expense.type === 'income' ? 'income' : 'expense'}">
+            ${expense.type === 'income' ? '+' : '-'}${formatCurrency(Math.abs(expense.amount))}
+          </div>
+          <button class="expense-delete-btn" data-expense-id="${expense.id}" title="Xóa" style="background:none;border:0;cursor:pointer;font-size:16px">🗑️</button>
         </div>
       </div>
     `;
     }).join('');
 
     container.innerHTML = expensesHTML;
+
+    // Attach delete listeners for mobile/list view
+    container.querySelectorAll('.expense-delete-btn').forEach(btn => {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const id = this.getAttribute('data-expense-id');
+        if (!id) return;
+        deleteExpenseById(id);
+      });
+    });
   }
 
   // Calculate today's expenses
@@ -1608,7 +1653,7 @@ function updateCategoryList(expenses) {
   // Calculate expenses by category
   const categoryTotals = {};
   const today = new Date();
-  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonth = `${today.  getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
   // Filter expenses for current month only
   const monthExpenses = sourceExpenses.filter(e =>
@@ -2957,12 +3002,8 @@ async function loadIncomeDetailData() {
       console.error('User not authenticated');
       return;
     }
-
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
-
+    //code thu tháng này 15/12
+    const currentMonthStr = await getCurrentMonthVietnam(); // YYYY-MM
     // Get all expenses (including income) using apiRequest
     let allExpenses = [];
 
@@ -3027,7 +3068,12 @@ async function loadIncomeDetailData() {
     // Get income for last 6 months for trend chart
     const last6Months = [];
     for (let i = 5; i >= 0; i--) {
-      const date = new Date(currentYear, currentMonth - 1 - i, 1);
+      //code lấy tháng hiện tại 12 - i
+      const baseMonth = await getCurrentMonthVietnam(); // yyyy-mm
+const [baseYear, baseMon] = baseMonth.split('-').map(Number);
+
+const date = new Date(baseYear, baseMon - 1 - i, 1);
+
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
@@ -3159,6 +3205,147 @@ function initIncomeAndBudgetModals() {
     }
   });
 }
+
+
+// Save income for this month
+
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('incomeDetailModal');
+  const openBtn = document.getElementById('openIncomeModal');
+  const closeBtn = document.getElementById('closeIncomeDetailModal');
+
+  if (!modal || !openBtn || !closeBtn) {
+    console.warn('❌ Income modal elements not found');
+    return;
+  }
+
+  // Mở modal
+  openBtn.addEventListener('click', () => {
+    modal.classList.add('open');
+    loadIncomeThisMonth(); // load dữ liệu
+  });
+
+  // Đóng modal
+  closeBtn.addEventListener('click', () => {
+    modal.classList.remove('open');
+  });
+
+  // Click ra ngoài để đóng
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('open');
+    }
+  });
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveIncomeBtn');
+  const input = document.getElementById('incomeInput');
+
+  // Kiểm tra tồn tại DOM
+  if (!saveBtn || !input) {
+    console.warn('❌ Income input or save button not found');
+    return;
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    console.log('🔥 Save income clicked');
+
+    const amount = Number(input.value);
+
+    // Validate
+    if (!amount || Number.isNaN(amount) || amount <= 0) {
+      alert('Vui lòng nhập số tiền hợp lệ');
+      return;
+    }
+
+    // Ngày đại diện cho thu nhập tháng (ngày 01)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const date = `${year}-${String(month).padStart(2, '0')}-01`;
+
+    try {
+      // 🔥 GỌI API QUA apiRequest (KHÔNG fetch)
+      const res = await apiRequest('/api/expenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          date,
+          amount,
+          type: 'income',
+          note: `Thu nhập tháng ${month}/${year}`
+        })
+      });
+
+      if (!res || !res.ok) {
+        console.error('❌ Save income failed:', res?.data);
+        alert(res?.data?.message || 'Lỗi lưu thu nhập');
+        return;
+      }
+
+      console.log('✅ Income saved successfully');
+
+      // Reset input
+      input.value = '';
+
+      // Reload dữ liệu thu nhập
+      if (typeof loadIncomeThisMonth === 'function') {
+        await loadIncomeThisMonth();
+      } else {
+        console.warn('⚠️ loadIncomeThisMonth is not defined');
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving income:', error);
+      alert('Lỗi khi lưu thu nhập, vui lòng thử lại');
+    }
+  });
+});
+
+
+
+async function loadIncomeThisMonth() {
+  try {
+    const result = await apiRequest('/api/expenses?type=income');
+
+    if (!result || !result.ok) return;
+
+    // ⚠️ API trả { items: [...] }
+    const items = result.data.items || [];
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+
+    const list = items.filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+
+    const total = list.reduce((sum, i) => sum + Math.abs(Number(i.amount)), 0);
+
+    document.getElementById('incomeDetailTotal').textContent =
+      total.toLocaleString('vi-VN') + ' đ';
+
+    const ul = document.getElementById('incomeDetailList');
+    ul.innerHTML = '';
+
+    if (!list.length) {
+      ul.innerHTML = `<li class="empty-state">Chưa có thu nhập tháng này</li>`;
+      return;
+    }
+
+    list.forEach(i => {
+      const li = document.createElement('li');
+      li.textContent = `${i.note || 'Thu nhập'} – ${Math.abs(Number(i.amount)).toLocaleString('vi-VN')} đ`;
+      ul.appendChild(li);
+    });
+
+  } catch (err) {
+    console.error('❌ loadIncomeThisMonth error', err);
+  }
+}
+
+
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', initDashboard);

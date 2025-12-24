@@ -33,37 +33,40 @@
   // LOAD SETTINGS  (✅ FIX CHÍNH Ở ĐÂY)
   // =====================================================
   async function loadSettings() {
-    try {
-      console.log('📥 [caidat.js] Load budget settings...');
+  try {
+    console.log('📥 [caidat.js] Load budget settings...');
 
-      const response = await apiRequest('/api/settings/budget-alerts', {
-        method: 'GET'
-      });
+    const response = await apiRequest('/api/settings/budget-alerts', {
+      method: 'GET',
+      cache: 'no-store' // chống cache 304
+    });
 
-      /**
-       * ❗ BACKEND TRẢ:
-       * { ok: true, settings: {...} }
-       * ❌ KHÔNG CÓ response.data
-       */
-      if (response && response.ok && response.settings) {
-        budgetSettings = {
-          enabled: response.settings.enabled !== false,
-          anomalyEnabled: response.settings.anomalyEnabled !== false,
-          threshold: response.settings.threshold || 95,
-          notifyInApp: response.settings.notifyInApp !== false,
-          notifyEmail: response.settings.notifyEmail === true
-        };
+    console.log('🧪 DEBUG response =', response);
 
-        console.log('✅ [caidat.js] Loaded:', budgetSettings);
-      } else {
-        console.log('ℹ️ [caidat.js] Use default settings');
-      }
-    } catch (err) {
-      console.error('❌ [caidat.js] Load error:', err);
-    } finally {
-      updateUI();
+    if (
+      response &&
+      response.ok &&
+      response.data &&
+      response.data.settings
+    ) {
+      budgetSettings = {
+        enabled: response.data.settings.enabled !== false,
+        anomalyEnabled: response.data.settings.anomalyEnabled !== false,
+        threshold: Number(response.data.settings.threshold) || 95,
+        notifyInApp: response.data.settings.notifyInApp !== false,
+        notifyEmail: response.data.settings.notifyEmail === true
+      };
+
+      console.log('✅ [caidat.js] Loaded from DB:', budgetSettings);
+    } else {
+      console.warn('⚠️ [caidat.js] No settings from API → dùng mặc định');
     }
+  } catch (err) {
+    console.error('❌ [caidat.js] Load error:', err);
+  } finally {
+    updateUI();
   }
+}
 
   // =====================================================
   // UPDATE UI
@@ -218,4 +221,32 @@
     loadSettings,
     saveSettings
   };
+  // =====================================================
+// AI CHAT HOOK (dùng chung với trang chủ)
+// =====================================================
+(function attachAIChat() {
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+
+  if (!chatInput || !sendBtn) return;
+
+  sendBtn.addEventListener('click', sendToAI);
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendToAI();
+  });
+
+  function sendToAI() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    chatInput.value = '';
+
+    // Nếu AI service tồn tại → gửi sang backend
+    if (window.aiService && typeof window.aiService.sendMessage === 'function') {
+      window.aiService.sendMessage(text);
+    } else {
+      console.warn('⚠️ aiService chưa sẵn sàng');
+    }
+  }
+})();
 })();

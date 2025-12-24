@@ -162,6 +162,7 @@ router.post('/test-budget-alert', authRequired, async (req, res) => {
  * Trả về: budget, spent, percentage, threshold, và có vượt ngưỡng không
  */
 router.get('/budget-status', authRequired, async (req, res) => {
+  
   try {
     const userId = req.user.id;
     const budgetAlertService = require('../services/budgetAlertService');
@@ -172,7 +173,8 @@ router.get('/budget-status', authRequired, async (req, res) => {
     const month = now.getMonth() + 1;
     
     // Lấy cài đặt cảnh báo
-    const settings = await budgetAlertService.getUserBudgetSettings(userId);
+   const settings = await budgetAlertService.getSettings(userId);
+
     
     // Lấy dữ liệu ngân sách
     const budgetData = await budgetAlertService.getBudgetData(userId, year, month);

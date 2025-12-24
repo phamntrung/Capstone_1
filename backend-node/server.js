@@ -603,32 +603,50 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
-// ===== ADMIN SUPPORT NOTIFICATIONS =====
-
+// ===============================
+// ADMIN ROUTES
+// ===============================
 const adminNotificationRoutes = require("./routes/admin.notifications");
 app.use("/api/admin/notifications", adminNotificationRoutes);
 
 const adminSupportRoutes = require("./routes/admin-support");
 app.use("/api/admin/support", adminSupportRoutes);
 
-// ===== API routes =====
+
+// ===============================
+// CORE API ROUTES
+// ===============================
 app.use("/api/auth", authRoutes);
 app.use("/api/expenses", expenseRoutes);
-// ...
+app.use("/api/categories", categoryRoutes);
+app.use("/api/budgets", budgetRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/devices", deviceRoutes);
+app.use("/api/2fa", twofaRoutes);
+app.use("/api/utils", utilsRoutes);
+//báo cáo admin
+app.use('/api/admin', require('./routes/admin'));
 
-// ✅ SUPPORT PHẢI Ở ĐÂY
+// ===============================
+// SUPPORT (USER → ADMIN)
+// ===============================
 const supportRoutes = require("./routes/support");
 app.use("/api/support", supportRoutes);
 
-// ❌ 404 LUÔN LUÔN CUỐI CÙNG
-app.use('*', (req, res) => {
-  res.status(404).json({
-    message: 'Endpoint not found',
-    path: req.path,
-    method: req.method
-  });
-});
+
+// ===============================
+// NEW SYSTEM ROUTES (nếu có)
+// ===============================
+if (expenseRouteNew) {
+  app.use("/api/expense-new", expenseRouteNew);
+}
+
+if (aiRouteNew) {
+  app.use("/api/ai-new", aiRouteNew);
+}
 
 
 

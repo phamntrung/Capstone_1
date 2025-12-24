@@ -6,16 +6,13 @@
 // API Configuration (can be overridden by window.SMARTEXPENSE_API)
 // Prefer persisted override, then window override, then default 5000
 (function initApiBase() {
-  try {
-    const savedBase = localStorage.getItem('smartexpense_api_base');
-    let initialBase = window.SMARTEXPENSE_API || savedBase || 'http://127.0.0.1:5000';
-    window.API_BASE = initialBase;
-  } catch (e) {
-    window.API_BASE = window.SMARTEXPENSE_API || 'http://127.0.0.1:5000';
-  }
+  // 🔒 KHÓA CỨNG BACKEND NODE.JS
+  window.API_BASE = 'http://localhost:5000';
+  console.log('🔒 API_BASE locked to:', window.API_BASE);
 })();
 
 function setApiBase(newBase) {
+  return window.API_BASE;
   if (!newBase || typeof newBase !== 'string') return;
   try {
     localStorage.setItem('smartexpense_api_base', newBase);

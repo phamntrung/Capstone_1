@@ -1,5 +1,6 @@
 const express = require('express');
 const { authRequired } = require('../middleware/auth');
+const { query } = require('../database');
 
 const router = express.Router();
 
@@ -122,28 +123,27 @@ router.post('/', authRequired, async (req, res) => {
     }
 
     let { date, amount, type, categoryId, categoryName, note } = req.body;
+    const userId = req.user.id;
 
-    // Nếu không có ngày từ client, lấy ngày hiện tại từ server
     if (!date || !date.trim()) {
       date = getCurrentDateVietnam();
     } else {
       date = date.trim();
     }
 
-    if (typeof amount !== 'number') {
-      return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
-    }
+   const parsedAmount = Number(amount);
+if (Number.isNaN(parsedAmount)) {
+  return res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
+}
 
-    const expense = await db.createExpense(req.user.id, {
-      date: date,
-      amount: parseFloat(amount),
-      type: type || 'expense',
-      categoryId: categoryId ? parseInt(categoryId) : null,
-      categoryName: categoryName || null,
-      note: note ? note.trim() : null
-    });
-
-    // Convert snake_case to camelCase for frontend
+const expense = await db.createExpense(userId, {
+  date,
+  amount: parsedAmount, // ✅ CHÍNH DÒNG NÀY
+  type: type || 'expense',
+  categoryId: categoryId ? parseInt(categoryId) : null,
+  categoryName: categoryName || null,
+  note: note ? note.trim() : null
+});
     const formatted = {
       id: expense.id,
       userId: expense.user_id,
@@ -155,21 +155,49 @@ router.post('/', authRequired, async (req, res) => {
       note: expense.note
     };
 
-    // Kiểm tra và gửi cảnh báo ngân sách (chạy bất đồng bộ, không chặn response)
-    try {
+    // ===============================
+    // 🟢 THU NHẬP = NGÂN SÁCH
+    // ===============================
+    const expenseDate = new Date(date);
+    const year = expenseDate.getFullYear();
+    const month = expenseDate.getMonth() + 1;
+
+   if (type === 'income') {
+  const parsedAmount = parseFloat(amount);
+const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+
+const existing = await query(
+  `SELECT id FROM budgets
+   WHERE user_id = ? AND month = ?`,
+  [userId, monthKey]
+);
+
+  if (existing.length) {
+    await query(
+      `UPDATE budgets
+       SET amount = ?, updated_at = NOW()
+       WHERE user_id = ? AND month = ?`,
+      [parsedAmount, userId, monthKey]
+    );
+  } else {
+    await query(
+      `INSERT INTO budgets (user_id, month, amount, created_at, updated_at)
+       VALUES (?, ?, ?, NOW(), NOW())`,
+      [userId, monthKey, parsedAmount]
+    );
+  }
+}
+
+    // ===============================
+    // 🔔 CHỈ KIỂM TRA CẢNH BÁO KHI CHI TIÊU
+    // ===============================
+    if (type === 'expense') {
       const budgetAlertService = require('../services/budgetAlertService');
-      const expenseDate = new Date(date);
-      const year = expenseDate.getFullYear();
-      const month = expenseDate.getMonth() + 1;
-      
-      // Chạy kiểm tra ngân sách bất đồng bộ (không đợi kết quả)
-      budgetAlertService.checkAndSendBudgetAlert(req.user.id, year, month)
+      budgetAlertService
+        .checkAndSendBudgetAlert(userId, year, month)
         .catch(err => {
-          console.error('❌ [expenses.js] Lỗi khi kiểm tra cảnh báo ngân sách:', err);
+          console.error('❌ Budget alert error:', err);
         });
-    } catch (error) {
-      // Không làm ảnh hưởng đến response nếu có lỗi
-      console.error('❌ [expenses.js] Lỗi khi import budgetAlertService:', error);
     }
 
     res.status(201).json(formatted);
@@ -204,7 +232,7 @@ router.get('/stats', authRequired, async (req, res) => {
     const startDateStr = toVietnamDateString(startDate) || toVietnamDateString(new Date(todayStr));
 
     // Get expenses from database
-    const expenses = await db.query(
+    const expenses = await query(
       `SELECT *, DATE_FORMAT(date, '%Y-%m-%d') AS date_vn
        FROM expenses
        WHERE user_id = ? AND date >= ? AND date <= ?
@@ -222,7 +250,7 @@ router.get('/stats', authRequired, async (req, res) => {
 
           if (e.category_id) {
             try {
-              const category = await db.query('SELECT name FROM categories WHERE id = ?', [e.category_id]);
+              const category = await query('SELECT name FROM categories WHERE id = ?', [e.category_id]);
               if (category && category.length > 0) {
                 catName = category[0].name;
               }
@@ -438,5 +466,6 @@ router.delete('/:id', authRequired, async (req, res) => {
     res.status(500).json({ message: 'Lỗi xóa chi tiêu' });
   }
 });
+
 
 module.exports = router;

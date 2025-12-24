@@ -181,11 +181,16 @@
     if (profile.currency && currencySelect) {
       currencySelect.value = profile.currency;
     }
-    if (profile.balance !== undefined && profile.balance !== null && monthlyBudgetInput) {
-      monthlyBudgetInput.value = profile.balance;
-    } else if (profile.monthly_budget !== undefined && monthlyBudgetInput) {
-      monthlyBudgetInput.value = profile.monthly_budget;
-    }
+   if (profile.balance !== undefined && profile.balance !== null && monthlyBudgetInput) {
+  monthlyBudgetInput.value = new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: 0
+  }).format(Number(profile.balance));
+} else if (profile.monthly_budget !== undefined && monthlyBudgetInput) {
+  monthlyBudgetInput.value = new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: 0
+  }).format(Number(profile.monthly_budget));
+}
+
     if (profile.phone && phoneInput) {
       phoneInput.value = profile.phone;
     }
