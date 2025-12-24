@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SmartExpense — Hỗ trợ</title>
+
+<style>
+:root{
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --border:#e5e7eb;
+  --text:#0f172a;
+  --muted:#64748b;
+  --blue:#2563eb;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--text);
+  display:grid;
+  place-items:center;
+  height:100vh;
+}
+.card{
+  width:100%;
+  max-width:380px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:0 12px 30px rgba(0,0,0,.08);
+}
+h2{margin:0 0 6px;font-size:18px}
+p{margin:0 0 14px;font-size:14px;color:var(--muted)}
+input, textarea{
+  width:100%;
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  font-size:14px;
+}
+textarea{resize:none}
+button{
+  margin-top:14px;
+  width:100%;
+  height:40px;
+  border-radius:10px;
+  border:0;
+  background:var(--blue);
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.status{margin-top:10px;font-size:13px}
+.success{color:#16a34a}
+.error{color:#dc2626}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>📩 Trung tâm hỗ trợ</h2>
+ <p>
+  Yêu cầu của bạn sẽ được chuyển tới quản trị viênn qua email 
+  <b>phamngoctrungqb@gmail.com</b>. 
+  Cảm ơn bạn đã liên hệ!
+</p>
+  <input id="email" type="email" placeholder="Email liên hệ" />
+  <input id="subject" type="text" placeholder="Tiêu đề (tuỳ chọn)" />
+  <textarea id="message" rows="4" placeholder="Mô tả ngắn gọn vấn đề của bạn…"></textarea>
+
+  <button id="sendBtn">Gửi yêu cầu</button>
+  <div id="status" class="status"></div>
+</div>
+
+<script>
+/* ✅ API ĐÚNG */
+const API = "http://localhost:5000/api/support";
+
+const emailEl = document.getElementById("email");
+const subjectEl = document.getElementById("subject");
+const messageEl = document.getElementById("message");
+const statusEl = document.getElementById("status");
+
+document.getElementById("sendBtn").onclick = async () => {
+  const email = emailEl.value.trim();
+  const subject = subjectEl.value.trim();
+  const message = messageEl.value.trim();
+
+  if (!email || !message) {
+    statusEl.textContent = "Vui lòng nhập email và nội dung.";
+    statusEl.className = "status error";
+    return;
+  }
+
+  statusEl.textContent = "Đang gửi…";
+  statusEl.className = "status";
+
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, subject, message })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+
+    statusEl.textContent = "✅ Gửi thành công!";
+    statusEl.className = "status success";
+    messageEl.value = "";
+    subjectEl.value = "";
+  } catch (err) {
+    statusEl.textContent = "❌ Gửi thất bại. Vui lòng thử lại.";
+    statusEl.className = "status error";
+  }
+};
+</script>
+
+</body>
+</html>

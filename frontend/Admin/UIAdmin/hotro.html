@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartExpense Admin – Hỗ trợ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{
+      margin:0;
+      font-family:Inter,system-ui;
+      background:#ECF5FA;
+      color:#0F172A;
+    }
+    .page{
+      max-width:900px;
+      margin:30px auto;
+      background:#fff;
+      border-radius:14px;
+      padding:20px;
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
+    }
+    h2{margin:0 0 6px}
+    p{color:#6B7280;margin-bottom:16px}
+
+    .item{
+      border:1px solid #E5E7EB;
+      border-radius:12px;
+      padding:14px;
+      margin-bottom:12px;
+      background:#F9FAFB;
+    }
+    .item.unread{background:#ECFDF5}
+    .title{font-weight:700}
+    .meta{font-size:13px;color:#6B7280;margin-top:4px}
+    .msg{margin-top:8px;white-space:pre-line}
+  </style>
+</head>
+<body>
+
+  <div class="page">
+    <h2>📩 Yêu cầu hỗ trợ</h2>
+    <p>Danh sách yêu cầu hỗ trợ từ người dùng</p>
+
+    <div id="list">Đang tải...</div>
+  </div>
+  
+<script>
+const API = "http://localhost:5000/api/admin/notifications";
+
+
+
+async function loadSupport() {
+  const list = document.getElementById("list");
+
+  try {
+    const token = localStorage.getItem("smartexpense_token");
+    if (!token) throw new Error("Chưa đăng nhập");
+
+    const res = await fetch(API, {
+  headers: {
+    Authorization: "Bearer " + localStorage.getItem("smartexpense_token")
+  }
+});
+
+
+    if (!res.ok) throw new Error("Không có quyền truy cập");
+
+    const json = await res.json();
+
+    // ✅ ĐÚNG CẤU TRÚC API
+    const items = (json.data.items || []).filter(
+      n => n.type === "support"
+    );
+
+    list.innerHTML = "";
+
+    if (items.length === 0) {
+      list.innerHTML = "Không có yêu cầu hỗ trợ.";
+      return;
+    }
+
+  items.forEach(n => {
+  let payload = {};
+
+  try {
+    if (typeof n.payload === "string") {
+      payload = JSON.parse(n.payload);
+    } else if (typeof n.payload === "object" && n.payload !== null) {
+      payload = n.payload;
+    }
+  } catch (e) {
+    payload = {};
+  }
+
+  const name = payload.name || "Người dùng";
+  const email = payload.email || "Không rõ email";
+  const subject = payload.subject || "(Không có)";
+  const createdAt = payload.createdAt || n.createdAt || Date.now();
+
+  let content = "";
+  if (typeof payload.message === "string") {
+    content = payload.message;
+  } else if (typeof payload.message === "object" && payload.message !== null) {
+    content = JSON.stringify(payload.message, null, 2);
+  } else if (typeof n.message === "string") {
+    content = n.message;
+  } else {
+    content = "(Không có nội dung)";
+  }
+
+  const div = document.createElement("div");
+  div.className = "item" + (n.isRead ? "" : " unread");
+
+  div.innerHTML = `
+    <div class="title">
+      📩 ${name}
+      <span style="font-weight:500;color:#64748b">
+        (${email})
+      </span>
+    </div>
+
+    <div class="meta">
+      ${new Date(createdAt).toLocaleString()}
+    </div>
+
+    <div class="msg">
+      <strong>Tiêu đề:</strong> ${subject}<br><br>
+      <pre style="white-space:pre-wrap;font-family:inherit">${content}</pre>
+    </div>
+  `;
+
+  list.appendChild(div);
+});
+
+  } catch (err) {
+    console.error("LOAD SUPPORT ERROR:", err);
+    list.innerText = "❌ Không tải được dữ liệu";
+  }
+}
+
+loadSupport();
+</script>
+
+</body>
+</html>

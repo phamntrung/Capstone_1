@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="app.title">SmartExpense — Lên lịch chi tiêu</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaf3f9; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+    --border:#e5e7eb; --blue:#2563eb; --blue-600:#1f4fd1;
+    --green:#0ea5a0; --red:#ef4444;
+    --radius:14px; --shadow:0 10px 26px rgba(15,23,42,.06);
+    --soft:#f8fafc; --soft-2:#eef2f7; --chip:#111827;
+    --chat-bg:#f4fbff; --chat-typing-dot:#9ca3af;
+  }
+  html.dark{
+    --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2;
+    --border:#1f2937; --blue:#3b82f6; --green:#22c55e;
+    --soft:#0b1424; --soft-2:#172033; --chip:#e5e7eb;
+    --chat-bg:#0d1526; --chat-typing-dot:#9aa4b2;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    display:grid;grid-template-columns:260px 1fr;min-height:100vh;
+    transition:background .25s,color .25s;
+  }
+  .sidebar{background:var(--card);border-right:1px solid var(--border);padding:18px 14px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .brand .logo{width:40px;height:40px;border-radius:10px;overflow:hidden;background:#ffe8e0;display:grid;place-items:center;box-shadow:var(--shadow)}
+  .brand .logo img{width:100%;height:100%;object-fit:cover}
+  .brand b{font-size:18px}
+  .nav{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;font-weight:700;color:var(--text);text-decoration:none;transition:background .2s,color .2s}
+  .nav a .i{width:18px;text-align:center}
+  .nav a:hover{background:rgba(37,99,235,.12)}
+  html.dark .nav a:hover{background:rgba(59,130,246,.18)}
+  .nav a.active{background:var(--blue);color:#fff}
+
+  .main{padding:22px 24px 40px}
+  .top{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
+  .top h1{margin:0;font-size:22px;font-weight:800}
+  .search{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .search input{
+    width:min(420px,40vw);height:40px;padding:0 16px;border:1px solid var(--border);
+    border-radius:999px;background:var(--card);color:var(--text);outline:none
+  }
+  .icon{opacity:.8}
+  .avatar{
+    width:40px;height:40px;border-radius:50%;
+    background:#fde68a url('avatar.png') center/cover no-repeat;
+    display:grid;place-items:center;font-weight:800;border:2px solid var(--card);
+    box-shadow:0 2px 6px rgba(0,0,0,.08)
+  }
+
+  /* ======= SCHEDULE PAGE UI ======= */
+  .toolbar{display:flex;gap:12px;align-items:center;margin:8px 0 16px}
+  .toolbar input,.toolbar select{
+    height:42px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);
+    padding:0 12px;outline:none;min-width:260px
+  }
+  .btn{height:42px;padding:0 16px;border-radius:12px;border:1px solid var(--border);background:var(--card);font-weight:800;cursor:pointer}
+  .btn-primary{background:var(--blue);border:0;color:#fff;display:flex;align-items:center;gap:8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .empty{padding:60px 16px;text-align:center;color:var(--muted);font-weight:800}
+  .pad{padding:14px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:14px;border-bottom:1px solid var(--soft-2);text-align:left}
+  th{font-size:12px;color:var(--muted);letter-spacing:.2px}
+  .badge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:#e8efff;color:#1e3a8a}
+  html.dark .badge{background:#102241;color:#c7d2fe}
+  .money{font-weight:800}
+  .row-actions{display:flex;gap:8px;justify-content:flex-end}
+  .row-actions .btn{height:34px;padding:0 12px;border-radius:10px}
+
+  .switch{position:relative;width:48px;height:28px;border-radius:999px;background:#cbd5e1;cursor:pointer;display:inline-block}
+  .switch i{position:absolute;top:3px;left:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:.2s}
+  .switch.on{background:#4ade80}
+  .switch.on i{left:23px}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(2,6,23,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal.open{display:flex}
+  .modal .box{width:min(520px,92vw);background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow)}
+  .modal .title{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;font-weight:800;border-bottom:1px solid var(--border)}
+  .modal .body{padding:16px 18px}
+  .form-row{display:flex;gap:12px;align-items:center;margin:10px 0}
+  .form-row label{width:160px;color:var(--muted);font-weight:700}
+  .form-row input,.form-row select{
+    flex:1;height:42px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);padding:0 12px
+  }
+  .modal .foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid var(--border)}
+  .btn-outline{background:var(--card)}
+
+  /* Chat widget (giữ nguyên style từ trang chủ) */
+  .pig-float{
+    position:fixed;right:32px;bottom:26px;width:76px;height:76px;border-radius:18px;background:#ffe8e0;
+    display:grid;place-items:center;box-shadow:var(--shadow);font-size:36px;z-index:20;cursor:pointer;border:0
+  }
+  .pig-float img{width:64px;height:64px}
+  .chatbox{
+    position:fixed;right:26px;bottom:112px;width:340px;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow);overflow:hidden;display:none;z-index:30;
+    grid-template-rows:56px 1fr 60px;
+  }
+  .chatbox.open{display:grid}
+  .chat-head{
+    background:#1da1c9;color:#fff;display:flex;align-items:center;gap:10px;
+    padding:10px 12px;font-weight:800;
+  }
+  .chat-head img{width:28px;height:28px;border-radius:6px;background:#ffe8e0}
+  .chat-title{line-height:1.2}
+  .chat-sub{font-weight:600;opacity:.95}
+  .chat-body{background:var(--chat-bg);overflow:auto;padding:10px;scroll-behavior:smooth;max-height:380px}
+  .msg{display:flex;align-items:flex-end;margin:8px 0;gap:8px}
+  .msg.user{justify-content:flex-end}
+  .bubble{max-width:78%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:var(--card);font-size:14px;line-height:1.35}
+  .msg.bot .bubble{border-radius:14px 14px 14px 4px}
+  .msg.user .bubble{border-radius:14px 14px 4px 14px;background:var(--blue);border:none;color:#fff}
+  .avatar-s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#ffe8e0;flex:0 0 26px;font-size:14px}
+  .typing{display:inline-block;min-width:34px}
+  .typing span{display:inline-block;width:6px;height:6px;background:var(--chat-typing-dot);border-radius:50%;margin:0 2px;animation:b 1s infinite ease-in-out}
+  .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+  @keyframes b{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+  .chat-input{background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:8px}
+  #chatInput{flex:1;height:40px;border:1px solid var(--border);border-radius:999px;padding:0 12px;background:var(--card);color:var(--text);outline:none}
+  #sendBtn{width:38px;height:38px;border-radius:999px;border:0;background:var(--blue);color:#fff;display:grid;place-items:center;cursor:pointer}
+
+  @media (max-width:1024px){
+    body{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:20}
+    .chatbox{right:16px;bottom:96px;width:min(92vw,360px)}
+    .pig-float{right:16px}
+  }
+</style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+      </div>
+      <b data-i18n="brand.name">SmartExpense</b>
+    </div>
+    <nav class="nav">
+      <a href="trangchu.html"><span class="i">🏠</span> <span data-i18n="nav.overview">Trang Chủ</span></a>
+      <a href="danhsachchitieu.html"><span class="i">🧾</span> <span data-i18n="nav.list">Danh sách chi tiêu</span></a>
+      <a href="lenlichchitieu.html" class="active"><span class="i">📅</span> <span data-i18n="nav.schedule">Lên lịch chi tiêu</span></a>
+      <a href="loaichitieu.html"><span class="i">🏷️</span> <span data-i18n="nav.category">Loại chi tiêu</span></a>
+      <a href="baocao.html"><span class="i">📊</span> <span data-i18n="nav.report">Báo cáo</span></a>
+      <a href="hoso.html"><span class="i">👤</span> <span data-i18n="nav.profile">Hồ sơ</span></a>
+      <a href="caidat.html"><span class="i">⚙️</span> <span data-i18n="nav.settings">Cài đặt</span></a>
+      <a href="support.html"><span class="i">📩</span> Hỗ trợ</a>
+      <a href="login.html"><span class="i">↪️</span> <span data-i18n="nav.logout">Đăng xuất</span></a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <h1>🗓️ Lên lịch chi tiêu</h1>
+      <div class="search">
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input id="q" placeholder="Tìm kiếm">
+      <select id="typeFilter" title="Cho loại lịch chi tiêu">
+        <option value="">Cho loại lịch chi tiêu</option>
+        <option value="daily">Hằng ngày</option>
+        <option value="weekly">Hằng tuần</option>
+        <option value="monthly">Hằng tháng</option>
+        <option value="once">Một lần</option>
+      </select>
+      <button id="createBtn" class="btn btn-primary"><span>➕</span><span>Tạo +</span></button>
+    </div>
+
+    <!-- List -->
+    <section class="card">
+      <div id="empty" class="empty">Không có dữ liệu.</div>
+      <div id="listWrap" class="pad" style="display:none">
+        <table>
+          <thead>
+            <tr>
+              <th>TÊN</th>
+              <th style="width:160px">GIÁ</th>
+              <th style="width:160px">LOẠI</th>
+              <th style="width:140px">TRẠNG THÁI</th>
+              <th style="width:180px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- CHATBOX (giữ giống trang chủ) -->
+  <div id="chatbox" class="chatbox" aria-hidden="true">
+    <div class="chat-head">
+      <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+      <div>
+        <div class="chat-title" data-i18n="chat.title">Trợ lý thông minh</div>
+        <div class="chat-sub" data-i18n="chat.subtitle">Xin chào! 👋 Rất vui khi được hỗ trợ bạn</div>
+      </div>
+    </div>
+    <div id="chatBody" class="chat-body"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" data-i18n-placeholder="chat.placeholder" placeholder="Viết tin nhắn…">
+      <button id="sendBtn" title="Gửi" aria-label="Gửi">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L12 20L11 13L4 12Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+  <button id="chatToggle" class="pig-float" aria-label="Mở trợ lý">
+    <img src="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw" alt="">
+  </button>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="box">
+      <div class="title">
+        <span id="modalTitle">Tạo lịch chi tiêu</span>
+        <button id="closeModal" class="btn btn-outline">✕</button>
+      </div>
+      <div class="body">
+        <div class="form-row"><label>Tên *</label><input id="f_name" placeholder="Ví dụ: Tiền điện"></div>
+        <div class="form-row"><label>Giá *</label><input id="f_amount" type="number" min="0" value="0"></div>
+        <div class="form-row">
+          <label>Loại lịch chi tiêu *</label>
+          <select id="f_type">
+            <option value="daily">Hằng ngày</option>
+            <option value="weekly">Hằng tuần</option>
+            <option value="monthly">Hằng tháng</option>
+            <option value="once">Một lần</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Trạng thái</label>
+          <div id="f_switch" class="switch on" role="switch" aria-checked="true"><i></i></div>
+        </div>
+      </div>
+      <div class="foot">
+        <button id="saveBtn" class="btn btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  /* ============ I18N + THEME (giống trang chủ) ============ */
+  const translations = {
+    vi:{ "app.title":"SmartExpense — Lên lịch chi tiêu","brand.name":"SmartExpense",
+      "nav.overview":"Tổng quan","nav.list":"Danh sách chi tiêu",
+      "nav.schedule":"Lên lịch chi tiêu","nav.category":"Loại chi tiêu","nav.report":"Báo cáo",
+      "nav.profile":"Hồ sơ","nav.settings":"Cài đặt","nav.logout":"Đăng xuất",
+      "search.placeholder":"Tìm giao dịch…",
+      "chat.title":"Trợ lý thông minh","chat.subtitle":"Xin chào! 👋 Rất vui khi được hỗ trợ bạn","chat.placeholder":"Viết tin nhắn…",
+      "chat.greeting":"Mình là trợ lý SmartExpense. Bạn cần gì cứ nhắn nhé!",
+      "chat.ready":"Đã nhận. Bạn muốn mình làm gì tiếp?" },
+    en:{ "app.title":"SmartExpense — Planner","brand.name":"SmartExpense",
+      "nav.overview":"Overview","nav.list":"Expense List",
+      "nav.schedule":"Budget planner","nav.category":"Categories","nav.report":"Reports",
+      "nav.profile":"Profile","nav.settings":"Settings","nav.logout":"Log out",
+      "search.placeholder":"Search transactions…",
+      "chat.title":"Smart assistant","chat.subtitle":"Hi! 👋 Happy to help","chat.placeholder":"Type a message…",
+      "chat.greeting":"I’m your SmartExpense assistant. How can I help?","chat.ready":"Got it. What next?" }
+  };
+  function applyTheme(theme){ document.documentElement.classList.toggle('dark', theme==='dark'); }
+  function applyLanguage(lang){
+    const dict = translations[lang] || translations.vi;
+    document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.dataset.i18n; if(dict[k]) el.textContent=dict[k];});
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{ const k=el.dataset.i18nPlaceholder; if(dict[k]) el.placeholder=dict[k];});
+    document.title = dict["app.title"] || document.title; document.documentElement.lang = lang;
+  }
+  const theme = localStorage.getItem('theme') || 'light';
+  const lang  = localStorage.getItem('lang') || 'vi';
+  applyTheme(theme); applyLanguage(lang);
+  window.addEventListener('storage', (e)=>{ if(e.key==='theme'&&e.newValue) applyTheme(e.newValue); if(e.key==='lang'&&e.newValue) applyLanguage(e.newValue); });
+
+  /* ============ CHATBOX (nhẹ nhàng, giống trang chủ) ============ */
+  const chatToggle=document.getElementById('chatToggle'), chatbox=document.getElementById('chatbox'),
+        chatBody=document.getElementById('chatBody'), chatInput=document.getElementById('chatInput'), sendBtn=document.getElementById('sendBtn');
+  let greeted=false;
+  function scrollBottom(){ chatBody.scrollTop=chatBody.scrollHeight; }
+  function addMsg(t,who='bot'){
+    const w=document.createElement('div'); w.className=`msg ${who}`;
+    const av=document.createElement('div'); av.className='avatar-s'; av.textContent=who==='bot'?'🐷':'👤';
+    const b=document.createElement('div'); b.className='bubble'; b.innerText=t;
+    if(who==='bot') w.append(av,b); else w.append(b,av); chatBody.appendChild(w); scrollBottom();
+  }
+  function addTyping(){ const w=document.createElement('div'); w.className='msg bot'; w.dataset.typing='1';
+    w.innerHTML=`<div class="avatar-s">🐷</div><div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+    chatBody.appendChild(w); scrollBottom(); return w; }
+  function openChat(){
+    chatbox.classList.add('open'); chatbox.setAttribute('aria-hidden','false');
+    if(!greeted){ const t=addTyping(); setTimeout(()=>{ t.remove(); addMsg((translations[localStorage.getItem('lang')||'vi']||translations.vi)["chat.greeting"],'bot'); },350); greeted=true; }
+    setTimeout(()=>chatInput.focus(),100);
+  }
+  chatToggle.addEventListener('click', ()=> chatbox.classList.contains('open') ? (chatbox.classList.remove('open'),chatbox.setAttribute('aria-hidden','true')) : openChat());
+  sendBtn.addEventListener('click', ()=>{ const txt=chatInput.value.trim(); if(!txt) return; addMsg(txt,'user'); chatInput.value=''; addMsg((translations[localStorage.getItem('lang')||'vi']||translations.vi)["chat.ready"],'bot'); });
+  chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendBtn.click(); });
+
+  /* ============ SCHEDULE LOGIC ============ */
+  (function(){
+    const KEY='sp_schedules';
+    const $ = s=>document.querySelector(s);
+    let editingId=null;
+    const state={q:'',type:''};
+    const load = ()=>{ try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]} };
+    const save = rows => { localStorage.setItem(KEY, JSON.stringify(rows)); localStorage.setItem(KEY+'_ts', Date.now().toString()); };
+    const fmt = n => (+n).toLocaleString('vi-VN')+'đ';
+    const label = t => t==='daily'?'Hằng ngày':t==='weekly'?'Hằng tuần':t==='monthly'?'Hằng tháng':'Một lần';
+
+    function render(){
+      const rows = load().filter(r=>!state.type||r.type===state.type).filter(r=>!state.q||(r.name+r.amount).toLowerCase().includes(state.q.toLowerCase()));
+      const tbody=$('#tbody');
+      if(!rows.length){ $('#empty').style.display='block'; $('#listWrap').style.display='none'; return; }
+      $('#empty').style.display='none'; $('#listWrap').style.display='block'; tbody.innerHTML='';
+      rows.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td><b>${r.name}</b></td>
+          <td class="money">${fmt(r.amount)}</td>
+          <td><span class="badge">${label(r.type)}</span></td>
+          <td><div class="switch ${r.enabled?'on':''}" data-id="${r.id}" role="switch" aria-checked="${r.enabled?'true':'false'}"><i></i></div></td>
+          <td class="row-actions">
+            <button class="btn" data-edit="${r.id}">Sửa</button>
+            <button class="btn" data-del="${r.id}">Xóa</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    const modal=$('#modal');
+    function openModal(id=null){
+      editingId=id; $('#modalTitle').textContent=id?'Sửa lịch chi tiêu':'Tạo lịch chi tiêu';
+      if(id){
+        const r=load().find(x=>x.id===id);
+        $('#f_name').value=r.name; $('#f_amount').value=r.amount; $('#f_type').value=r.type;
+        $('#f_switch').classList.toggle('on',!!r.enabled); $('#f_switch').setAttribute('aria-checked',r.enabled?'true':'false');
+      }else{
+        $('#f_name').value=''; $('#f_amount').value=0; $('#f_type').value='daily';
+        $('#f_switch').classList.add('on'); $('#f_switch').setAttribute('aria-checked','true');
+      }
+      modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>$('#f_name').focus(),40);
+    }
+    function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+
+    // events
+    $('#createBtn').addEventListener('click', ()=>openModal());
+    $('#closeModal').addEventListener('click', closeModal);
+    modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+    $('#f_switch').addEventListener('click', e=>{ const on=!e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on',on); e.currentTarget.setAttribute('aria-checked',on?'true':'false'); });
+    $('#saveBtn').addEventListener('click', ()=>{
+      const name=$('#f_name').value.trim(); const amount=+$('#f_amount').value; const type=$('#f_type').value; const enabled=$('#f_switch').classList.contains('on');
+      if(!name || isNaN(amount)){ alert('Vui lòng nhập Tên và Giá hợp lệ.'); return; }
+      const rows=load();
+      if(editingId){ const i=rows.findIndex(x=>x.id===editingId); if(i>-1) rows[i]={...rows[i],name,amount,type,enabled}; }
+      else{ const id=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)); rows.push({id,name,amount,type,enabled,createdAt:Date.now()}); }
+      save(rows); closeModal(); render();
+    });
+    $('#typeFilter').addEventListener('change', e=>{ state.type=e.target.value; render(); });
+    $('#q').addEventListener('input', e=>{ state.q=e.target.value; render(); });
+    document.getElementById('tbody').addEventListener('click', e=>{
+      const idEdit=e.target.getAttribute('data-edit'); const idDel=e.target.getAttribute('data-del'); const sw=e.target.closest('.switch');
+      if(idEdit){ openModal(idEdit); return; }
+      if(idDel){ if(confirm('Xóa lịch này?')){ const rows=load().filter(r=>r.id!==idDel); save(rows); render(); } return; }
+      if(sw && sw.dataset.id){ const rows=load(); const r=rows.find(x=>x.id===sw.dataset.id); if(r){ r.enabled=!r.enabled; save(rows); sw.classList.toggle('on',r.enabled); sw.setAttribute('aria-checked',r.enabled?'true':'false'); } }
+    });
+
+    render();
+  })();
+  // ====== YÊU CẦU QUYỀN THÔNG BÁO ======
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+
+function checkSchedulesForNotification() {
+    const KEY = 'sp_schedules';
+    let rows = [];
+    try { rows = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch {}
+
+    if (!rows.length) return;
+
+    const now = new Date();
+    const today = now.getDate();
+    const weekday = now.getDay(); // 0=Chủ nhật → 6=Thứ 7
+    const todayStr = now.toISOString().split("T")[0]; // yyyy-mm-dd
+
+    rows.forEach(item => {
+        if (!item.enabled) return;
+
+        // --- DAILY ---
+        if (item.type === "daily") {
+            notify(item.name, item.amount);
+        }
+
+        // --- WEEKLY ---
+        if (item.type === "weekly") {
+            // Giả sử weekly = báo vào Thứ 2
+            // Bạn có thể mở rộng để chọn ngày trong form
+            if (weekday === 1) notify(item.name, item.amount);
+        }
+
+        // --- MONTHLY ---
+        if (item.type === "monthly") {
+            if (today === 1) notify(item.name, item.amount); // mỗi tháng ngày 1
+        }
+
+        // --- ONCE (một lần) ---
+        if (item.type === "once") {
+            const created = new Date(item.createdAt);
+            const createdStr = created.toISOString().split("T")[0];
+            if (todayStr === createdStr) notify(item.name, item.amount);
+        }
+    });
+}
+
+// Hàm gửi thông báo
+function notify(name, amount) {
+    if (Notification.permission !== "granted") return;
+
+    new Notification("🔔 Lịch chi tiêu đến hạn!", {
+        body: `${name} – ${amount.toLocaleString("vi-VN")}đ`,
+        icon: "https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w480-h960-rw"
+    });
+}
+
+// Kiểm tra mỗi 60 giây
+setInterval(checkSchedulesForNotification, 60000);
+
+// Kiểm tra ngay khi mở web
+checkSchedulesForNotification();
+</script>
+</body>
+</html>
