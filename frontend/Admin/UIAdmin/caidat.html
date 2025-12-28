@@ -62,7 +62,7 @@
       margin:0;font-size:var(--title-size);font-weight:var(--title-weight);
       letter-spacing:var(--title-tracking);line-height:1.2;color:var(--text)
     }
-    header .search{position:relative; flex:1; max-width:720px}
+    header .search{position:relative; flex:1; max-width:720px; min-width:240px}
     header .search input{
       width:100%; height:var(--control-h);
       border-radius:var(--pill-radius);
@@ -106,11 +106,60 @@
     :root[data-theme="dark"] .nav a.active{background:rgba(34,197,94,.18);color:#86efac}
 
     main{display:flex;flex-direction:column;min-width:0}
-    header{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
-    .toolbar{display:flex;align-items:center;gap:12px;flex:1;justify-content:center}
-    .avatar{display:flex;align-items:center;gap:10px}
-    .avatar .pic{width:36px;height:36px;border-radius:50%;background:#FDE68A}
-    :root[data-theme="dark"] .avatar .pic{background:#334155}
+
+    /* ✅ FIX HEADER: dùng GRID để avatar/name luôn nằm góc phải */
+    header{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:12px;
+      padding:12px 16px;
+      background:var(--panel);
+      border-bottom:1px solid var(--border);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .toolbar{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+      justify-content:center;
+      flex-wrap:wrap; /* chống tràn khi màn hình hẹp */
+    }
+
+    .avatar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      justify-content:flex-end;
+      min-width:170px;
+      max-width:260px;
+    }
+
+    /* ✅ Avatar circle: hỗ trợ ảnh hoặc chữ cái */
+    .avatar .pic{
+      width:36px;height:36px;border-radius:50%;
+      background:#FDE68A;
+      display:grid;place-items:center;
+      font-weight:800;
+      color:#0F172A;
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
+      flex:0 0 auto;
+      overflow:hidden;
+    }
+    :root[data-theme="dark"] .avatar .pic{background:#334155;color:#E5E7EB}
+
+    .avatar .name{
+      font-weight:700;
+      max-width:180px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
 
     .content{padding:20px;display:grid;gap:16px}
     .card{background:var(--panel);padding:16px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
@@ -166,6 +215,7 @@
   <link rel="icon" href="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w96-h96-rw" sizes="96x96">
   <link rel="apple-touch-icon" href="https://play-lh.googleusercontent.com/oIYzM27-Lax7Zkg4grAxxLYRQkxHrs1osx0Qbf-jADQNpv9400yo0qYcLzDn-Qz2M8A=w180-h180-rw">
 </head>
+
 <body>
   <div class="app">
     <!-- SIDEBAR -->
@@ -179,8 +229,6 @@
       <nav class="nav" style="margin-top:14px">
         <a href="tongquan.html"><span class="ic">🏠</span> <span data-i18n="nav.dashboard">Trang Chủ</span></a>
         <a href="nguoidung.html"><span class="ic">👥</span> <span data-i18n="nav.users">Người dùng</span></a>
-      
-        
         <a href="baocao.html"><span class="ic">📊</span> <span data-i18n="nav.reports">Báo cáo</span></a>
         <a class="active" href="#"><span class="ic">⚙️</span> <span data-i18n="nav.settings">Cài đặt</span></a>
         <a href="#" data-logout="true"><span class="ic">🚪</span> <span data-i18n="nav.signout">Đăng xuất</span></a>
@@ -191,6 +239,7 @@
     <main>
       <header>
         <h2 class="page-title" data-i18n="settings.title">Cài đặt</h2>
+
         <div class="toolbar">
           <div class="search" style="max-width:520px">
             <span class="icon">🔎</span>
@@ -201,9 +250,11 @@
             <span class="btn-ic">💾</span> <span data-i18n="btn.save">Lưu</span>
           </button>
         </div>
+
+        <!-- ✅ TOP RIGHT USER -->
         <div class="avatar" aria-label="Tài khoản">
-          <div class="pic"></div>
-          <div style="font-weight:600">Admin</div>
+          <div class="pic" id="topAvatarPic">A</div>
+          <div id="topUserName" class="name">...</div>
         </div>
       </header>
 
@@ -250,35 +301,33 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <div class="card" id="security">
+            <h3 class="section-title" data-i18n="sec.security">Bảo mật</h3>
+            <div class="row">
+              <div class="label" data-i18n="label.2fa">Xác thực 2 lớp (2FA)</div>
+              <label class="switch"><input id="twoFA" type="checkbox"><span class="slider"></span></label>
             </div>
-
-
-            <div class="card" id="security">
-              <h3 class="section-title" data-i18n="sec.security">Bảo mật</h3>
-              <div class="row">
-                <div class="label" data-i18n="label.2fa">Xác thực 2 lớp (2FA)</div>
-                <label class="switch"><input id="twoFA" type="checkbox"><span class="slider"></span></label>
-              </div>
-              <div class="row">
-                <div class="label" data-i18n="label.session">Phiên đăng nhập</div>
-                <select class="select" id="sessionLen">
-                  <option value="24" data-i18n="opt.session24">Tự đăng xuất sau 24 giờ</option>
-                  <option value="72" data-i18n="opt.session72">Tự đăng xuất sau 72 giờ</option>
-                  <option value="0"  data-i18n="opt.session0">Không tự đăng xuất</option>
-                </select>
-              </div>
-              <div class="row" style="align-items:start">
-                <div class="label" data-i18n="label.changePwd">Đổi mật khẩu</div>
-                <div style="display:grid;gap:10px">
-                  <input class="input" id="pwd1" type="password" data-i18n-placeholder="ph.currentPwd" placeholder="Mật khẩu hiện tại">
-                  <input class="input" id="pwd2" type="password" data-i18n-placeholder="ph.newPwd" placeholder="Mật khẩu mới">
-                  <input class="input" id="pwd3" type="password" data-i18n-placeholder="ph.reNewPwd" placeholder="Nhập lại mật khẩu mới">
-                  <div class="help" data-i18n="help.pwd">Yêu cầu: tối thiểu 8 ký tự, có số & chữ.</div>
-                  <div><button class="btn" id="btnChangePwd" data-i18n="btn.changePwd">Đổi mật khẩu</button></div>
-                </div>
+            <div class="row">
+              <div class="label" data-i18n="label.session">Phiên đăng nhập</div>
+              <select class="select" id="sessionLen">
+                <option value="24" data-i18n="opt.session24">Tự đăng xuất sau 24 giờ</option>
+                <option value="72" data-i18n="opt.session72">Tự đăng xuất sau 72 giờ</option>
+                <option value="0"  data-i18n="opt.session0">Không tự đăng xuất</option>
+              </select>
+            </div>
+            <div class="row" style="align-items:start">
+              <div class="label" data-i18n="label.changePwd">Đổi mật khẩu</div>
+              <div style="display:grid;gap:10px">
+                <input class="input" id="pwd1" type="password" data-i18n-placeholder="ph.currentPwd" placeholder="Mật khẩu hiện tại">
+                <input class="input" id="pwd2" type="password" data-i18n-placeholder="ph.newPwd" placeholder="Mật khẩu mới">
+                <input class="input" id="pwd3" type="password" data-i18n-placeholder="ph.reNewPwd" placeholder="Nhập lại mật khẩu mới">
+                <div class="help" data-i18n="help.pwd">Yêu cầu: tối thiểu 8 ký tự, có số & chữ.</div>
+                <div><button class="btn" id="btnChangePwd" data-i18n="btn.changePwd">Đổi mật khẩu</button></div>
               </div>
             </div>
-
+          </div>
 
           <!-- RIGHT -->
           <div style="display:grid;gap:16px">
@@ -297,7 +346,6 @@
                 <div class="label" data-i18n="label.currency">Tiền tệ</div>
                 <select class="select" id="currency">
                   <option value="VND">VND – Đồng Việt Nam</option>
-                 
                 </select>
               </div>
 
@@ -359,288 +407,487 @@
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-  <div class="toast" id="toast" data-i18n="toast.saved">Đã lưu cài đặt ✓</div>
+        <div class="toast" id="toast" data-i18n="toast.saved">Đã lưu cài đặt ✓</div>
 
-  <script>
-    /* ===== I18N ===== */
-    const I18N = {
-      vi: {
-        "title.settings":"SmartExpense – Admin / Cài đặt",
-        brand:"SmartExpense Admin",
-        "nav.dashboard":"Tổng quan","nav.users":"Người dùng","nav.transactions":"Giao dịch","nav.ai":"AI Insights","nav.reports":"Báo cáo","nav.settings":"Cài đặt","nav.signout":"Đăng xuất",
-        "settings.title":"Cài đặt",
-        "btn.reset":"Hoàn tác thay đổi","btn.save":"Lưu","btn.export":"Tải JSON","btn.clear":"Xoá (local)","btn.changePwd":"Đổi mật khẩu","btn.resetAll":"Reset tất cả",
-        "chip.account":"👤 Tài khoản","chip.security":"🔐 Bảo mật","chip.notify":"🔔 Thông báo","chip.prefs":"⚙️ Ứng dụng","chip.privacy":"🗄 Dữ liệu","chip.integrations":"🔗 Tích hợp",
-        "search.placeholder":"Tìm cài đặt (ví dụ: 2FA, ngôn ngữ, tiền tệ)...",
-        "sec.account":"Tài khoản & hồ sơ","sec.security":"Bảo mật","sec.notify":"Thông báo","sec.prefs":"Tuỳ chọn ứng dụng","sec.privacy":"Dữ liệu & Quyền riêng tư","sec.integrations":"Tích hợp","sec.danger":"Khu vực nguy hiểm",
-        "label.displayName":"Tên hiển thị","ph.displayName":"Tên của bạn","label.role":"Vai trò","label.timezone":"Múi giờ","label.avatar":"Ảnh đại diện",
-        "label.2fa":"Xác thực 2 lớp (2FA)","label.session":"Phiên đăng nhập","opt.session24":"Tự đăng xuất sau 24 giờ","opt.session72":"Tự đăng xuất sau 72 giờ","opt.session0":"Không tự đăng xuất",
-        "label.changePwd":"Đổi mật khẩu","ph.currentPwd":"Mật khẩu hiện tại","ph.newPwd":"Mật khẩu mới","ph.reNewPwd":"Nhập lại mật khẩu mới","help.pwd":"Yêu cầu: tối thiểu 8 ký tự, có số & chữ.",
-        "label.weeklyMail":"Email báo cáo tuần","label.push":"Thông báo đẩy (push)","label.fraud":"Ngưỡng cảnh báo gian lận","label.channel":"Kênh ưu tiên",
-        "opt.email":"Email","opt.push":"Push","opt.both":"Cả hai",
-        "label.lang":"Ngôn ngữ","label.currency":"Tiền tệ","label.theme":"Chủ đề",
-        "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
-        "label.dateFmt":"Định dạng ngày","label.timeFmt":"Định dạng giờ","label.density":"Mật độ bảng","opt.comfort":"Comfortable","opt.compact":"Compact",
-        "label.startPage":"Trang mặc định","label.autoRefresh":"Tự động làm mới","opt.m1":"1 phút","opt.m5":"5 phút","opt.m10":"10 phút","opt.m30":"30 phút",
-        "label.export":"Xuất cài đặt","label.import":"Nhập cài đặt","label.clear":"Xoá dữ liệu demo","label.factory":"Khôi phục mặc định",
-        "toast.saved":"Đã lưu cài đặt ✓"
-      },
-      en: {
-        "title.settings":"SmartExpense – Admin / Settings",
-        brand:"SmartExpense Admin",
-        "nav.dashboard":"Dashboard","nav.users":"Users","nav.transactions":"Transactions","nav.ai":"AI Insights","nav.reports":"Reports","nav.settings":"Settings","nav.signout":"Sign out",
-        "settings.title":"Settings",
-        "btn.reset":"Undo changes","btn.save":"Save","btn.export":"Download JSON","btn.clear":"Clear (local)","btn.changePwd":"Change password","btn.resetAll":"Reset all",
-        "chip.account":"👤 Account","chip.security":"🔐 Security","chip.notify":"🔔 Notifications","chip.prefs":"⚙️ App","chip.privacy":"🗄 Data","chip.integrations":"🔗 Integrations",
-        "search.placeholder":"Search settings (e.g., 2FA, language, currency)...",
-        "sec.account":"Account & profile","sec.security":"Security","sec.notify":"Notifications","sec.prefs":"Application preferences","sec.privacy":"Data & Privacy","sec.integrations":"Integrations","sec.danger":"Danger zone",
-        "label.displayName":"Display name","ph.displayName":"Your name","label.role":"Role","label.timezone":"Timezone","label.avatar":"Avatar",
-        "label.2fa":"Two-factor authentication (2FA)","label.session":"Session length","opt.session24":"Auto sign-out after 24h","opt.session72":"Auto sign-out after 72h","opt.session0":"Never auto sign-out",
-        "label.changePwd":"Change password","ph.currentPwd":"Current password","ph.newPwd":"New password","ph.reNewPwd":"Re-enter new password","help.pwd":"Min 8 characters with letters & numbers.",
-        "label.weeklyMail":"Weekly report email","label.push":"Push notifications","label.fraud":"Fraud alert threshold","label.channel":"Preferred channel",
-        "opt.email":"Email","opt.push":"Push","opt.both":"Both",
-        "label.lang":"Language","label.currency":"Currency","label.theme":"Theme",
-        "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
-        "label.dateFmt":"Date format","label.timeFmt":"Time format","label.density":"Table density","opt.comfort":"Comfortable","opt.compact":"Compact",
-        "label.startPage":"Default landing page","label.autoRefresh":"Auto refresh","opt.m1":"1 minute","opt.m5":"5 minutes","opt.m10":"10 minutes","opt.m30":"30 minutes",
-        "label.export":"Export settings","label.import":"Import settings","label.clear":"Clear demo data","label.factory":"Factory reset",
-        "toast.saved":"Settings saved ✓"
-      }
-    };
+        <script>
+          /* ===== I18N ===== */
+          const I18N = {
+            vi: {
+              "title.settings":"SmartExpense – Admin / Cài đặt",
+              brand:"SmartExpense Admin",
+              "nav.dashboard":"Tổng quan","nav.users":"Người dùng","nav.transactions":"Giao dịch","nav.ai":"AI Insights","nav.reports":"Báo cáo","nav.settings":"Cài đặt","nav.signout":"Đăng xuất",
+              "settings.title":"Cài đặt",
+              "btn.reset":"Hoàn tác thay đổi","btn.save":"Lưu","btn.export":"Tải JSON","btn.clear":"Xoá (local)","btn.changePwd":"Đổi mật khẩu","btn.resetAll":"Reset tất cả",
+              "chip.account":"👤 Tài khoản","chip.security":"🔐 Bảo mật","chip.notify":"🔔 Thông báo","chip.prefs":"⚙️ Ứng dụng","chip.privacy":"🗄 Dữ liệu","chip.integrations":"🔗 Tích hợp",
+              "search.placeholder":"Tìm cài đặt (ví dụ: 2FA, ngôn ngữ, tiền tệ)...",
+              "sec.account":"Tài khoản & hồ sơ","sec.security":"Bảo mật","sec.notify":"Thông báo","sec.prefs":"Tuỳ chọn ứng dụng","sec.privacy":"Dữ liệu & Quyền riêng tư","sec.integrations":"Tích hợp","sec.danger":"Khu vực nguy hiểm",
+              "label.displayName":"Tên hiển thị","ph.displayName":"Tên của bạn","label.role":"Vai trò","label.timezone":"Múi giờ","label.avatar":"Ảnh đại diện",
+              "label.2fa":"Xác thực 2 lớp (2FA)","label.session":"Phiên đăng nhập","opt.session24":"Tự đăng xuất sau 24 giờ","opt.session72":"Tự đăng xuất sau 72 giờ","opt.session0":"Không tự đăng xuất",
+              "label.changePwd":"Đổi mật khẩu","ph.currentPwd":"Mật khẩu hiện tại","ph.newPwd":"Mật khẩu mới","ph.reNewPwd":"Nhập lại mật khẩu mới","help.pwd":"Yêu cầu: tối thiểu 8 ký tự, có số & chữ.",
+              "label.weeklyMail":"Email báo cáo tuần","label.push":"Thông báo đẩy (push)","label.fraud":"Ngưỡng cảnh báo gian lận","label.channel":"Kênh ưu tiên",
+              "opt.email":"Email","opt.push":"Push","opt.both":"Cả hai",
+              "label.lang":"Ngôn ngữ","label.currency":"Tiền tệ","label.theme":"Chủ đề",
+              "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
+              "label.dateFmt":"Định dạng ngày","label.timeFmt":"Định dạng giờ","label.density":"Mật độ bảng","opt.comfort":"Comfortable","opt.compact":"Compact",
+              "label.startPage":"Trang mặc định","label.autoRefresh":"Tự động làm mới","opt.m1":"1 phút","opt.m5":"5 phút","opt.m10":"10 phút","opt.m30":"30 phút",
+              "label.export":"Xuất cài đặt","label.import":"Nhập cài đặt","label.clear":"Xoá dữ liệu demo","label.factory":"Khôi phục mặc định",
+              "toast.saved":"Đã lưu cài đặt ✓"
+            },
+            en: {
+              "title.settings":"SmartExpense – Admin / Settings",
+              brand:"SmartExpense Admin",
+              "nav.dashboard":"Dashboard","nav.users":"Users","nav.transactions":"Transactions","nav.ai":"AI Insights","nav.reports":"Reports","nav.settings":"Settings","nav.signout":"Sign out",
+              "settings.title":"Settings",
+              "btn.reset":"Undo changes","btn.save":"Save","btn.export":"Download JSON","btn.clear":"Clear (local)","btn.changePwd":"Change password","btn.resetAll":"Reset all",
+              "chip.account":"👤 Account","chip.security":"🔐 Security","chip.notify":"🔔 Notifications","chip.prefs":"⚙️ App","chip.privacy":"🗄 Data","chip.integrations":"🔗 Integrations",
+              "search.placeholder":"Search settings (e.g., 2FA, language, currency)...",
+              "sec.account":"Account & profile","sec.security":"Security","sec.notify":"Notifications","sec.prefs":"Application preferences","sec.privacy":"Data & Privacy","sec.integrations":"Integrations","sec.danger":"Danger zone",
+              "label.displayName":"Display name","ph.displayName":"Your name","label.role":"Role","label.timezone":"Timezone","label.avatar":"Avatar",
+              "label.2fa":"Two-factor authentication (2FA)","label.session":"Session length","opt.session24":"Auto sign-out after 24h","opt.session72":"Auto sign-out after 72h","opt.session0":"Never auto sign-out",
+              "label.changePwd":"Change password","ph.currentPwd":"Current password","ph.newPwd":"New password","ph.reNewPwd":"Re-enter new password","help.pwd":"Min 8 characters with letters & numbers.",
+              "label.weeklyMail":"Weekly report email","label.push":"Push notifications","label.fraud":"Fraud alert threshold","label.channel":"Preferred channel",
+              "opt.email":"Email","opt.push":"Push","opt.both":"Both",
+              "label.lang":"Language","label.currency":"Currency","label.theme":"Theme",
+              "opt.light":"Light","opt.dark":"Dark","opt.system":"System",
+              "label.dateFmt":"Date format","label.timeFmt":"Time format","label.density":"Table density","opt.comfort":"Comfortable","opt.compact":"Compact",
+              "label.startPage":"Default landing page","label.autoRefresh":"Auto refresh","opt.m1":"1 minute","opt.m5":"5 minutes","opt.m10":"10 minutes","opt.m30":"30 minutes",
+              "label.export":"Export settings","label.import":"Import settings","label.clear":"Clear demo data","label.factory":"Factory reset",
+              "toast.saved":"Settings saved ✓"
+            }
+          };
 
-    function applyLang(lang){
-      const dict = I18N[lang] || I18N.vi;
-      // text nodes
-      document.querySelectorAll('[data-i18n]').forEach(el=>{
-        const key = el.getAttribute('data-i18n');
-        if(dict[key]) el.textContent = dict[key];
-      });
-      // placeholders
-      document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
-        const key = el.getAttribute('data-i18n-placeholder');
-        if(dict[key]) el.setAttribute('placeholder', dict[key]);
-      });
-      // <title>
-      if(dict['title.settings']) document.title = dict['title.settings'];
-      document.documentElement.lang = lang;
-      document.documentElement.setAttribute('data-lang', lang);
-    }
-  </script>
+          function applyLang(lang){
+            const dict = I18N[lang] || I18N.vi;
+            document.querySelectorAll('[data-i18n]').forEach(el=>{
+              const key = el.getAttribute('data-i18n');
+              if(dict[key]) el.textContent = dict[key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+              const key = el.getAttribute('data-i18n-placeholder');
+              if(dict[key]) el.setAttribute('placeholder', dict[key]);
+            });
+            if(dict['title.settings']) document.title = dict['title.settings'];
+            document.documentElement.lang = lang;
+            document.documentElement.setAttribute('data-lang', lang);
+          }
+        </script>
 
-  <script>
-    // ====== State & Storage ======
-    const STORE_KEY = 'se_settings';
-    const $ = id => document.getElementById(id);
-    const inputs = {
-      displayName: $('displayName'), email: $('email'), role: $('role'), timezone: $('timezone'),
-      twoFA: $('twoFA'), sessionLen: $('sessionLen'),
-      nWeekly: $('nWeekly'), nPush: $('nPush'), fraudThreshold: $('fraudThreshold'), nChannel: $('nChannel'),
-      lang: $('lang'), currency: $('currency'), dateFmt: $('dateFmt'),
-      theme: () => document.querySelector('input[name="theme"]:checked')?.value,
-      timeFmt: () => document.querySelector('input[name="timeFmt"]:checked')?.value,
-      density: () => document.querySelector('input[name="density"]:checked')?.value,
-      startPage: $('startPage'),
-      autoRefresh: $('autoRefresh'), autoMins: $('autoMins'),
-      intVCB: $('intVCB'), intMomo: $('intMomo'), intZalo: $('intZalo'),
-      reduceMotion: null, colorBlind: null // (giữ chỗ nếu bạn thêm)
-    };
-    let dirty = false;
-    const toast = $('toast');
+        <script>
+          // ====== State & Storage ======
+          const STORE_KEY = 'se_settings';
+          const API_BASE = "http://127.0.0.1:5000";
+          const $ = id => document.getElementById(id);
 
-    function showToast(msg){
-      toast.textContent = msg || (I18N[(document.documentElement.getAttribute('data-lang')||'vi')]['toast.saved']);
-      toast.classList.add('show');
-      setTimeout(()=>toast.classList.remove('show'), 1600);
-    }
+          // ✅ Lấy token đúng key + fallback nhiều nơi
+          function getToken() {
+            const candidates = [
+              localStorage.getItem("smartexpense_token"),
+              sessionStorage.getItem("smartexpense_token"),
+              localStorage.getItem("smartExpense_token"),
+              sessionStorage.getItem("smartExpense_token"),
+              localStorage.getItem("admin_token"),
+              sessionStorage.getItem("admin_token"),
+              localStorage.getItem("token"),
+              sessionStorage.getItem("token"),
+              localStorage.getItem("accessToken"),
+              sessionStorage.getItem("accessToken"),
+              localStorage.getItem("jwt"),
+              sessionStorage.getItem("jwt"),
+            ].filter(Boolean);
 
-    function load(){
-      const def = {
-        displayName:'Admin', email:'admin@example.com', role:'Admin', timezone:'Asia/Ho_Chi_Minh',
-        twoFA:false, sessionLen:'24', nWeekly:true, nPush:true, fraudThreshold:10, nChannel:'email',
-        lang:(document.documentElement.getAttribute('data-lang')||'vi'), currency:'VND',
-        dateFmt:'DD/MM/YYYY', theme:(document.documentElement.getAttribute('data-theme')||'light'),
-        timeFmt:'24h', density:'comfortable', startPage:'tongquan.html', autoRefresh:false, autoMins:'5',
-        intVCB:false,intMomo:false,intZalo:false, avatar:null
-      };
-      let s = def; try{ s = Object.assign(def, JSON.parse(localStorage.getItem(STORE_KEY)||'{}')); }catch(e){}
+            let t = candidates[0] || "";
 
-      // Bind
-      inputs.displayName.value = s.displayName;
-      inputs.email.value = s.email;
-      inputs.role.value = s.role;
-      inputs.timezone.value = s.timezone;
-      inputs.twoFA.checked = !!s.twoFA;
-      inputs.sessionLen.value = s.sessionLen;
-      inputs.nWeekly.checked = !!s.nWeekly;
-      inputs.nPush.checked = !!s.nPush;
-      inputs.fraudThreshold.value = s.fraudThreshold;
-      inputs.nChannel.value = s.nChannel;
+            if (t && (t.startsWith("{") || t.startsWith("["))) {
+              try {
+                const obj = JSON.parse(t);
+                t = obj?.token || obj?.accessToken || obj?.jwt || t;
+              } catch (_) {}
+            }
+            return t || "";
+          }
 
-      inputs.lang.value = s.lang;
-      inputs.currency.value = s.currency;
-      inputs.dateFmt.value = s.dateFmt;
+          async function apiGetSettings() {
+            const token = getToken();
+            console.log("[caidat] token exists?", !!token, token ? token.slice(0, 20) + "..." : "");
+            const res = await fetch(`${API_BASE}/api/settings`, {
+              headers: token ? { Authorization: "Bearer " + token } : {}
+            });
+            if (res.status === 401) throw new Error("401 Unauthorized (chưa đăng nhập hoặc token hết hạn)");
+            return res.json();
+          }
 
-      document.querySelector(`input[name="theme"][value="${s.theme}"]`)?.setAttribute('checked','checked');
-      $('theme' + (s.theme==='light'?'Light':s.theme==='dark'?'Dark':'Sys')).checked = true;
+          async function apiSaveSettings(settings) {
+            const token = getToken();
+            const res = await fetch(`${API_BASE}/api/settings`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: "Bearer " + token } : {})
+              },
+              body: JSON.stringify({ settings })
+            });
+            if (res.status === 401) throw new Error("401 Unauthorized (chưa đăng nhập hoặc token hết hạn)");
+            return res.json();
+          }
 
-      document.querySelector(`input[name="timeFmt"][value="${s.timeFmt}"]`)?.setAttribute('checked','checked');
-      $('time' + (s.timeFmt==='24h'?'24':'12')).checked = true;
+          /* ✅✅✅ API đổi mật khẩu thật */
+          async function apiChangePassword(currentPassword, newPassword) {
+            const token = getToken();
+            const res = await fetch(`${API_BASE}/api/settings/change-password`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: "Bearer " + token } : {})
+              },
+              body: JSON.stringify({ currentPassword, newPassword })
+            });
 
-      document.querySelector(`input[name="density"][value="${s.density}"]`)?.setAttribute('checked','checked');
-      $('dens' + (s.density==='compact'?'Compact':'Comfort')).checked = true;
+            if (res.status === 401) {
+              throw new Error("401 Unauthorized (chưa đăng nhập hoặc token hết hạn)");
+            }
+            return res.json();
+          }
 
-      inputs.startPage.value = s.startPage;
-      inputs.autoRefresh.checked = !!s.autoRefresh;
-      inputs.autoMins.value = s.autoMins;
-      inputs.autoMins.disabled = !inputs.autoRefresh.checked;
+          const inputs = {
+            displayName: $('displayName'), email: $('email'), role: $('role'), timezone: $('timezone'),
+            twoFA: $('twoFA'), sessionLen: $('sessionLen'),
+            nWeekly: $('nWeekly'), nPush: $('nPush'), fraudThreshold: $('fraudThreshold'), nChannel: $('nChannel'),
+            lang: $('lang'), currency: $('currency'), dateFmt: $('dateFmt'),
+            theme: () => document.querySelector('input[name="theme"]:checked')?.value,
+            timeFmt: () => document.querySelector('input[name="timeFmt"]:checked')?.value,
+            density: () => document.querySelector('input[name="density"]:checked')?.value,
+            startPage: $('startPage'),
+            autoRefresh: $('autoRefresh'), autoMins: $('autoMins'),
+            intVCB: $('intVCB'), intMomo: $('intMomo'), intZalo: $('intZalo'),
+            reduceMotion: null, colorBlind: null
+          };
 
-      if(s.avatar){ $('avatarPreview').innerHTML = `<img src="${s.avatar}" style="width:56px;height:56px;object-fit:cover">`; }
+          let dirty = false;
+          const toast = $('toast');
 
-      // Áp dụng theme + lang ngay
-      setThemeImmediate(s.theme);
-      applyLang(s.lang);
+          function showToast(msg) {
+            const lang = (document.documentElement.getAttribute('data-lang') || 'vi');
+            toast.textContent = msg || (I18N[lang]?.['toast.saved'] || 'Đã lưu cài đặt ✓');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 1600);
+          }
 
-      dirty=false; $('btnSave').disabled=true;
-    }
+          function safeSetValue(el, value) { if (!el) return; el.value = value ?? el.value; }
+          function safeSetChecked(el, checked) { if (!el) return; el.checked = !!checked; }
+          function safeSetDisabled(el, disabled) { if (!el) return; el.disabled = !!disabled; }
 
-    function collect(){
-      return {
-        displayName: $('displayName').value.trim(),
-        email: $('email').value.trim(),
-        role: $('role').value.trim(),
-        timezone: $('timezone').value,
-        twoFA: $('twoFA').checked,
-        sessionLen: $('sessionLen').value,
-        nWeekly: $('nWeekly').checked,
-        nPush: $('nPush').checked,
-        fraudThreshold: +$('fraudThreshold').value || 0,
-        nChannel: $('nChannel').value,
+          /* ✅✅✅ THÊM: set dữ liệu lên góc phải (Admin) */
+          function setTopUserUI(s) {
+            const nameEl = $('topUserName');
+            const picEl  = $('topAvatarPic');
 
-        lang: $('lang').value,
-        currency: $('currency').value,
-        dateFmt: $('dateFmt').value,
-        theme: (document.querySelector('input[name="theme"]:checked')?.value),
+            const name =
+              (s?.displayName && String(s.displayName).trim()) ||
+              (s?.email && String(s.email).trim()) ||
+              'Admin';
 
-        timeFmt: (document.querySelector('input[name="timeFmt"]:checked')?.value),
-        density: (document.querySelector('input[name="density"]:checked')?.value),
-        startPage: $('startPage').value,
-        autoRefresh: $('autoRefresh').checked,
-        autoMins: $('autoMins').value,
+            if (nameEl) nameEl.textContent = name;
 
-        intVCB: $('intVCB').checked,
-        intMomo: $('intMomo').checked,
-        intZalo: $('intZalo').checked,
-        avatar: document.querySelector('#avatarPreview img')?.src || null,
-      };
-    }
+            if (!picEl) return;
 
-    function save(){
-      const data = collect();
-      localStorage.setItem(STORE_KEY, JSON.stringify(data));
-      dirty=false; $('btnSave').disabled=true;
-      showToast();
-    }
-    function markDirty(){ dirty=true; $('btnSave').disabled=false; }
+            const avatarUrl = s?.avatar || null;
 
-    // ===== Theme switch (áp dụng ngay) =====
-    let sysWatcher = null;
-    function setThemeImmediate(theme){
-      if(sysWatcher){ sysWatcher.removeEventListener?.('change', sysWatcher._h); sysWatcher=null; }
-      const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const resolved = theme==='system' ? (sysDark?'dark':'light') : theme;
-      document.documentElement.setAttribute('data-theme', resolved);
-      if(theme==='system' && window.matchMedia){
-        const mq = window.matchMedia('(prefers-color-scheme: dark)');
-        const handler = e => document.documentElement.setAttribute('data-theme', e.matches?'dark':'light');
-        mq.addEventListener?.('change', handler);
-        mq._h = handler;
-        sysWatcher = mq;
-      }
-    }
+            if (avatarUrl) {
+              picEl.style.backgroundImage = `url("${avatarUrl}")`;
+              picEl.textContent = '';
+            } else {
+              picEl.style.backgroundImage = '';
+              const ch = (name?.trim()?.[0] || 'A').toUpperCase();
+              picEl.textContent = ch;
+            }
+          }
 
-    // Events (input changes -> dirty + live apply for theme/lang)
-    document.addEventListener('input', e=>{
-      const t = e.target;
-      if(
-        t.matches('.input, .select, .textarea') ||
-        t.matches('input[type="checkbox"]') ||
-        t.matches('input[type="radio"]')
-      ){ markDirty(); }
+          // ===== Theme switch (áp dụng ngay) =====
+          let sysWatcher = null;
+          function setThemeImmediate(theme) {
+            if (sysWatcher) { sysWatcher.removeEventListener?.('change', sysWatcher._h); sysWatcher = null; }
+            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const resolved = theme === 'system' ? (sysDark ? 'dark' : 'light') : theme;
+            document.documentElement.setAttribute('data-theme', resolved);
 
-      if(t.name === 'theme'){ setThemeImmediate(t.value); }
-      if(t.id === 'lang'){ applyLang(t.value); }
-      if(t.id === 'autoRefresh'){ $('autoMins').disabled = !t.checked; }
-    });
+            if (theme === 'system' && window.matchMedia) {
+              const mq = window.matchMedia('(prefers-color-scheme: dark)');
+              const handler = e => document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+              mq.addEventListener?.('change', handler);
+              mq._h = handler;
+              sysWatcher = mq;
+            }
+          }
 
-    // Avatar preview
-    document.getElementById('avatarFile').addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      const url = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(f); });
-      $('avatarPreview').innerHTML = `<img src="${url}" style="width:56px;height:56px;object-fit:cover">`;
-      markDirty();
-    });
+          async function load() {
+            const def = {
+              displayName: 'Admin',
+              email: 'admin@example.com',
+              role: 'Admin',
+              timezone: 'Asia/Ho_Chi_Minh',
+              twoFA: false,
+              sessionLen: '24',
+              nWeekly: true,
+              nPush: true,
+              fraudThreshold: 95,
+              nChannel: 'email',
+              lang: (document.documentElement.getAttribute('data-lang') || 'vi'),
+              currency: 'VND',
+              dateFmt: 'DD/MM/YYYY',
+              theme: (document.documentElement.getAttribute('data-theme') || 'light'),
+              timeFmt: '24h',
+              density: 'comfortable',
+              startPage: 'tongquan.html',
+              autoRefresh: false,
+              autoMins: '5',
+              intVCB: false, intMomo: false, intZalo: false,
+              avatar: null
+            };
 
-    // Change password (demo)
-    $('btnChangePwd')?.addEventListener('click', ()=>{
-      const p1=$('pwd1').value, p2=$('pwd2').value, p3=$('pwd3').value;
-      if(!p1 || p2.length<8 || p2!==p3){ alert((document.documentElement.getAttribute('data-lang')==='en')?'Please check your password.':'Vui lòng kiểm tra lại mật khẩu.'); return; }
-      $('pwd1').value=$('pwd2').value=$('pwd3').value='';
-      showToast((document.documentElement.getAttribute('data-lang')==='en')?'Password changed (demo)':'Đã đổi mật khẩu (demo)');
-    });
+            let local = {};
+            try { local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch (e) {}
 
-    // Save / Reset / Shortcuts
-    $('btnSave').addEventListener('click', save);
-    $('btnReset').addEventListener('click', load);
-    window.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); if(dirty) save(); } });
+            let serverSettings = null;
+            let serverUser = null;
+            try {
+              const data = await apiGetSettings();
+              if (data?.ok) {
+                serverSettings = data.settings || {};
+                serverUser = data.user || null;
+              }
+            } catch (e) {
+              console.warn("⚠️ Không load được settings từ API, dùng localStorage:", e.message || e);
+            }
 
-    // Export / Import / Clear / Factory
-    $('btnExport').addEventListener('click', ()=>{
-      const blob = new Blob([JSON.stringify(collect(),null,2)], {type:'application/json'});
-      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='settings.json'; a.click(); URL.revokeObjectURL(a.href);
-    });
-    $('importFile').addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      try{
-        const text = await f.text();
-        localStorage.setItem(STORE_KEY, text);
-        load(); showToast(document.documentElement.getAttribute('data-lang')==='en'?'Imported ✓':'Đã nhập cài đặt ✓');
-      }catch(err){ alert(document.documentElement.getAttribute('data-lang')==='en'?'Import failed':'Không thể nhập cài đặt'); }
-    });
-    $('btnClear').addEventListener('click', ()=>{
-      if(confirm(document.documentElement.getAttribute('data-lang')==='en'?'Clear demo data (localStorage)?':'Xoá dữ liệu demo (localStorage)?')){
-        localStorage.removeItem(STORE_KEY); load();
-      }
-    });
-    $('btnFactory').addEventListener('click', ()=>{
-      if(confirm(document.documentElement.getAttribute('data-lang')==='en'?'Restore factory defaults?':'Khôi phục mặc định toàn bộ cài đặt?')){
-        localStorage.removeItem(STORE_KEY); load(); showToast(document.documentElement.getAttribute('data-lang')==='en'?'Restored defaults':'Đã khôi phục mặc định');
-      }
-    });
+            const s = { ...def, ...local, ...(serverSettings || {}) };
 
-    // Quick jump chips
-    document.querySelectorAll('#quick .chip').forEach(ch=>{
-      ch.addEventListener('click', ()=>{
-        document.getElementById(ch.dataset.jump)?.scrollIntoView({behavior:'smooth', block:'start'});
-        document.querySelectorAll('#quick .chip').forEach(c=>c.classList.remove('active'));
-        ch.classList.add('active'); setTimeout(()=>ch.classList.remove('active'), 800);
-      });
-    });
+            if (serverUser) {
+              s.email = serverUser.email || s.email;
+              s.role = serverUser.role || s.role;
+              s.displayName = serverUser.name || s.displayName;
+            }
 
-    // Search highlight
-    $('searchSettings').addEventListener('input', e=>{
-      const q = e.target.value.toLowerCase();
-      document.querySelectorAll('.card').forEach(card=>{
-        if(card.id==='') return;
-        const txt = card.textContent.toLowerCase();
-        card.style.outline = q && txt.includes(q) ? '2px solid #A7EFC1' : 'none';
-        card.style.boxShadow = q && txt.includes(q) ? '0 0 0 4px rgba(134,239,172,.3), var(--shadow)' : 'var(--shadow)';
-      });
-    });
+            safeSetValue(inputs.displayName, s.displayName);
+            safeSetValue(inputs.email, s.email);
+            safeSetValue(inputs.role, s.role);
+            safeSetValue(inputs.timezone, s.timezone);
 
-    // Init
-    load();
-  </script>
-  <script src="../Admin.js/admin-common.js"></script>
+            safeSetChecked(inputs.twoFA, s.twoFA);
+            safeSetValue(inputs.sessionLen, s.sessionLen);
+
+            if (inputs.nWeekly) safeSetChecked(inputs.nWeekly, s.nWeekly);
+            if (inputs.nPush) safeSetChecked(inputs.nPush, s.nPush);
+            if (inputs.fraudThreshold) safeSetValue(inputs.fraudThreshold, s.fraudThreshold);
+            if (inputs.nChannel) safeSetValue(inputs.nChannel, s.nChannel);
+
+            safeSetValue(inputs.lang, s.lang);
+            safeSetValue(inputs.currency, s.currency);
+            safeSetValue(inputs.dateFmt, s.dateFmt);
+
+            const themeId = 'theme' + (s.theme === 'light' ? 'Light' : s.theme === 'dark' ? 'Dark' : 'Sys');
+            if ($(themeId)) $(themeId).checked = true;
+
+            const timeId = 'time' + (s.timeFmt === '24h' ? '24' : '12');
+            if ($(timeId)) $(timeId).checked = true;
+
+            const densId = 'dens' + (s.density === 'compact' ? 'Compact' : 'Comfort');
+            if ($(densId)) $(densId).checked = true;
+
+            safeSetValue(inputs.startPage, s.startPage);
+            safeSetChecked(inputs.autoRefresh, s.autoRefresh);
+            safeSetValue(inputs.autoMins, String(s.autoMins ?? '5'));
+            safeSetDisabled(inputs.autoMins, !inputs.autoRefresh?.checked);
+
+            if (s.avatar) {
+              $('avatarPreview').innerHTML = `<img src="${s.avatar}" style="width:56px;height:56px;object-fit:cover">`;
+            } else {
+              $('avatarPreview').innerHTML = '';
+            }
+
+            // ✅ update góc phải
+            setTopUserUI(s);
+
+            setThemeImmediate(s.theme);
+            applyLang(s.lang);
+            localStorage.setItem(STORE_KEY, JSON.stringify(s));
+
+            dirty = false;
+            $('btnSave').disabled = true;
+          }
+
+          function collect() {
+            return {
+              displayName: $('displayName')?.value?.trim() || '',
+              email: $('email')?.value?.trim() || '',
+              role: $('role')?.value?.trim() || '',
+              timezone: $('timezone')?.value || 'Asia/Ho_Chi_Minh',
+              twoFA: $('twoFA')?.checked || false,
+              sessionLen: $('sessionLen')?.value || '24',
+              nWeekly: $('nWeekly')?.checked,
+              nPush: $('nPush')?.checked,
+              fraudThreshold: ($('fraudThreshold') ? (+$('fraudThreshold').value || 0) : undefined),
+              nChannel: $('nChannel')?.value,
+              lang: $('lang')?.value || 'vi',
+              currency: $('currency')?.value || 'VND',
+              dateFmt: $('dateFmt')?.value || 'DD/MM/YYYY',
+              theme: (document.querySelector('input[name="theme"]:checked')?.value),
+              timeFmt: (document.querySelector('input[name="timeFmt"]:checked')?.value),
+              density: (document.querySelector('input[name="density"]:checked')?.value),
+              startPage: $('startPage')?.value || 'tongquan.html',
+              autoRefresh: $('autoRefresh')?.checked || false,
+              autoMins: $('autoMins')?.value || '5',
+              intVCB: $('intVCB')?.checked,
+              intMomo: $('intMomo')?.checked,
+              intZalo: $('intZalo')?.checked,
+              avatar: document.querySelector('#avatarPreview img')?.src || null,
+            };
+          }
+
+          async function save() {
+            const data = collect();
+
+            // luôn lưu local (fallback)
+            localStorage.setItem(STORE_KEY, JSON.stringify(data));
+
+            // ✅ update góc phải ngay khi save (phòng trường hợp bạn đổi displayName)
+            setTopUserUI(data);
+
+            // lưu lên backend
+            try {
+              const res = await apiSaveSettings(data);
+              if (res?.ok) {
+                showToast();
+              } else {
+                showToast("❌ Lưu server thất bại (đã lưu local)");
+              }
+            } catch (e) {
+              showToast("❌ Không kết nối được server (đã lưu local)");
+              console.warn("Save API failed:", e.message || e);
+            }
+
+            dirty = false;
+            $('btnSave').disabled = true;
+          }
+
+          function markDirty() { dirty = true; $('btnSave').disabled = false; }
+
+          document.addEventListener('input', e => {
+            const t = e.target;
+            if (
+              t.matches('.input, .select, .textarea') ||
+              t.matches('input[type="checkbox"]') ||
+              t.matches('input[type="radio"]')
+            ) { markDirty(); }
+
+            if (t.name === 'theme') { setThemeImmediate(t.value); }
+            if (t.id === 'lang') { applyLang(t.value); }
+            if (t.id === 'autoRefresh') { if ($('autoMins')) $('autoMins').disabled = !t.checked; }
+
+            // ✅ nếu user gõ đổi displayName, update góc phải realtime
+            if (t.id === 'displayName') {
+              const s = collect();
+              setTopUserUI(s);
+            }
+          });
+
+          // Avatar preview
+          document.getElementById('avatarFile')?.addEventListener('change', async (e) => {
+            const f = e.target.files?.[0]; if (!f) return;
+            const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+
+            $('avatarPreview').innerHTML = `<img src="${url}" style="width:56px;height:56px;object-fit:cover">`;
+
+            // ✅ update góc phải ngay
+            const picEl = $('topAvatarPic');
+            if (picEl) {
+              picEl.style.backgroundImage = `url("${url}")`;
+              picEl.textContent = '';
+            }
+
+            markDirty();
+          });
+
+          /* ✅✅✅ Change password (REAL) */
+          $('btnChangePwd')?.addEventListener('click', async () => {
+            const p1 = $('pwd1')?.value || '';
+            const p2 = $('pwd2')?.value || '';
+            const p3 = $('pwd3')?.value || '';
+
+            const isEn = (document.documentElement.getAttribute('data-lang') === 'en');
+
+            if (!p1 || !p2 || !p3) {
+              alert(isEn ? 'Please fill all password fields.' : 'Vui lòng nhập đủ 3 ô mật khẩu.');
+              return;
+            }
+            if (p2.length < 8 || !/[A-Za-z]/.test(p2) || !/[0-9]/.test(p2)) {
+              alert(isEn ? 'New password must be 8+ chars and include letters & numbers.' : 'Mật khẩu mới phải >= 8 ký tự và có cả chữ + số.');
+              return;
+            }
+            if (p2 !== p3) {
+              alert(isEn ? 'New password confirmation does not match.' : 'Mật khẩu mới nhập lại không khớp.');
+              return;
+            }
+
+            const btn = $('btnChangePwd');
+            if (btn) btn.disabled = true;
+
+            try {
+              const r = await apiChangePassword(p1, p2);
+              if (r?.ok) {
+                $('pwd1').value = $('pwd2').value = $('pwd3').value = '';
+                showToast(isEn ? '✅ Password changed' : '✅ Đổi mật khẩu thành công');
+              } else {
+                alert(r?.message || (isEn ? 'Change password failed.' : 'Đổi mật khẩu thất bại.'));
+              }
+            } catch (e) {
+              console.warn("Change password failed:", e?.message || e);
+              alert(isEn ? 'Cannot change password (maybe token expired / server error).' : 'Không đổi được mật khẩu (có thể hết token / lỗi server).');
+            } finally {
+              if (btn) btn.disabled = false;
+            }
+          });
+
+          $('btnSave')?.addEventListener('click', save);
+          $('btnReset')?.addEventListener('click', () => load());
+          window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+              e.preventDefault();
+              if (dirty) save();
+            }
+          });
+
+          // Quick jump chips
+          document.querySelectorAll('#quick .chip').forEach(ch => {
+            ch.addEventListener('click', () => {
+              document.getElementById(ch.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              document.querySelectorAll('#quick .chip').forEach(c => c.classList.remove('active'));
+              ch.classList.add('active');
+              setTimeout(() => ch.classList.remove('active'), 800);
+            });
+          });
+
+          $('searchSettings')?.addEventListener('input', e => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('.card').forEach(card => {
+              if (!card.id) return;
+              const txt = card.textContent.toLowerCase();
+              card.style.outline = q && txt.includes(q) ? '2px solid #A7EFC1' : 'none';
+              card.style.boxShadow = q && txt.includes(q)
+                ? '0 0 0 4px rgba(134,239,172,.3), var(--shadow)'
+                : 'var(--shadow)';
+            });
+          });
+
+          // Init
+          load();
+        </script>
+
+        <script src="../Admin.js/admin-common.js"></script>
+      </div>
+    </main>
+  </div>
 </body>
 </html>
