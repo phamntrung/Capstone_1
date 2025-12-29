@@ -701,7 +701,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     // Tạo reset link
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/frontend/datlaimatkhau.html?token=${resetToken}`;
+const resetLink = `http://localhost:5050/frontend/User/UI_User/datlaimatkhau.html?token=${resetToken}`;
 
     // Gửi email
     try {
