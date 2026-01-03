@@ -90,8 +90,7 @@ VALUES ('User Name', 'user@example.com', '$2a$10$...', 'user', 'VND');
 - Mật khẩu được hash bằng bcrypt, không thể xem được mật khẩu gốc
 - Email phải là unique trong database
 - Backend phải có file `.env` với cấu hình database đúng
-- Đảm bảo MySQL/MariaDB đang chạy
-
+- Đảm bảo MySQL
 ## 🆘 Nếu Vẫn Không Được
 
 1. Kiểm tra log backend để xem lỗi cụ thể

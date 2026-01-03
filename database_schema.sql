@@ -263,3 +263,46 @@ CREATE TABLE user_income_settings (
     REFERENCES users(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
+-- =========================
+-- INVOICES
+-- =========================
+CREATE TABLE invoices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  date DATE NOT NULL,
+  description TEXT,
+  credit DECIMAL(10,2) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+
+  INDEX idx_user_id (user_id),
+
+  CONSTRAINT fk_invoices_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- =========================
+-- SEED DEFAULT ADMIN USER
+-- =========================
+
+INSERT INTO users (name, email, password_hash, role, currency, created_at, updated_at)
+SELECT 'System Admin', 'admin@smartexpense.com', '$2a$10$cDRuwa.98Wxzw0J4qEFqueR5qwVKjvYcu4VPSP2/dONpxHPlm9Zu.', 'admin', 'VND', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@smartexpense.com');
+
+INSERT INTO admins (user_id, role_name, note, created_at, updated_at)
+SELECT u.id, 'Admin', 'Admin mặc định của hệ thống', NOW(), NOW()
+FROM users u
+WHERE u.email = 'admin@smartexpense.com'
+ON DUPLICATE KEY UPDATE
+    role_name = VALUES(role_name),
+    note = VALUES(note),
+    updated_at = NOW();
+
+-- ================================================
+-- 3. Thông báo trạng thái
+-- ================================================
+SELECT '✅ Đã tạo bảng admins và tài khoản admin mặc định (nếu chưa tồn tại)' AS status;

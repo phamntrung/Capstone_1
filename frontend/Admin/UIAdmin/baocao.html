@@ -157,7 +157,7 @@
        
         <a class="active" href="#"><span class="ic">📊</span> Báo cáo</a>
         <a href="caidat.html"><span class="ic">⚙️</span> Cài đặt</a>
-        <a href="#" data-logout="true"><span class="ic">🚪</span> Đăng xuất</a>
+       <a href="javascript:void(0)" data-logout> <span class="ic">🚪</span> Đăng xuất</a>
       </nav>
     </aside>
 
@@ -237,9 +237,16 @@
           </div>
 
           <div class="card">
-            <h3 style="margin:0 0 12px 0">Phân bố theo danh mục</h3>
-            <canvas id="pieChart" class="chart" style="height:340px"></canvas>
-          </div>
+  <h3 style="margin:0 0 12px 0">Phân bố theo danh mục</h3>
+
+  <div style="display:flex; gap:20px; align-items:center">
+  <div id="pieLegend" style="min-width:200px"></div>
+
+  <div style="flex:1">
+   <canvas id="pieChart" class="chart" style="height:340px"></canvas>
+  </div>
+</div>
+
         </section>
 
         <!-- Bảng tổng hợp -->
@@ -262,205 +269,308 @@
     </main>
   </div>
 
-  <script>
-    /* ======= Demo Data Generator (365 ngày) ======= */
-    const VND = n => n.toLocaleString('vi-VN') + ' ₫';
-    const PCT = x => (x*100).toFixed(1) + '%';
+<script>
+/* ================== UTIL ================== */
+const VND = n => (Number(n) || 0).toLocaleString('vi-VN') + ' ₫';
+const $ = id => document.getElementById(id);
 
-    function genDaily(nDays=365){
-      const out=[];
-      const now = new Date();
-      for(let i=nDays-1;i>=0;i--){
-        const d = new Date(now); d.setDate(now.getDate()-i);
-        const month = d.getMonth();
-        const season = [1.05,1.02,1.0,0.98,0.96,0.95,0.97,1.0,1.03,1.06,1.1,1.15][month];
-        const baseRev = 900000 + Math.random()*200000;
-        const revenue = Math.round(baseRev * season * (0.9 + Math.random()*0.3));
-        const tx = Math.round(80 * season * (0.9 + Math.random()*0.4));
-        const users = Math.max(2, Math.round(8 * (0.8 + Math.random()*0.6)));
-        const flaggedRate = Math.min(0.2, Math.max(0.01, 0.05 + (Math.random()-0.5)*0.02));
-        out.push({date: d.toISOString().slice(0,10), revenue, tx, users, flaggedRate});
-      }
-      return out;
+/* ================== STATE ================== */
+const state = {
+  range: 365,
+  group: 'month',
+  metric: 'revenue'
+};
+
+/* ================== EVENTS ================== */
+$('fRange')?.addEventListener('change', e => {
+  state.range = +e.target.value;
+  renderAll();
+});
+
+$('fGroup')?.addEventListener('change', e => {
+  state.group = e.target.value;
+  renderAll();
+});
+
+$('fMetric')?.addEventListener('change', e => {
+  state.metric = e.target.value;
+  renderAll();
+});
+
+document.querySelectorAll('.chip').forEach(ch => {
+  ch.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    ch.classList.add('active');
+
+    const q = ch.dataset.quick;
+    if (q === 'this-month') {
+      state.range = 30;
+      state.group = 'day';
+      $('fRange').value = '30';
+      $('fGroup').value = 'day';
     }
-    const DAILY = genDaily(365);
-
-    function groupData(rangeDays, groupBy){
-      const end = new Date(); const start = new Date(); start.setDate(end.getDate()-rangeDays+1);
-      const rows = DAILY.filter(r => new Date(r.date) >= start && new Date(r.date) <= end);
-      const map = new Map();
-      for(const r of rows){
-        let key = r.date;
-        if(groupBy==='week'){
-          const t = new Date(r.date);
-          const dayNum = (t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-dayNum+3);
-          const isoYear = t.getUTCFullYear();
-          const jan4 = new Date(Date.UTC(isoYear,0,4));
-          const week = 1 + Math.round(((t - jan4)/86400000 - 3 + ((jan4.getUTCDay()+6)%7))/7);
-          key = `${isoYear}-W${String(week).padStart(2,'0')}`;
-        }
-        if(groupBy==='month'){ key = r.date.slice(0,7); }
-        if(!map.has(key)) map.set(key,{key, revenue:0, tx:0, users:0, flaggedCnt:0, days:0});
-        const it = map.get(key);
-        it.revenue += r.revenue; it.tx += r.tx; it.users += r.users;
-        it.flaggedCnt += Math.round(r.tx * r.flaggedRate); it.days++;
-      }
-      const list = Array.from(map.values()).sort((a,b)=> a.key.localeCompare(b.key));
-      list.forEach(it=>{ it.flaggedRate = it.tx ? it.flaggedCnt/it.tx : 0; });
-      return list;
+    if (q === 'this-quarter') {
+      state.range = 90;
+      state.group = 'week';
+      $('fRange').value = '90';
+      $('fGroup').value = 'week';
     }
-
-    const $ = id => document.getElementById(id);
-    const state = { range:365, group:'month', metric:'revenue' };
-
-    $('fRange').addEventListener('change', e=>{ state.range=+e.target.value; renderAll(); });
-    $('fGroup').addEventListener('change', e=>{ state.group=e.target.value; renderAll(); });
-    $('fMetric').addEventListener('change', e=>{ state.metric=e.target.value; renderAll(); });
-
-    document.querySelectorAll('.chip').forEach(ch=>{
-      ch.addEventListener('click', ()=>{
-        document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-        ch.classList.add('active');
-        const q = ch.dataset.quick;
-        if(q==='this-month'){ $('fRange').value='30'; $('fGroup').value='day'; state.range=30; state.group='day'; }
-        if(q==='this-quarter'){ $('fRange').value='90'; $('fGroup').value='week'; state.range=90; state.group='week'; }
-        if(q==='ytd' || q==='last-12'){ $('fRange').value='365'; $('fGroup').value='month'; state.range=365; state.group='month'; }
-        renderAll();
-      });
-    });
-
-    $('btnPrint').addEventListener('click', ()=> window.print());
-
-    function renderKPI(list){
-      const sum = list.reduce((s,x)=>({revenue:s.revenue+x.revenue, tx:s.tx+x.tx, users:s.users+x.users, flaggedCnt:s.flaggedCnt+x.flaggedCnt}), {revenue:0,tx:0,users:0,flaggedCnt:0});
-      const prev = list.slice(0,-1);
-      const sumPrev = prev.reduce((s,x)=>({revenue:s.revenue+x.revenue, tx:s.tx+x.tx, users:s.users+x.users, flaggedCnt:s.flaggedCnt+x.flaggedCnt}), {revenue:0,tx:0,users:0,flaggedCnt:0});
-      const trend = (a,b)=> b? ((a-b)/b*100).toFixed(1)+'%':'—';
-      $('k_rev').textContent = VND(sum.revenue);
-      $('k_tx').textContent = sum.tx.toLocaleString('vi-VN');
-      $('k_users').textContent = sum.users.toLocaleString('vi-VN');
-      const flaggedRate = sum.tx? (sum.flaggedCnt/sum.tx) : 0;
-      $('k_flag').textContent = (flaggedRate*100).toFixed(1)+'%';
-      $('k_rev_trend').textContent = '▲ ' + trend(sum.revenue, sumPrev.revenue);
-      $('k_tx_trend').textContent = '▲ ' + trend(sum.tx, sumPrev.tx);
-      $('k_users_trend').textContent = '▲ ' + trend(sum.users, sumPrev.users);
-      $('k_flag_trend').textContent = '≈ so với kỳ trước';
+    if (q === 'ytd' || q === 'last-12') {
+      state.range = 365;
+      state.group = 'month';
+      $('fRange').value = '365';
+      $('fGroup').value = 'month';
     }
-
-    function renderTable(list){
-      $('tblReport').innerHTML = list.map(it=>`
-        <tr>
-          <td class="mono">${it.key}</td>
-          <td class="num"><strong>${VND(it.revenue)}</strong></td>
-          <td class="num">${it.tx.toLocaleString('vi-VN')}</td>
-          <td class="num">${it.users.toLocaleString('vi-VN')}</td>
-          <td class="num">${(it.flaggedRate*100).toFixed(1)}%</td>
-        </tr>
-      `).join('');
-    }
-
-    function sizeCanvas(canvas){
-      const dpr = window.devicePixelRatio || 1;
-      const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
-      canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
-      const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
-      return {ctx,W:cssW,H:cssH};
-    }
-
-    function drawMainChart(list, metric){
-      const canvas = $('mainChart'); const {ctx,W,H} = sizeCanvas(canvas);
-      ctx.clearRect(0,0,W,H);
-      const pad = 36;
-      const vals = list.map(x => metric==='revenue'? x.revenue : metric==='tx'? x.tx : x.users);
-      const max = Math.max(...vals)*1.15 || 1;
-      ctx.strokeStyle='#E5E7EB'; ctx.lineWidth=1;
-      for(let i=0;i<4;i++){ const y = pad + i*(H-pad*2)/3; ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke(); }
-      const step = (W-pad*2)/Math.max(1,(list.length-1));
-      const pts = list.map((it,i)=>[pad + i*step, H-pad - (vals[i]/max)*(H-pad*2)]);
-      const grad = ctx.createLinearGradient(0,pad,0,H-pad);
-      grad.addColorStop(0,'rgba(34,197,94,.25)'); grad.addColorStop(1,'rgba(34,197,94,0)');
-      ctx.beginPath(); ctx.moveTo(pts[0][0],H-pad); pts.forEach(([x,y])=>ctx.lineTo(x,y)); ctx.lineTo(pts.at(-1)[0],H-pad); ctx.closePath();
-      ctx.fillStyle = grad; ctx.fill();
-      ctx.beginPath(); pts.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y));
-      ctx.strokeStyle = '#22C55E'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.fillStyle='#22C55E';
-      pts.forEach(([x,y],i)=>{ if(i%Math.ceil(list.length/12)===0 || i===list.length-1){ ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill(); }});
-      $('chartTitle').textContent = `Xu hướng ${metric==='revenue'?'doanh thu':metric==='tx'?'giao dịch':'người dùng mới'} (${list[0]?.key} → ${list.at(-1)?.key})`;
-    }
-
-    function drawPie(categories){
-      const canvas = $('pieChart'); const {ctx,W,H} = sizeCanvas(canvas);
-      ctx.clearRect(0,0,W,H);
-      const cx=W/2, cy=H/2, r=Math.min(W,H)*0.33;
-      const total = categories.reduce((s,c)=>s+c.value,0) || 1;
-      let start= -Math.PI/2;
-      const colors = ['#22C55E','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#10B981','#F472B6','#94A3B8'];
-      categories.forEach((c,idx)=>{
-        const angle = (c.value/total) * Math.PI*2;
-        const end = start + angle;
-        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,end); ctx.closePath();
-        ctx.fillStyle = colors[idx%colors.length]; ctx.fill();
-        start = end;
-      });
-      const x0 = 20, y0 = 20;
-      ctx.font='12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
-      ctx.textBaseline='middle';
-      categories.forEach((c,i)=>{
-        const y = y0 + i*22;
-        ctx.fillStyle=colors[i%colors.length]; ctx.fillRect(x0,y-6,12,12);
-        ctx.fillStyle='#0F172A';
-        const pct = ((c.value/Math.max(1,total))*100).toFixed(1)+'%';
-        ctx.fillText(`${c.name} — ${pct}`, x0+18, y);
-      });
-    }
-
-    document.getElementById('btnExport').addEventListener('click', ()=>{
-      const list = groupData(state.range, state.group);
-      const rows = [['period','revenue','transactions','new_users','flagged_rate']];
-      list.forEach(it=> rows.push([it.key, it.revenue, it.tx, it.users, it.flaggedRate]));
-      const csv = rows.map(r=>r.join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-      a.download = `report_${state.group}_${Date.now()}.csv`; a.click(); URL.revokeObjectURL(a.href);
-    });
-
-    document.getElementById('btnPng').addEventListener('click', ()=>{
-      const a = document.createElement('a');
-      a.href = document.getElementById('mainChart').toDataURL('image/png');
-      a.download = `chart_${state.metric}_${Date.now()}.png`;
-      a.click();
-    });
-
-    function buildCategories(rangeDays){
-      const now = new Date();
-      const curMonth = now.getMonth();
-      const base = [
-        {name:'Nhà ở', value: 34},
-        {name:'Ăn uống', value: 22},
-        {name:'Di chuyển', value: 16},
-        {name:'Giải trí', value: 10},
-        {name:'Mua sắm', value: 9},
-        {name:'Khác', value: 9},
-      ];
-      if([0,11].includes(curMonth)) base[1].value+=3;
-      if([5,6].includes(curMonth)) base[3].value+=2;
-      const grp = groupData(rangeDays,'month');
-      const totalRev = grp.reduce((s,x)=>s+x.revenue,0) || 1;
-      const scale = totalRev / base.reduce((s,x)=>s+x.value,0);
-      return base.map(b=>({name:b.name, value: Math.round(b.value*scale)}));
-    }
-
-    function renderAll(){
-      const list = groupData(state.range, state.group);
-      renderKPI(list);
-      renderTable(list);
-      drawMainChart(list, state.metric);
-      drawPie(buildCategories(state.range));
-    }
-
     renderAll();
-    window.addEventListener('resize', renderAll);
-  </script>
-  <script src="../Admin.js/admin-common.js"></script>
-</body>
-</html>
+  });
+});
+
+$('btnPrint')?.addEventListener('click', () => window.print());
+
+/* ================== FETCH DATA (QUAN TRỌNG NHẤT) ================== */
+async function fetchReport() {
+ const token = localStorage.getItem('smartexpense_token');
+  if (!token) {
+    alert('Bạn chưa đăng nhập hoặc token bị mất');
+    throw new Error('NO_TOKEN');
+  }
+
+  const url =
+    `http://localhost:5000/api/admin/reports?range=${state.range}&group=${state.group}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: 'Bearer ' + token
+    }
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      alert('Token hết hạn hoặc bạn không có quyền admin');
+    }
+    throw new Error('Không tải được báo cáo');
+  }
+
+  return res.json();
+}
+
+/* ================== KPI ================== */
+function renderKPI(list) {
+  const sum = list.reduce(
+    (s, x) => ({
+      revenue: s.revenue + x.revenue,
+      tx: s.tx + x.tx,
+      users: s.users + x.users,
+      flaggedCnt: s.flaggedCnt + (x.flaggedRate * x.tx)
+    }),
+    { revenue: 0, tx: 0, users: 0, flaggedCnt: 0 }
+  );
+
+  $('k_rev').textContent = VND(sum.revenue);
+  $('k_tx').textContent = sum.tx.toLocaleString('vi-VN');
+  $('k_users').textContent = sum.users.toLocaleString('vi-VN');
+
+  const flaggedRate = sum.tx ? (sum.flaggedCnt / sum.tx) : 0;
+  $('k_flag').textContent = (flaggedRate * 100).toFixed(1) + '%';
+
+  $('k_rev_trend').textContent = '—';
+  $('k_tx_trend').textContent = '—';
+  $('k_users_trend').textContent = '—';
+  $('k_flag_trend').textContent = '≈ so với kỳ trước';
+}
+
+/* ================== TABLE ================== */
+function renderTable(list) {
+  $('tblReport').innerHTML = list.map(it => `
+    <tr>
+      <td>${it.key}</td>
+      <td class="num"><strong>${VND(it.revenue)}</strong></td>
+      <td class="num">${it.tx.toLocaleString('vi-VN')}</td>
+      <td class="num">${it.users.toLocaleString('vi-VN')}</td>
+      <td class="num">${(it.flaggedRate * 100).toFixed(1)}%</td>
+    </tr>
+  `).join('');
+}
+
+/* ================== CANVAS ================== */
+function sizeCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+
+  const rect = canvas.getBoundingClientRect();
+const w = rect.width || 300;
+const h = rect.height > 0 ? rect.height : 340; // 👈 FIX QUYẾT ĐỊNH
+
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return { ctx, w, h };
+}
+
+
+/* ================== LINE CHART ================== */
+function drawMainChart(list, metric) {
+  const canvas = $('mainChart');
+  const { ctx, w, h } = sizeCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = 36;
+  const values = list.map(x =>
+    metric === 'revenue' ? x.revenue :
+    metric === 'tx' ? x.tx : x.users
+  );
+
+  const max = Math.max(...values) * 1.2 || 1;
+
+  ctx.strokeStyle = '#E5E7EB';
+  for (let i = 0; i < 4; i++) {
+    const y = pad + i * (h - pad * 2) / 3;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(w - pad, y);
+    ctx.stroke();
+  }
+
+  const step = (w - pad * 2) / Math.max(1, values.length - 1);
+  const points = values.map((v, i) => [
+    pad + i * step,
+    h - pad - (v / max) * (h - pad * 2)
+  ]);
+
+  ctx.beginPath();
+  points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.strokeStyle = '#22C55E';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  $('chartTitle').textContent =
+    `Xu hướng ${
+      metric === 'revenue' ? 'doanh thu' :
+      metric === 'tx' ? 'giao dịch' : 'người dùng mới'
+    } (${list[0]?.key} → ${list.at(-1)?.key})`;
+}
+
+/* ================== PIE ================== */
+function drawPie(categories) {
+  const canvas = document.getElementById('pieChart');
+  const legend = document.getElementById('pieLegend');
+  if (!canvas || !legend) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  legend.innerHTML = '';
+
+  if (!Array.isArray(categories) || categories.length === 0) {
+    legend.innerHTML = '<span class="muted">Không có dữ liệu</span>';
+    return;
+  }
+
+  // ✅ DATA CỦA BẠN DÙNG FIELD value
+  const total = categories.reduce((s, c) => s + Number(c.value || 0), 0);
+  if (total <= 0) {
+    legend.innerHTML = '<span class="muted">Không có dữ liệu hợp lệ</span>';
+    return;
+  }
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w, h) * 0.32;
+
+  const colors = [
+    '#22C55E',
+    '#3B82F6',
+    '#F59E0B',
+    '#EF4444',
+    '#8B5CF6',
+    '#10B981'
+  ];
+
+  let start = -Math.PI / 2;
+
+  categories.forEach((c, i) => {
+    const value = Number(c.value || 0);
+    if (value <= 0) return;
+
+    const angle = (value / total) * Math.PI * 2;
+
+    // 🎨 PIE SLICE
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, start + angle);
+    ctx.closePath();
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
+
+    start += angle;
+
+    // 🧾 LEGEND
+    const percent = ((value / total) * 100).toFixed(1);
+    legend.innerHTML += `
+      <div style="display:flex;align-items:center;margin-bottom:8px">
+        <span style="
+          width:12px;height:12px;border-radius:3px;
+          background:${colors[i % colors.length]};
+          display:inline-block;margin-right:8px
+        "></span>
+        <strong>${c.name}</strong> — ${percent}%
+      </div>
+    `;
+  });
+}
+/* ================== EXPORT ================== */
+$('btnExport')?.addEventListener('click', () => {
+  const rows = [['period','revenue','transactions','users','flagged_rate']];
+  (window.__REPORT_DATA || []).forEach(it =>
+    rows.push([it.key, it.revenue, it.tx, it.users, it.flaggedRate])
+  );
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `admin_report_${Date.now()}.csv`;
+  a.click();
+});
+
+/* ================== MAIN ================== */
+async function renderAll() {
+  try {
+    console.log('🚀 renderAll called');
+
+    const data = await fetchReport();
+    console.log('📊 report data:', data);
+
+    // ✅ LƯU CẢ HAI
+    window.__REPORT_DATA = data.series;
+    window.__REPORT_CATEGORIES = data.categories;
+
+    renderKPI(data.series);
+    renderTable(data.series);
+    drawMainChart(data.series, state.metric);
+    drawPie(data.categories); // 👈 KHÔNG || []
+  } catch (e) {
+    console.error('❌ Render report failed:', e);
+    alert(e.message);
+  }
+}
+
+renderAll();
+window.addEventListener('resize', () => {
+  if (window.__REPORT_DATA && window.__REPORT_CATEGORIES) {
+    drawMainChart(window.__REPORT_DATA, state.metric);
+    drawPie(window.__REPORT_CATEGORIES);
+  }
+});
+
+
+</script>

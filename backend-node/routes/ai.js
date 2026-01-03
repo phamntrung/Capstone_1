@@ -549,52 +549,93 @@ router.get('/insights', authRequired, async (req, res) => {
 // Smart chat
 router.post('/chat', authRequired, async (req, res) => {
   try {
-    if (!db) {
-      return res.status(500).json({ message: 'Database not available' });
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.json({ reply: 'Bạn muốn hỏi gì về chi tiêu?' });
     }
 
-    const { text } = req.body;
-    
-    if (!text || !text.trim()) {
-      return res.json({ reply: 'Xin chào! Tôi có thể giúp gì cho bạn?' });
-    }
-    
-    const textLower = text.toLowerCase();
-    
-    // Simple intent: create expense like "tạo chi 50000 cafe"
-    const createMatch = textLower.match(/tạo\s+chi\s+(\d+)/);
-    if (createMatch) {
-      const amount = -parseInt(createMatch[1]);
-      const expense = await db.createExpense(req.user.id, {
-        date: new Date().toISOString().split('T')[0],
-        amount: Math.abs(amount),
-        type: 'expense',
-        categoryId: null,
-        categoryName: null,
-        note: 'chat-created'
-      });
-      
-      return res.json({
-        reply: `Đã tạo chi tiêu ${Math.abs(amount).toLocaleString()}đ hôm nay.`,
-        created: {
-          id: expense.id,
-          userId: expense.user_id,
-          date: expense.date,
-          amount: expense.amount,
-          type: expense.type,
-          categoryId: expense.category_id,
-          note: expense.note
+    // =========================
+    // 1. SERVER TRUY CẬP DATABASE
+    // =========================
+  const today = new Date();
+const yyyymm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+const expenses = await db.getExpensesByUserId(req.user.id);
+
+const monthExpenses = expenses.filter(e =>
+  e.date?.startsWith(yyyymm) &&
+  (e.type === 'expense' || e.amount < 0)
+);
+
+const totalSpent = monthExpenses.reduce(
+  (sum, e) => sum + Math.abs(e.amount),
+  0
+);
+
+    // =========================
+    // 2. BUILD CONTEXT CHO AI
+    // =========================
+    const context = {
+      app: 'SmartExpense',
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+      },
+      period: yyyymm,
+      stats: {
+        totalSpent,
+        expenseCount: monthExpenses.length,
+      }
+    };
+
+    // =========================
+    // 3. GỬI CONTEXT CHO AI
+    // =========================
+    const completion = await openaiClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content: `
+Bạn là trợ lý tài chính của ứng dụng SmartExpense.
+Bạn KHÔNG tự suy đoán.
+CHỈ được trả lời dựa trên dữ liệu hệ thống được cung cấp.
+Nếu không đủ dữ liệu, phải nói rõ.
+Trả lời bằng tiếng Việt, ngắn gọn, rõ ràng.
+`
+        },
+        {
+          role: 'user',
+          content: `
+DỮ LIỆU HỆ THỐNG:
+${JSON.stringify(context, null, 2)}
+
+NGƯỜI DÙNG HỎI:
+"${text}"
+
+Hãy trả lời.
+`
         }
-      });
-    }
-    
-    // Fallback response
-    res.json({
-      reply: 'Mình có thể giúp gợi ý danh mục, dự báo chi tiêu và cảnh báo ngân sách. Bạn muốn làm gì?'
+      ],
+      max_tokens: 300
     });
-  } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ message: 'Lỗi chat' });
+
+    const reply =
+      completion.choices[0]?.message?.content ||
+      'Hiện tôi chưa thể trả lời câu hỏi này.';
+
+    res.json({
+      reply,
+      data: context.stats
+    });
+
+  } catch (err) {
+    console.error('❌ AI chat error:', err);
+    res.status(500).json({
+      reply: 'Có lỗi khi xử lý AI'
+    });
   }
 });
 
